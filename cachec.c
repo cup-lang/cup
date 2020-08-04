@@ -264,6 +264,7 @@ typedef union ExprUnion
     struct Else _else;
     struct Loop _loop;
     struct While _while;
+    struct For _for;
 } ExprUnion;
 
 typedef struct Expr
@@ -333,17 +334,36 @@ ExprVector EvaluteTokens(TokenVector tokens, int *index, TokenType ending)
                         expr.type = FnCallExpr;
                         expr.expr._fn_call.name = token.value;
                         break;
-                    // Variable use
                     default:
-                        expr.type = VarUseExpr;
-                        expr.expr._var_use.name = token.value;
-                        ++expr_index;
+                        // Value
+                        if (token.value[0] == '"')
+                        {
+                            expr.type = ValueExpr;
+                            expr.expr._value.type = "string";
+                            expr.expr._value.val = token.value;
+                            ++expr_index;
+                        }
+                        else if (isdigit(token.value[0]))
+                        {
+                            expr.type = ValueExpr;
+                            expr.expr._value.type = "i32"; // FIX: Evaluate the type
+                            expr.expr._value.val = token.value;
+                            ++expr_index;
+                        }
+                        // Variable use
+                        else
+                        {
+                            expr.type = VarUseExpr;
+                            expr.expr._var_use.name = token.value;
+                            ++expr_index;
+                        }
                         break;
                     }
                 }
                 break;
             case Variable:
                 expr.type = VarDefExpr;
+                expr.expr._var_def.type = "i32"; // FIX: Evaluate the type
                 break;
             }
 
@@ -432,9 +452,148 @@ ExprVector EvaluteTokens(TokenVector tokens, int *index, TokenType ending)
         ++*index;
     }
 
-    printf("end at %i with size %i\n", *index, vector.size);
-
     return vector;
+}
+
+#pragma endregion
+#pragma region Generator
+
+void GenerateType(char *type, FILE *fp)
+{
+    if (strcmp(type, "i32") == 0)
+    {
+        fputs("long", fp);
+    }
+    else if (strcmp(type, "f32") == 0)
+    {
+        fputs("float", fp);
+    }
+    else if (strcmp(type, "i8") == 0)
+    {
+        fputs("signed char", fp);
+    }
+    else if (strcmp(type, "f64") == 0)
+    {
+        fputs("double", fp);
+    }
+    else if (strcmp(type, "u32") == 0)
+    {
+        fputs("unsigned long", fp);
+    }
+    else if (strcmp(type, "i64") == 0)
+    {
+        fputs("long long", fp);
+    }
+    else if (strcmp(type, "i16") == 0)
+    {
+        fputs("int", fp);
+    }
+    else if (strcmp(type, "u8") == 0)
+    {
+        fputs("unsigned char", fp);
+    }
+    else if (strcmp(type, "u64") == 0)
+    {
+        fputs("unsigned long long", fp);
+    }
+    else if (strcmp(type, "u16") == 0)
+    {
+        fputs("unsigned int", fp);
+    }
+    else if (strcmp(type, "i128") == 0)
+    {
+        fputs("__int128", fp);
+    }
+    else if (strcmp(type, "u128") == 0)
+    {
+        fputs("unsigned __int128 ", fp);
+    }
+    else
+    {
+        fputs(type, fp);
+    }
+}
+
+void GenerateVector(ExprVector vector, FILE *fp);
+
+void GenerateExpr(Expr expr, FILE *fp, char last)
+{
+    switch (expr.type)
+    {
+    case FnDefExpr:
+        fprintf(fp, "void %s(", expr.expr._fn_def.name);
+        GenerateVector(expr.expr._fn_def.args, fp);
+        fputs(") {\n", fp);
+        GenerateVector(expr.expr._fn_def.body, fp);
+        fputs("\n}", fp);
+        break;
+    case ArgExpr:
+        GenerateType(expr.expr._arg.type, fp);
+        fprintf(fp, " %s", expr.expr._arg.name);
+        if (!last)
+        {
+            fputc(',', fp);
+        }
+        break;
+    case ReturnExpr:
+        fputs("return ", fp);
+        break;
+    case FnCallExpr:
+        fprintf(fp, "%s(", expr.expr._fn_call.name);
+        GenerateVector(expr.expr._fn_call.args, fp);
+        fputs(");", fp);
+        break;
+    case VarDefExpr:
+        GenerateType(expr.expr._var_def.type, fp);
+        fprintf(fp, " %s=", expr.expr._var_def.name);
+        GenerateExpr(*expr.expr._var_def.val, fp, 1);
+        break;
+    case VarUseExpr:
+        fputs(expr.expr._var_use.name, fp);
+        break;
+    case OpExpr:
+        fputs("op ", fp);
+        break;
+    case ValueExpr:
+        fputs(expr.expr._value.val, fp);
+        break;
+    case ArrayExpr:
+        fputs("array ", fp);
+        GenerateVector(expr.expr._array.elems, fp);
+        break;
+    case IfExpr:
+        fputs("if ", fp);
+        GenerateVector(expr.expr._if.body, fp);
+        break;
+    case ElifExpr:
+        fputs("elif ", fp);
+        GenerateVector(expr.expr._elif.body, fp);
+        break;
+    case ElseExpr:
+        fputs("else ", fp);
+        GenerateVector(expr.expr._else.body, fp);
+        break;
+    case LoopExpr:
+        fputs("loop ", fp);
+        GenerateVector(expr.expr._loop.body, fp);
+        break;
+    case WhileExpr:
+        fputs("while ", fp);
+        GenerateVector(expr.expr._while.body, fp);
+        break;
+    case ForExpr:
+        fputs("for ", fp);
+        GenerateVector(expr.expr._for.body, fp);
+        break;
+    }
+}
+
+void GenerateVector(ExprVector vector, FILE *fp)
+{
+    for (int i = 0; i < vector.size; ++i)
+    {
+        GenerateExpr(vector.array[i], fp, i + 1 == vector.size);
+    }
 }
 
 #pragma endregion
@@ -633,11 +792,20 @@ int main()
     int expr_index = 0;
     ExprVector ast = EvaluteTokens(tokens, &index, -1);
 
-    for (int i = 0; i < ast.array[0].expr._fn_def.body.size; i++)
-    {
-        printf("%i\n", ast.array[0].expr._fn_def.body.array[i].type);
-    }
-    printf("%i - size", ast.array[0].expr._fn_def.body.size);
+    // for (int i = 0; i < ast.array[0].expr._fn_def.body.size; i++)
+    // {
+    // }
+    // printf("%i\n", ast.array[0].expr._fn_def.body.array[1].expr._var_def.val->type);
+    // printf("%i - size", ast.array[0].expr._fn_def.body.size);
+
+#pragma endregion
+#pragma region Generator
+
+    fopen_s(&filepoint, "main.c", "w");
+
+    GenerateVector(ast, filepoint);
+
+    fclose(filepoint);
 
 #pragma endregion
 
