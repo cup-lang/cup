@@ -30,7 +30,6 @@ void PushChar(CharVector *vector, char c)
 }
 
 #pragma region Lexer
-
 typedef enum TokenType
 {
     Ident,
@@ -130,9 +129,214 @@ void AddToken(Token *tokens, size_t *size, Token token)
     ++(*size);
 }
 
-#pragma endregion
-#pragma region Parser
+TokenVector Tokenize(int file_size, char *buffer)
+{
+    TokenVector tokens = NewTokenVector(file_size / 4);
+    CharVector value = NewCharVector(32);
+    char is_comment = 0;
 
+    // Loop through all characters and create tokens
+    for (int i = 0; i < file_size; ++i)
+    {
+        char c = buffer[i];
+
+        if (is_comment)
+        {
+            if (c == '\n')
+            {
+                is_comment = 0;
+            }
+            continue;
+        }
+
+        if (value.size != 0 && value.array[0] == '"')
+        {
+            PushChar(&value, c);
+            if (c == '"')
+            {
+                PushToken(&tokens, IdentToken(&value));
+            }
+        }
+        else
+        {
+            Token token;
+            token.type = -1;
+            token.value = NULL;
+
+            // Check assign
+            char is_assign = i + 1 < file_size && buffer[i + 1] == '=';
+
+            switch (c)
+            {
+            case '=':
+                token.type = Assign + is_assign;
+                break;
+            case '<':
+                token.type = Less + is_assign;
+                break;
+            case '>':
+                token.type = Greater + is_assign;
+                break;
+            case '+':
+                token.type = Add + is_assign;
+                break;
+            case '-':
+                token.type = Substract + is_assign;
+                break;
+            case '*':
+                token.type = Multiply + is_assign;
+                break;
+            case '/':
+                if (i + 1 < file_size && buffer[i + 1] == '/')
+                {
+                    is_comment = 1;
+                }
+                else
+                {
+                    token.type = Divide + is_assign;
+                }
+                break;
+            case '%':
+                token.type = Modulo + is_assign;
+                break;
+            case '!':
+                token.type = Not + is_assign;
+                break;
+            case '(':
+                token.type = LeftParen;
+                break;
+            case ')':
+                token.type = RightParen;
+                break;
+            case '{':
+                token.type = LeftBrace;
+                break;
+            case '}':
+                token.type = RightBrace;
+                break;
+            case '[':
+                token.type = LeftSquare;
+                break;
+            case ']':
+                token.type = RightSquare;
+                break;
+            case ';':
+                token.type = Semicolon;
+                break;
+            case ':':
+                token.type = Colon;
+                break;
+            case ',':
+                token.type = Comma;
+                break;
+            case '.':
+                token.type = Dot;
+                if (i + 1 < file_size && buffer[i + 1] == '.')
+                {
+                    token.type = Range;
+                    i += 1;
+                }
+                break;
+            case 'v':
+                if (i + 3 < file_size && buffer[i + 1] == 'a' && buffer[i + 2] == 'r' && isspace(buffer[i + 3]))
+                {
+                    token.type = Variable;
+                    i += 3;
+                }
+                break;
+            case 's':
+                if (i + 6 < file_size && buffer[i + 1] == 't' && buffer[i + 2] == 'r' && buffer[i + 3] == 'u' && buffer[i + 4] == 'c' && buffer[i + 5] == 't' && isspace(buffer[i + 6]))
+                {
+                    token.type = Struct;
+                    i += 6;
+                }
+                break;
+            case 'i':
+                if (i + 2 < file_size && buffer[i + 1] == 'f' && isspace(buffer[i + 2]))
+                {
+                    token.type = If;
+                    i += 2;
+                }
+                break;
+            case 'e':
+                if (i + 4 < file_size && buffer[i + 1] == 'n' && buffer[i + 2] == 'u' && buffer[i + 3] == 'm' && isspace(buffer[i + 4]))
+                {
+                    token.type = Enum;
+                    i += 4;
+                }
+                else if (i + 4 < file_size && buffer[i + 1] == 'l' && buffer[i + 2] == 's' && buffer[i + 3] == 'e' && isspace(buffer[i + 4]))
+                {
+                    token.type = Else;
+                    i += 4;
+                }
+                break;
+            case 'l':
+                if (i + 4 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'o' && buffer[i + 3] == 'p' && (isspace(buffer[i + 4]) || buffer[i + 4] == '{'))
+                {
+                    token.type = Loop;
+                    i += 3;
+                }
+                break;
+            case 'w':
+                if (i + 5 < file_size && buffer[i + 1] == 'h' && buffer[i + 2] == 'i' && buffer[i + 3] == 'l' && buffer[i + 4] == 'e' && isspace(buffer[i + 5]))
+                {
+                    token.type = While;
+                    i += 5;
+                }
+                break;
+            case 'f':
+                if (i + 2 < file_size && buffer[i + 1] == 'n' && isspace(buffer[i + 2]))
+                {
+                    token.type = Function;
+                    i += 2;
+                }
+                break;
+            case 'r':
+                if (i + 6 < file_size && buffer[i + 1] == 'e' && buffer[i + 2] == 't' && buffer[i + 3] == 'u' && buffer[i + 4] == 'r' && buffer[i + 5] == 'n' && (isspace(buffer[i + 6]) || buffer[i + 6] == ';'))
+                {
+                    token.type = Return;
+                    i += 5;
+                }
+                break;
+            case 'b':
+                if (i + 5 < file_size && buffer[i + 1] == 'r' && buffer[i + 2] == 'e' && buffer[i + 3] == 'a' && buffer[i + 4] == 'k' && (isspace(buffer[i + 5]) || buffer[i + 5] == ';'))
+                {
+                    token.type = Break;
+                    i += 4;
+                }
+                break;
+            case 'c':
+                if (i + 8 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'n' && buffer[i + 3] == 't' && buffer[i + 4] == 'i' && buffer[i + 5] == 'n' && buffer[i + 6] == 'u' && buffer[i + 7] == 'e' && (isspace(buffer[i + 8]) || buffer[i + 8] == ';'))
+                {
+                    token.type = Continue;
+                    i += 7;
+                }
+                break;
+            }
+
+            // Push the token
+            if (token.type != -1)
+            {
+                if (value.size != 0)
+                {
+                    PushToken(&tokens, IdentToken(&value));
+                }
+                PushToken(&tokens, token);
+            }
+            // Update value
+            else if (!is_comment && !isspace(c))
+            {
+                PushChar(&value, c);
+            }
+        }
+    }
+
+    free(value.array);
+    return tokens;
+}
+#pragma endregion
+
+#pragma region Parser
 typedef struct Expr Expr;
 
 typedef struct ExprVector
@@ -266,7 +470,8 @@ typedef enum ExprType
     ContinueExpr
 } ExprType;
 
-typedef union ExprUnion {
+typedef union ExprUnion
+{
     struct FnDef _fn_def;
     struct Arg _arg;
     struct FnCall _fn_call;
@@ -323,7 +528,7 @@ int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
     return -1;
 }
 
-Expr *EvaluateExpr(TokenVector tokens, int start, int end)
+Expr *Parse(TokenVector tokens, int start, int end)
 {
     int op_level = 0;
     int op_count = 0;
@@ -442,11 +647,11 @@ Expr *EvaluateExpr(TokenVector tokens, int start, int end)
                 int index = start + 2;
                 while (comma != -1 && comma + 1 < paren)
                 {
-                    PushExpr(&expr->expr._fn_call.args, *EvaluateExpr(tokens, index, comma));
+                    PushExpr(&expr->expr._fn_call.args, *Parse(tokens, index, comma));
                     index = comma + 1;
                     comma = NextTokenOfType(tokens, index, Comma, paren);
                 }
-                PushExpr(&expr->expr._fn_call.args, *EvaluateExpr(tokens, index, paren));
+                PushExpr(&expr->expr._fn_call.args, *Parse(tokens, index, paren));
             }
             return expr;
         default:
@@ -478,13 +683,13 @@ Expr *EvaluateExpr(TokenVector tokens, int start, int end)
         Expr *expr = malloc(sizeof(Expr));
         expr->type = OpExpr;
         expr->expr._op.type = op_type;
-        expr->expr._op.lhs = EvaluateExpr(tokens, start, op_index);
-        expr->expr._op.rhs = EvaluateExpr(tokens, op_index + 1, end);
+        expr->expr._op.lhs = Parse(tokens, start, op_index);
+        expr->expr._op.rhs = Parse(tokens, op_index + 1, end);
         return expr;
     }
 }
 
-ExprVector EvaluateBlock(TokenVector tokens, int *index)
+ExprVector ParseBlock(TokenVector tokens, int *index)
 {
     ExprVector vector = NewExprVector(8);
     int expr_index = 0;
@@ -511,7 +716,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
             case Ident:
             {
                 int semicolon = NextTokenOfType(tokens, *index, Semicolon, tokens.size);
-                Expr *temp = EvaluateExpr(tokens, *index, semicolon);
+                Expr *temp = Parse(tokens, *index, semicolon);
                 expr = *temp;
                 free(temp);
                 *index = semicolon;
@@ -532,7 +737,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
             case LeftBrace:
                 expr.type = BlockExpr;
                 ++*index;
-                expr.expr._block.body = EvaluateBlock(tokens, index);
+                expr.expr._block.body = ParseBlock(tokens, index);
                 ++expr_index;
                 break;
             case If:
@@ -569,7 +774,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
                 }
                 else
                 {
-                    expr.expr._return.expr = EvaluateExpr(tokens, *index + 1, semicolon);
+                    expr.expr._return.expr = Parse(tokens, *index + 1, semicolon);
                 }
                 *index = semicolon;
                 ++expr_index;
@@ -665,7 +870,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
                     }
                     break;
                 case 8:
-                    expr->expr._fn_def.body = EvaluateBlock(tokens, index);
+                    expr->expr._fn_def.body = ParseBlock(tokens, index);
                     ++expr_index;
                     break;
                 }
@@ -688,7 +893,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
                     else if (token.type == Assign)
                     {
                         int semicolon = NextTokenOfType(tokens, *index + 1, Semicolon, tokens.size);
-                        expr->expr._var_def.val = EvaluateExpr(tokens, *index + 1, semicolon);
+                        expr->expr._var_def.val = Parse(tokens, *index + 1, semicolon);
                         expr->expr._var_def.type = "i32"; // FIX: Infer the type
                         *index = semicolon;
                         ++expr_index;
@@ -775,9 +980,9 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
             case IfExpr:
             {
                 int brace = NextTokenOfType(tokens, *index, LeftBrace, tokens.size);
-                expr->expr._if.con = EvaluateExpr(tokens, *index, brace);
+                expr->expr._if.con = Parse(tokens, *index, brace);
                 *index = brace + 1;
-                expr->expr._if.body = EvaluateBlock(tokens, index);
+                expr->expr._if.body = ParseBlock(tokens, index);
                 ++expr_index;
                 break;
             }
@@ -791,7 +996,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
                     }
                     break;
                 case 1:
-                    expr->expr._else.body = EvaluateBlock(tokens, index);
+                    expr->expr._else.body = ParseBlock(tokens, index);
                     ++expr_index;
                     break;
                 }
@@ -806,7 +1011,7 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
                     }
                     break;
                 case 1:
-                    expr->expr._loop.body = EvaluateBlock(tokens, index);
+                    expr->expr._loop.body = ParseBlock(tokens, index);
                     ++expr_index;
                     break;
                 }
@@ -828,10 +1033,9 @@ ExprVector EvaluateBlock(TokenVector tokens, int *index)
 
     return vector;
 }
-
 #pragma endregion
-#pragma region Generator
 
+#pragma region Generator
 void GenerateType(char *type, FILE *fp)
 {
     if (type == NULL)
@@ -1092,7 +1296,6 @@ void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma)
         }
     }
 }
-
 #pragma endregion
 
 void FreeExprVector(ExprVector vector);
@@ -1225,229 +1428,21 @@ int main(int argc, char **argv)
     fread(buffer, file_size, 1, filepoint);
     fclose(filepoint);
 
-#pragma region Lexer
+    // Tokenize the file
+    TokenVector tokens = Tokenize(file_size, buffer);
 
-    TokenVector tokens = NewTokenVector(file_size / 4);
-    CharVector value = NewCharVector(32);
-    char is_comment = 0;
-
-    // Loop through all characters and create tokens
-    for (int i = 0; i < file_size; ++i)
-    {
-        char c = buffer[i];
-
-        if (is_comment)
-        {
-            if (c == '\n')
-            {
-                is_comment = 0;
-            }
-            continue;
-        }
-
-        if (value.size != 0 && value.array[0] == '"')
-        {
-            PushChar(&value, c);
-            if (c == '"')
-            {
-                PushToken(&tokens, IdentToken(&value));
-            }
-        }
-        else
-        {
-            Token token;
-            token.type = -1;
-            token.value = NULL;
-
-            // Check assign
-            char is_assign = i + 1 < file_size && buffer[i + 1] == '=';
-
-            switch (c)
-            {
-            case '=':
-                token.type = Assign + is_assign;
-                break;
-            case '<':
-                token.type = Less + is_assign;
-                break;
-            case '>':
-                token.type = Greater + is_assign;
-                break;
-            case '+':
-                token.type = Add + is_assign;
-                break;
-            case '-':
-                token.type = Substract + is_assign;
-                break;
-            case '*':
-                token.type = Multiply + is_assign;
-                break;
-            case '/':
-                if (i + 1 < file_size && buffer[i + 1] == '/')
-                {
-                    is_comment = 1;
-                }
-                else
-                {
-                    token.type = Divide + is_assign;
-                }
-                break;
-            case '%':
-                token.type = Modulo + is_assign;
-                break;
-            case '!':
-                token.type = Not + is_assign;
-                break;
-            case '(':
-                token.type = LeftParen;
-                break;
-            case ')':
-                token.type = RightParen;
-                break;
-            case '{':
-                token.type = LeftBrace;
-                break;
-            case '}':
-                token.type = RightBrace;
-                break;
-            case '[':
-                token.type = LeftSquare;
-                break;
-            case ']':
-                token.type = RightSquare;
-                break;
-            case ';':
-                token.type = Semicolon;
-                break;
-            case ':':
-                token.type = Colon;
-                break;
-            case ',':
-                token.type = Comma;
-                break;
-            case '.':
-                token.type = Dot;
-                if (i + 1 < file_size && buffer[i + 1] == '.')
-                {
-                    token.type = Range;
-                    i += 1;
-                }
-                break;
-            case 'v':
-                if (i + 3 < file_size && buffer[i + 1] == 'a' && buffer[i + 2] == 'r' && isspace(buffer[i + 3]))
-                {
-                    token.type = Variable;
-                    i += 3;
-                }
-                break;
-            case 's':
-                if (i + 6 < file_size && buffer[i + 1] == 't' && buffer[i + 2] == 'r' && buffer[i + 3] == 'u' && buffer[i + 4] == 'c' && buffer[i + 5] == 't' && isspace(buffer[i + 6]))
-                {
-                    token.type = Struct;
-                    i += 6;
-                }
-                break;
-            case 'i':
-                if (i + 2 < file_size && buffer[i + 1] == 'f' && isspace(buffer[i + 2]))
-                {
-                    token.type = If;
-                    i += 2;
-                }
-                break;
-            case 'e':
-                if (i + 4 < file_size && buffer[i + 1] == 'n' && buffer[i + 2] == 'u' && buffer[i + 3] == 'm' && isspace(buffer[i + 4]))
-                {
-                    token.type = Enum;
-                    i += 4;
-                }
-                else if (i + 4 < file_size && buffer[i + 1] == 'l' && buffer[i + 2] == 's' && buffer[i + 3] == 'e' && isspace(buffer[i + 4]))
-                {
-                    token.type = Else;
-                    i += 4;
-                }
-                break;
-            case 'l':
-                if (i + 4 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'o' && buffer[i + 3] == 'p' && (isspace(buffer[i + 4]) || buffer[i + 4] == '{'))
-                {
-                    token.type = Loop;
-                    i += 3;
-                }
-                break;
-            case 'w':
-                if (i + 5 < file_size && buffer[i + 1] == 'h' && buffer[i + 2] == 'i' && buffer[i + 3] == 'l' && buffer[i + 4] == 'e' && isspace(buffer[i + 5]))
-                {
-                    token.type = While;
-                    i += 5;
-                }
-                break;
-            case 'f':
-                if (i + 2 < file_size && buffer[i + 1] == 'n' && isspace(buffer[i + 2]))
-                {
-                    token.type = Function;
-                    i += 2;
-                }
-                break;
-            case 'r':
-                if (i + 6 < file_size && buffer[i + 1] == 'e' && buffer[i + 2] == 't' && buffer[i + 3] == 'u' && buffer[i + 4] == 'r' && buffer[i + 5] == 'n' && (isspace(buffer[i + 6]) || buffer[i + 6] == ';'))
-                {
-                    token.type = Return;
-                    i += 5;
-                }
-                break;
-            case 'b':
-                if (i + 5 < file_size && buffer[i + 1] == 'r' && buffer[i + 2] == 'e' && buffer[i + 3] == 'a' && buffer[i + 4] == 'k' && (isspace(buffer[i + 5]) || buffer[i + 5] == ';'))
-                {
-                    token.type = Break;
-                    i += 4;
-                }
-                break;
-            case 'c':
-                if (i + 8 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'n' && buffer[i + 3] == 't' && buffer[i + 4] == 'i' && buffer[i + 5] == 'n' && buffer[i + 6] == 'u' && buffer[i + 7] == 'e' && (isspace(buffer[i + 8]) || buffer[i + 8] == ';'))
-                {
-                    token.type = Continue;
-                    i += 7;
-                }
-                break;
-            }
-
-            // Push the token
-            if (token.type != -1)
-            {
-                if (value.size != 0)
-                {
-                    PushToken(&tokens, IdentToken(&value));
-                }
-                PushToken(&tokens, token);
-            }
-            // Update value
-            else if (!is_comment && !isspace(c))
-            {
-                PushChar(&value, c);
-            }
-        }
-    }
-
-#pragma endregion
-#pragma region Parser
-
+    // Parse the tokens
     int index = 0;
-    ExprVector ast = EvaluateBlock(tokens, &index);
+    ExprVector ast = ParseBlock(tokens, &index);
 
-#pragma endregion
-#pragma region Generator
-
+    // Generate output file
     fopen_s(&filepoint, "main.c", "w");
-
     fputs("#include <stdint.h>\n", filepoint);
     GenerateVector(ast, filepoint, 0, 0);
-
     fclose(filepoint);
-
-#pragma endregion
 
     // Free the memory
     free(buffer);
-    free(value.array);
     for (int i = 0; i < tokens.size; ++i)
     {
         free(tokens.array[i].value);
