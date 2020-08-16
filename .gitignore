@@ -1,3 +1,4 @@
 *.txt
 *.cmd
 *.obj
+test/
