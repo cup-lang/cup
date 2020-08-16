@@ -470,8 +470,7 @@ typedef enum ExprType
     ContinueExpr
 } ExprType;
 
-typedef union ExprUnion
-{
+typedef union ExprUnion {
     struct FnDef _fn_def;
     struct Arg _arg;
     struct FnCall _fn_call;
@@ -1385,28 +1384,45 @@ int main(int argc, char **argv)
 {
     if (argc == 1)
     {
-        printf("Error: no input file");
+        printf("Error: no input file specified");
         return 1;
     }
 
     char help = 0;
     char *input = NULL;
+    char *output = NULL;
     for (int i = 1; i < argc; i++)
     {
         if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
         {
             help = 1;
         }
-        else
+        else if (strcmp("-o", argv[i]) == 0 || strcmp("--output", argv[i]) == 0)
+        {
+            if (i + 1 < argc)
+            {
+                output = argv[++i];
+            }
+            else
+            {
+                printf("Error: no output file specified");
+                return 1;
+            }
+        }
+        else if (input == NULL)
         {
             input = argv[i];
+        }
+        else
+        {
+            printf("Error: invalid argument '%s'", argv[i]);
         }
     }
 
     // Print help informations
     if (help)
     {
-        printf("Usage: cachec [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n");
+        printf("Usage: cachec [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n    -o, --output        Specify the output file name");
         return 0;
     }
 
@@ -1436,7 +1452,14 @@ int main(int argc, char **argv)
     ExprVector ast = ParseBlock(tokens, &index);
 
     // Generate output file
-    fopen_s(&filepoint, "main.c", "w");
+    if (output != NULL)
+    {
+        fopen_s(&filepoint, output, "w");
+    }
+    else
+    {
+        fopen_s(&filepoint, "main.c", "w");
+    }
     fputs("#include <stdint.h>\n", filepoint);
     GenerateVector(ast, filepoint, 0, 0);
     fclose(filepoint);
