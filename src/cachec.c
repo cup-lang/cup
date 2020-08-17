@@ -168,6 +168,9 @@ TokenVector Tokenize(int file_size, char *buffer)
 
             switch (c)
             {
+            case '#':
+                is_comment = 1;
+                break;
             case '=':
                 token.type = Assign + is_assign;
                 break;
@@ -187,14 +190,7 @@ TokenVector Tokenize(int file_size, char *buffer)
                 token.type = Multiply + is_assign;
                 break;
             case '/':
-                if (i + 1 < file_size && buffer[i + 1] == '/')
-                {
-                    is_comment = 1;
-                }
-                else
-                {
-                    token.type = Divide + is_assign;
-                }
+                token.type = Divide + is_assign;
                 break;
             case '%':
                 token.type = Modulo + is_assign;
@@ -382,6 +378,7 @@ struct Struct
 struct Enum
 {
     char *name;
+    ExprVector body;
 };
 
 struct VarUse
@@ -455,6 +452,7 @@ typedef enum ExprType
     VarDefExpr,
     StructExpr,
     EnumExpr,
+    EnumOptExpr,
     VarUseExpr,
     OpExpr,
     ValueExpr,
@@ -925,9 +923,20 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     if (token.type == LeftBrace)
                     {
                         expr->expr._struct.body = NewExprVector(2);
+                        expr_state = 3;
+                    }
+                    break;
+                case 2:
+                    if (token.type == Comma)
+                    {
                         ++expr_state;
                     }
-                case 2:
+                    else if (token.type == RightBrace)
+                    {
+                        ++expr_index;
+                    }
+                    break;
+                case 3:
                     if (token.type == RightBrace)
                     {
                         ++expr_index;
@@ -940,17 +949,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         PushExpr(&expr->expr._struct.body, var);
                         ++expr_state;
                     }
-                    else if (token.type == Comma)
-                    {
-                    }
                     break;
-                case 3:
+                case 4:
                     if (token.type == Colon)
                     {
                         ++expr_state;
                     }
                     break;
-                case 4:
+                case 5:
                     if (token.type == Ident)
                     {
                         expr->expr._struct.body.array[expr->expr._struct.body.size - 1].expr._arg.type = token.value;
@@ -972,10 +978,85 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                 case 1:
                     if (token.type == LeftBrace)
                     {
+                        expr->expr._enum.body = NewExprVector(2);
+                        expr_state = 3;
+                    }
+                    break;
+                case 2:
+                    if (token.type == Comma)
+                    {
+                        ++expr_state;
+                    }
+                    else if (token.type == RightBrace)
+                    {
+                        ++expr_index;
+                    }
+                    break;
+                case 3:
+                    if (token.type == RightBrace)
+                    {
+                        ++expr_index;
+                    }
+                    else if (token.type == Ident)
+                    {
+                        Expr opt;
+                        opt.type = StructExpr;
+                        opt.expr._struct.name = token.value;
+                        opt.expr._struct.body = NewExprVector(2);
+                        PushExpr(&expr->expr._enum.body, opt);
                         ++expr_state;
                     }
                     break;
+                case 4:
+                    if (token.type == LeftParen)
+                    {
+                        expr_state = 6;
+                    }
+                    else if (token.type == Comma)
+                    {
+                        expr_state = 3;
+                    }
+                    break;
+                case 5:
+                    if (token.type == Comma)
+                    {
+                        ++expr_state;
+                    }
+                    else if (token.type == RightParen)
+                    {
+                        expr_state = 2;
+                    }
+                    break;
+                case 6:
+                    if (token.type == RightParen)
+                    {
+                        expr_state = 2;
+                    }
+                    else if (token.type == Ident)
+                    {
+                        Expr arg;
+                        arg.type = ArgExpr;
+                        arg.expr._arg.name = token.value;
+                        PushExpr(&expr->expr._enum.body.array[expr->expr._enum.body.size - 1].expr._struct.body, arg);
+                        ++expr_state;
+                    }
+                    break;
+                case 7:
+                    if (token.type == Colon)
+                    {
+                        ++expr_state;
+                    }
+                    break;
+                case 8:
+                    if (token.type == Ident)
+                    {
+                        ExprVector vector = expr->expr._enum.body.array[expr->expr._enum.body.size - 1].expr._struct.body;
+                        vector.array[vector.size - 1].expr._arg.type = token.value;
+                        expr_state = 5;
+                    }
+                    break;
                 }
+                break;
             case IfExpr:
             {
                 int brace = NextTokenOfType(tokens, *index, LeftBrace, tokens.size);
@@ -1139,6 +1220,19 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
         fprintf(fp, "typedef struct %s{", expr.expr._struct.name);
         GenerateVector(expr.expr._struct.body, fp, 1, 0);
         fprintf(fp, "}%s;", expr.expr._struct.name);
+        break;
+    case EnumExpr:
+        GenerateVector(expr.expr._enum.body, fp, 1, 0);
+        fprintf(fp, "typedef union %sUnion{", expr.expr._enum.name);
+        for (int i = 0; i < expr.expr._enum.body.size; ++i)
+        {
+            fprintf(fp, "struct %s _%i;", expr.expr._enum.body.array[i].expr._struct.name, i);
+        }
+        fprintf(fp, "}%sUnion;", expr.expr._enum.name);
+        fprintf(fp, "typedef struct %s{int type;%sUnion u;}%s;", expr.expr._enum.name, expr.expr._enum.name, expr.expr._enum.name);
+        break;
+    case EnumOptExpr:
+        // TODO
         break;
     case VarUseExpr:
         fputs(expr.expr._var_use.name, fp);
@@ -1331,6 +1425,14 @@ void FreeExpr(Expr *expr)
         // free(expr->expr._var_def.type);
         FreeExpr(expr->expr._var_def.val);
         break;
+    case StructExpr:
+        // free(expr->expr._struct.name);
+        FreeExprVector(expr->expr._struct.body);
+        break;
+    case EnumExpr:
+        // free(expr->expr._enum.name);
+        FreeExprVector(expr->expr._enum.body);
+        break;
     case VarUseExpr:
         // free(expr->expr._var_use.name);
         break;
@@ -1391,7 +1493,7 @@ int main(int argc, char **argv)
     char help = 0;
     char *input = NULL;
     char *output = NULL;
-    for (int i = 1; i < argc; i++)
+    for (int i = 1; i < argc; ++i)
     {
         if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
         {
