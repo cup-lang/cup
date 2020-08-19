@@ -33,6 +33,8 @@ void PushChar(CharVector *vector, char c)
 typedef enum TokenType
 {
     Ident,
+    Public, // TODO
+    Module,
     Function,
     Variable,
     Struct,
@@ -233,6 +235,13 @@ TokenVector Tokenize(int file_size, char *buffer)
                     i += 1;
                 }
                 break;
+            case 'm':
+                if (i + 3 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'd' && isspace(buffer[i + 3]))
+                {
+                    token.type = Module;
+                    i += 3;
+                }
+                break;
             case 'v':
                 if (i + 3 < file_size && buffer[i + 1] == 'a' && buffer[i + 2] == 'r' && isspace(buffer[i + 3]))
                 {
@@ -342,6 +351,12 @@ typedef struct ExprVector
     int capacity;
 } ExprVector;
 
+struct Mod
+{
+    char *name;
+    ExprVector body;
+};
+
 struct FnDef
 {
     char *name;
@@ -446,13 +461,13 @@ struct Return
 
 typedef enum ExprType
 {
+    ModExpr,
     FnDefExpr,
     ArgExpr,
     FnCallExpr,
     VarDefExpr,
     StructExpr,
     EnumExpr,
-    EnumOptExpr,
     VarUseExpr,
     OpExpr,
     ValueExpr,
@@ -469,6 +484,7 @@ typedef enum ExprType
 } ExprType;
 
 typedef union ExprUnion {
+    struct Mod _mod;
     struct FnDef _fn_def;
     struct Arg _arg;
     struct FnCall _fn_call;
@@ -705,6 +721,9 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
             {
             case RightBrace:
                 return vector;
+            case Module:
+                expr.type = ModExpr;
+                break;
             case Function:
                 expr.type = FnDefExpr;
                 expr.expr._fn_def.args = NewExprVector(2);
@@ -796,6 +815,28 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
 
             switch (expr->type)
             {
+            case ModExpr:
+                switch (expr_state)
+                {
+                case 0:
+                    if (token.type == Ident)
+                    {
+                        expr->expr._mod.name = token.value;
+                        ++expr_state;
+                    }
+                    break;
+                case 1:
+                    if (token.type == LeftBrace)
+                    {
+                        ++expr_state;
+                    }
+                    break;
+                case 2:
+                    expr->expr._mod.body = ParseBlock(tokens, index);
+                    ++expr_index;
+                    break;
+                }
+                break;
             case FnDefExpr:
                 switch (expr_state)
                 {
@@ -1170,10 +1211,13 @@ void GenerateType(char *type, FILE *fp)
 
 void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma);
 
-void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
+void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon, char parenths)
 {
     switch (expr.type)
     {
+    case ModExpr:
+        GenerateVector(expr.expr._mod.body, fp, 0, 0);
+        break;
     case FnDefExpr:
         GenerateType(expr.expr._fn_def.type, fp);
         fprintf(fp, " %s(", expr.expr._fn_def.name);
@@ -1209,7 +1253,7 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
         if (expr.expr._var_def.val != NULL)
         {
             fputc('=', fp);
-            GenerateExpr(*expr.expr._var_def.val, fp, 0, 1);
+            GenerateExpr(*expr.expr._var_def.val, fp, 0, 1, 0);
         }
         else
         {
@@ -1231,9 +1275,6 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
         fprintf(fp, "}%sUnion;", expr.expr._enum.name);
         fprintf(fp, "typedef struct %s{int type;%sUnion u;}%s;", expr.expr._enum.name, expr.expr._enum.name, expr.expr._enum.name);
         break;
-    case EnumOptExpr:
-        // TODO
-        break;
     case VarUseExpr:
         fputs(expr.expr._var_use.name, fp);
         if (semicolon)
@@ -1242,8 +1283,11 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
         }
         break;
     case OpExpr:
-        fputc('(', fp);
-        GenerateExpr(*expr.expr._op.lhs, fp, 0, 0);
+        if (parenths)
+        {
+            fputc('(', fp);
+        }
+        GenerateExpr(*expr.expr._op.lhs, fp, 0, 0, parenths + 1);
         switch (expr.expr._op.type)
         {
         case Assign:
@@ -1301,8 +1345,11 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
             fputs("!=", fp);
             break;
         }
-        GenerateExpr(*expr.expr._op.rhs, fp, 0, 0);
-        fputc(')', fp);
+        GenerateExpr(*expr.expr._op.rhs, fp, 0, 0, parenths + 1);
+        if (parenths)
+        {
+            fputc(')', fp);
+        }
         if (semicolon)
         {
             fputc(';', fp);
@@ -1330,7 +1377,7 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
             fputs("else ", fp);
         }
         fputs("if(", fp);
-        GenerateExpr(*expr.expr._if.con, fp, 0, 0);
+        GenerateExpr(*expr.expr._if.con, fp, 0, 0, 0);
         fputs("){", fp);
         GenerateVector(expr.expr._if.body, fp, 1, 0);
         fputc('}', fp);
@@ -1347,7 +1394,7 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
         break;
     case WhileExpr:
         fputs("while(", fp);
-        GenerateExpr(*expr.expr._while.con, fp, 0, 0);
+        GenerateExpr(*expr.expr._while.con, fp, 0, 0, 0);
         fputs("){", fp);
         GenerateVector(expr.expr._while.body, fp, 1, 0);
         fputc('}', fp);
@@ -1361,7 +1408,7 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon)
         if (expr.expr._return.expr != NULL)
         {
             fputc(' ', fp);
-            GenerateExpr(*expr.expr._return.expr, fp, 0, 1);
+            GenerateExpr(*expr.expr._return.expr, fp, 0, 1, 0);
         }
         else
         {
@@ -1382,7 +1429,7 @@ void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma)
     for (int i = 0; i < vector.size; ++i)
     {
         char last = i + 1 == vector.size;
-        GenerateExpr(vector.array[i], fp, last, semicolon);
+        GenerateExpr(vector.array[i], fp, last, semicolon, 0);
         if (comma && !last)
         {
             fputc(',', fp);
