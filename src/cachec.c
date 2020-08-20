@@ -702,8 +702,17 @@ Expr *Parse(TokenVector tokens, int start, int end)
     }
 }
 
+#define EXPECTED(e) ELSE_ERROR("error: expected " e)
+#define ELSE_ERROR(e) \
+    else { ERROR(e) }
+#define ERROR(e) \
+    printf(e);   \
+    exit(1);
+
 ExprVector ParseBlock(TokenVector tokens, int *index)
 {
+    char global_scope = *index == 0;
+
     ExprVector vector = NewExprVector(8);
     int expr_index = 0;
     int expr_state = 0;
@@ -727,7 +736,6 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
             case Function:
                 expr.type = FnDefExpr;
                 expr.expr._fn_def.args = NewExprVector(2);
-                expr.expr._fn_def.type = NULL;
                 break;
             case Ident:
             {
@@ -824,12 +832,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._mod.name = token.value;
                         ++expr_state;
                     }
+                    EXPECTED("identifier after 'mod' declaration");
                     break;
                 case 1:
                     if (token.type == LeftBrace)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("'{' after 'mod' name");
                     break;
                 case 2:
                     expr->expr._mod.body = ParseBlock(tokens, index);
@@ -846,12 +856,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._fn_def.name = token.value;
                         ++expr_state;
                     }
+                    EXPECTED("identifier after 'fn' declaration");
                     break;
                 case 1:
                     if (token.type == LeftParen)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("'(' after function name");
                     break;
                 case 2:
                     if (token.type == RightParen)
@@ -866,12 +878,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         PushExpr(&expr->expr._fn_def.args, arg);
                         ++expr_state;
                     }
+                    EXPECTED("argument name or ')' after '('");
                     break;
                 case 3:
                     if (token.type == Colon)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("':' after argument name");
                     break;
                 case 4:
                     if (token.type == Ident)
@@ -879,6 +893,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._fn_def.args.array[expr->expr._fn_def.args.size - 1].expr._arg.type = token.value;
                         expr_state = 5;
                     }
+                    EXPECTED("argument type after ':'");
                     break;
                 case 5:
                     if (token.type == RightParen)
@@ -889,16 +904,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         expr_state = 2;
                     }
+                    EXPECTED("',' or ')' after argument type");
                     break;
                 case 6:
-                    if (token.type == LeftBrace)
-                    {
-                        expr_state = 8;
-                    }
-                    else if (expr->expr._fn_def.type == NULL && token.type == Colon)
+                    if (token.type == Colon)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("':' after ')'");
                     break;
                 case 7:
                     if (token.type == Ident)
@@ -906,6 +919,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._fn_def.type = token.value;
                         expr_state = 6;
                     }
+                    EXPECTED("");
                     break;
                 case 8:
                     expr->expr._fn_def.body = ParseBlock(tokens, index);
@@ -1152,7 +1166,12 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
         ++*index;
     }
 
-    return vector;
+    if (global_scope)
+    {
+        return vector;
+    }
+
+    ERROR("error: expected '}' token");
 }
 #pragma endregion
 
