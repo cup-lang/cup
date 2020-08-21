@@ -1,2 +1,2 @@
 #include <stdint.h>
-void main(){string a;a=scan();}
+void main(){string a;a=scan();break;}

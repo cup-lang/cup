@@ -1,6 +1,7 @@
 mod abc {
-    fn main(): void {
+    fn main() {
         var a: string;
         a = scan();
+        break;
     }
 }

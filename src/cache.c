@@ -46,6 +46,7 @@ typedef enum TokenType
     Dot,
     // Flow Control
     If,
+    Elif,
     Else,
     Loop,
     While,
@@ -86,6 +87,8 @@ typedef struct Token
 {
     TokenType type;
     char *value;
+    int line;
+    int column;
 } Token;
 
 typedef struct TokenVector
@@ -136,11 +139,18 @@ TokenVector Tokenize(int file_size, char *buffer)
     TokenVector tokens = NewTokenVector(file_size / 4);
     CharVector value = NewCharVector(32);
     char is_comment = 0;
+    int line = 0;
+    int column = 0;
 
     // Loop through all characters and create tokens
     for (int i = 0; i < file_size; ++i)
     {
         char c = buffer[i];
+
+        if (c == '\n')
+        {
+            ++line;
+        }
 
         if (is_comment)
         {
@@ -162,6 +172,7 @@ TokenVector Tokenize(int file_size, char *buffer)
         else
         {
             Token token;
+            token.line = line;
             token.type = -1;
             token.value = NULL;
 
@@ -267,6 +278,11 @@ TokenVector Tokenize(int file_size, char *buffer)
                 if (i + 4 < file_size && buffer[i + 1] == 'n' && buffer[i + 2] == 'u' && buffer[i + 3] == 'm' && isspace(buffer[i + 4]))
                 {
                     token.type = Enum;
+                    i += 4;
+                }
+                else if (i + 4 < file_size && buffer[i + 1] == 'l' && buffer[i + 2] == 'i' && buffer[i + 3] == 'f' && isspace(buffer[i + 4]))
+                {
+                    token.type = Elif;
                     i += 4;
                 }
                 else if (i + 4 < file_size && buffer[i + 1] == 'l' && buffer[i + 2] == 's' && buffer[i + 3] == 'e' && isspace(buffer[i + 4]))
@@ -426,7 +442,12 @@ struct Block
 
 struct If
 {
-    char elif;
+    Expr *con;
+    ExprVector body;
+};
+
+struct Elif
+{
     Expr *con;
     ExprVector body;
 };
@@ -474,6 +495,7 @@ typedef enum ExprType
     ArrayExpr,
     BlockExpr,
     IfExpr,
+    ElifExpr,
     ElseExpr,
     LoopExpr,
     WhileExpr,
@@ -497,6 +519,7 @@ typedef union ExprUnion {
     struct Array _array;
     struct Block _block;
     struct If _if;
+    struct Elif _elif;
     struct Else _else;
     struct Loop _loop;
     struct While _while;
@@ -540,6 +563,12 @@ int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
     }
     return -1;
 }
+
+#define EXPECTED(e) \
+    else { ERROR("expected " e) }
+#define ERROR(e)         \
+    printf("error: " e); \
+    exit(1);
 
 Expr *Parse(TokenVector tokens, int start, int end)
 {
@@ -643,12 +672,21 @@ Expr *Parse(TokenVector tokens, int start, int end)
         Expr *expr = malloc(sizeof(Expr));
         char *value = tokens.array[start].value;
 
+        if (tokens.array[start].type != Ident)
+        {
+            ERROR("expected identifier");
+        }
+
         switch (tokens.array[start + 1].type)
         {
         case LeftParen:
             expr->type = FnCallExpr;
             expr->expr._fn_call.name = value;
             int paren = NextTokenOfType(tokens, start, RightParen, tokens.size);
+            if (paren == -1)
+            {
+                ERROR("expected ')' after '('");
+            }
             if (start + 2 == paren)
             {
                 expr->expr._fn_call.args = NewExprVector(0);
@@ -702,13 +740,6 @@ Expr *Parse(TokenVector tokens, int start, int end)
     }
 }
 
-#define EXPECTED(e) ELSE_ERROR("error: expected " e)
-#define ELSE_ERROR(e) \
-    else { ERROR(e) }
-#define ERROR(e) \
-    printf(e);   \
-    exit(1);
-
 ExprVector ParseBlock(TokenVector tokens, int *index)
 {
     char global_scope = *index == 0;
@@ -736,6 +767,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
             case Function:
                 expr.type = FnDefExpr;
                 expr.expr._fn_def.args = NewExprVector(2);
+                expr.expr._fn_def.type = NULL;
                 break;
             case Ident:
             {
@@ -766,19 +798,12 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                 break;
             case If:
                 expr.type = IfExpr;
-                expr.expr._if.elif = 0;
+                break;
+            case Elif:
+                expr.type = ElifExpr;
                 break;
             case Else:
-                if (*index + 1 < tokens.size && tokens.array[*index + 1].type == If)
-                {
-                    expr.type = IfExpr;
-                    expr.expr._if.elif = 1;
-                    ++*index;
-                }
-                else
-                {
-                    expr.type = ElseExpr;
-                }
+                expr.type = ElseExpr;
                 break;
             case Loop:
                 expr.type = LoopExpr;
@@ -832,7 +857,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._mod.name = token.value;
                         ++expr_state;
                     }
-                    EXPECTED("identifier after 'mod' declaration");
+                    EXPECTED("module name after 'mod'");
                     break;
                 case 1:
                     if (token.type == LeftBrace)
@@ -856,7 +881,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._fn_def.name = token.value;
                         ++expr_state;
                     }
-                    EXPECTED("identifier after 'fn' declaration");
+                    EXPECTED("function name after 'fn'");
                     break;
                 case 1:
                     if (token.type == LeftParen)
@@ -907,11 +932,15 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     EXPECTED("',' or ')' after argument type");
                     break;
                 case 6:
-                    if (token.type == Colon)
+                    if (token.type == LeftBrace)
+                    {
+                        expr_state = 8;
+                    }
+                    else if (expr->expr._fn_def.type == NULL && token.type == Colon)
                     {
                         ++expr_state;
                     }
-                    EXPECTED("':' after ')'");
+                    EXPECTED("':' or '{' after ')'");
                     break;
                 case 7:
                     if (token.type == Ident)
@@ -919,7 +948,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._fn_def.type = token.value;
                         expr_state = 6;
                     }
-                    EXPECTED("");
+                    EXPECTED("funtion return type after ':'");
                     break;
                 case 8:
                     expr->expr._fn_def.body = ParseBlock(tokens, index);
@@ -936,6 +965,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._var_def.name = token.value;
                         ++expr_state;
                     }
+                    EXPECTED("variable name after 'var'");
                     break;
                 case 1:
                     if (token.type == Colon)
@@ -946,7 +976,10 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         int semicolon = NextTokenOfType(tokens, *index + 1, Semicolon, tokens.size);
                         expr->expr._var_def.val = Parse(tokens, *index + 1, semicolon);
-                        expr->expr._var_def.type = "i32"; // FIX: Infer the type
+                        if (expr->expr._var_def.type == NULL)
+                        {
+                            expr->expr._var_def.type = "i32"; // FIX: Infer the type
+                        }
                         *index = semicolon;
                         ++expr_index;
                     }
@@ -954,6 +987,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         ++expr_index;
                     }
+                    EXPECTED("':' or '=' after variable name");
                     break;
                 case 2:
                     if (token.type == Ident)
@@ -961,6 +995,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._var_def.type = token.value;
                         expr_state = 1;
                     }
+                    EXPECTED("variable type after ':'");
                     break;
                 }
                 break;
@@ -973,6 +1008,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._struct.name = token.value;
                         ++expr_state;
                     }
+                    EXPECTED("struct name after 'struct'");
                     break;
                 case 1:
                     if (token.type == LeftBrace)
@@ -980,6 +1016,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._struct.body = NewExprVector(2);
                         expr_state = 3;
                     }
+                    EXPECTED("'{' after struct name");
                     break;
                 case 2:
                     if (token.type == Comma)
@@ -990,6 +1027,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         ++expr_index;
                     }
+                    EXPECTED("',' or '}' after variable type");
                     break;
                 case 3:
                     if (token.type == RightBrace)
@@ -1004,12 +1042,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         PushExpr(&expr->expr._struct.body, var);
                         ++expr_state;
                     }
+                    EXPECTED("field name or '}' after '{'");
                     break;
                 case 4:
                     if (token.type == Colon)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("':' after variable name");
                     break;
                 case 5:
                     if (token.type == Ident)
@@ -1017,6 +1057,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._struct.body.array[expr->expr._struct.body.size - 1].expr._arg.type = token.value;
                         expr_state = 2;
                     }
+                    EXPECTED("field type after ':'");
                     break;
                 }
                 break;
@@ -1029,6 +1070,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._enum.name = token.value;
                         ++expr_state;
                     }
+                    EXPECTED("enum name after 'enum'");
                     break;
                 case 1:
                     if (token.type == LeftBrace)
@@ -1036,6 +1078,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         expr->expr._enum.body = NewExprVector(2);
                         expr_state = 3;
                     }
+                    EXPECTED("'{' after enum name");
                     break;
                 case 2:
                     if (token.type == Comma)
@@ -1046,6 +1089,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         ++expr_index;
                     }
+                    EXPECTED("'}' or ',' after '{'");
                     break;
                 case 3:
                     if (token.type == RightBrace)
@@ -1061,6 +1105,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         PushExpr(&expr->expr._enum.body, opt);
                         ++expr_state;
                     }
+                    EXPECTED("option name or '}' after '{'");
                     break;
                 case 4:
                     if (token.type == LeftParen)
@@ -1071,6 +1116,11 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         expr_state = 3;
                     }
+                    else if (token.type == RightBrace)
+                    {
+                        ++expr_index;
+                    }
+                    EXPECTED("'(' or ',' after option name");
                     break;
                 case 5:
                     if (token.type == Comma)
@@ -1081,6 +1131,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         expr_state = 2;
                     }
+                    EXPECTED("',' or ')' after field type");
                     break;
                 case 6:
                     if (token.type == RightParen)
@@ -1095,12 +1146,14 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         PushExpr(&expr->expr._enum.body.array[expr->expr._enum.body.size - 1].expr._struct.body, arg);
                         ++expr_state;
                     }
+                    EXPECTED("field name or ')' after '('");
                     break;
                 case 7:
                     if (token.type == Colon)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("':' after field name");
                     break;
                 case 8:
                     if (token.type == Ident)
@@ -1109,16 +1162,37 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                         vector.array[vector.size - 1].expr._arg.type = token.value;
                         expr_state = 5;
                     }
+                    EXPECTED("field type after ':'");
                     break;
                 }
                 break;
             case IfExpr:
+            case ElifExpr:
+            case WhileExpr:
             {
                 int brace = NextTokenOfType(tokens, *index, LeftBrace, tokens.size);
-                expr->expr._if.con = Parse(tokens, *index, brace);
-                *index = brace + 1;
-                expr->expr._if.body = ParseBlock(tokens, index);
-                ++expr_index;
+                if (brace != -1)
+                {
+                    expr->expr._if.con = Parse(tokens, *index, brace);
+                    *index = brace + 1;
+                    expr->expr._if.body = ParseBlock(tokens, index);
+                    ++expr_index;
+                }
+                else
+                {
+                    switch (expr->type)
+                    {
+                    case IfExpr:
+                        ERROR("expected '{' after 'if'");
+                        break;
+                    case ElifExpr:
+                        ERROR("expected '{' after 'elif'");
+                        break;
+                    case WhileExpr:
+                        ERROR("expected '{' after 'while'");
+                        break;
+                    }
+                }
                 break;
             }
             case ElseExpr:
@@ -1129,6 +1203,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("'{' after 'else'");
                     break;
                 case 1:
                     expr->expr._else.body = ParseBlock(tokens, index);
@@ -1144,6 +1219,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     {
                         ++expr_state;
                     }
+                    EXPECTED("'{' after 'loop'");
                     break;
                 case 1:
                     expr->expr._loop.body = ParseBlock(tokens, index);
@@ -1151,14 +1227,20 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     break;
                 }
                 break;
-            case WhileExpr: // TODO
-                break;
             case BreakExpr:
+                printf("The line is %i", token.line);
+                if (token.type == Semicolon)
+                {
+                    ++expr_index;
+                }
+                EXPECTED("';' after 'break'");
+                break;
             case ContinueExpr:
                 if (token.type == Semicolon)
                 {
                     ++expr_index;
                 }
+                EXPECTED("';' after 'continue'");
                 break;
             }
         }
@@ -1171,7 +1253,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
         return vector;
     }
 
-    ERROR("error: expected '}' token");
+    ERROR("expected '}' token");
 }
 #pragma endregion
 
@@ -1390,11 +1472,10 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon, char parenths)
         GenerateVector(expr.expr._block.body, fp, 1, 0);
         fputc('}', fp);
         break;
+    case ElifExpr:
+        fputs("else ", fp);
+        expr.type = IfExpr;
     case IfExpr:
-        if (expr.expr._if.elif)
-        {
-            fputs("else ", fp);
-        }
         fputs("if(", fp);
         GenerateExpr(*expr.expr._if.con, fp, 0, 0, 0);
         fputs("){", fp);
@@ -1590,7 +1671,7 @@ int main(int argc, char **argv)
     // Print help informations
     if (help)
     {
-        printf("Usage: cachec [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n    -o, --output        Specify the output file name");
+        printf("Usage: cache [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n    -o, --output        Specify the output file name");
         return 0;
     }
 
