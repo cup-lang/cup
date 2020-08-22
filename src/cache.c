@@ -150,6 +150,11 @@ TokenVector Tokenize(int file_size, char *buffer)
         if (c == '\n')
         {
             ++line;
+            column = 0;
+        }
+        else
+        {
+            ++column;
         }
 
         if (is_comment)
@@ -173,6 +178,7 @@ TokenVector Tokenize(int file_size, char *buffer)
         {
             Token token;
             token.line = line;
+            token.column = column;
             token.type = -1;
             token.value = NULL;
 
@@ -566,8 +572,8 @@ int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
 
 #define EXPECTED(e) \
     else { ERROR("expected " e) }
-#define ERROR(e)         \
-    printf("error: " e); \
+#define ERROR(e)                                           \
+    printf(":%i:%i: error: " e, token.line, token.column); \
     exit(1);
 
 Expr *Parse(TokenVector tokens, int start, int end)
@@ -670,7 +676,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
     if (op_count == 0)
     {
         Expr *expr = malloc(sizeof(Expr));
-        char *value = tokens.array[start].value;
+        Token token = tokens.array[start];
 
         if (tokens.array[start].type != Ident)
         {
@@ -681,7 +687,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
         {
         case LeftParen:
             expr->type = FnCallExpr;
-            expr->expr._fn_call.name = value;
+            expr->expr._fn_call.name = token.value;
             int paren = NextTokenOfType(tokens, start, RightParen, tokens.size);
             if (paren == -1)
             {
@@ -706,24 +712,24 @@ Expr *Parse(TokenVector tokens, int start, int end)
             }
             return expr;
         default:
-            if (*value == '"')
+            if (*token.value == '"')
             {
                 expr->type = ValueExpr;
-                expr->expr._value.val = value;
+                expr->expr._value.val = token.value;
                 expr->expr._value.type = "string";
                 return expr;
             }
-            else if (isdigit(*value))
+            else if (isdigit(*token.value))
             {
                 expr->type = ValueExpr;
-                expr->expr._value.val = value;
+                expr->expr._value.val = token.value;
                 expr->expr._value.type = "i32"; // FIX: Infer the type
                 return expr;
             }
             else
             {
                 expr->type = VarUseExpr;
-                expr->expr._var_use.name = value;
+                expr->expr._var_use.name = token.value;
                 return expr;
             }
             break;
@@ -1228,7 +1234,6 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                 }
                 break;
             case BreakExpr:
-                printf("The line is %i", token.line);
                 if (token.type == Semicolon)
                 {
                     ++expr_index;
@@ -1253,6 +1258,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
         return vector;
     }
 
+    Token token = tokens.array[tokens.size - 1];
     ERROR("expected '}' token");
 }
 #pragma endregion
@@ -1538,97 +1544,6 @@ void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma)
 }
 #pragma endregion
 
-void FreeExprVector(ExprVector vector);
-
-void FreeExpr(Expr *expr)
-{
-    if (expr == NULL)
-    {
-        return;
-    }
-
-    // FIX: free the strings
-    switch (expr->type)
-    {
-    case FnDefExpr:
-        // free(expr->expr._fn_def.name);
-        // free(expr->expr._fn_def.type);
-        FreeExprVector(expr->expr._fn_def.args);
-        FreeExprVector(expr->expr._fn_def.body);
-        break;
-    case ArgExpr:
-        // free(expr->expr._arg.name);
-        // free(expr->expr._arg.type);
-        break;
-    case ReturnExpr:
-        FreeExpr(expr->expr._return.expr);
-        break;
-    case FnCallExpr:
-        // free(expr->expr._fn_call.name);
-        FreeExprVector(expr->expr._fn_call.args);
-        break;
-    case VarDefExpr:
-        // free(expr->expr._var_def.name);
-        // free(expr->expr._var_def.type);
-        FreeExpr(expr->expr._var_def.val);
-        break;
-    case StructExpr:
-        // free(expr->expr._struct.name);
-        FreeExprVector(expr->expr._struct.body);
-        break;
-    case EnumExpr:
-        // free(expr->expr._enum.name);
-        FreeExprVector(expr->expr._enum.body);
-        break;
-    case VarUseExpr:
-        // free(expr->expr._var_use.name);
-        break;
-    case OpExpr:
-        FreeExpr(expr->expr._op.lhs);
-        FreeExpr(expr->expr._op.rhs);
-        break;
-    case ValueExpr:
-        // free(expr->expr._value.type);
-        // free(expr->expr._value.val);
-        break;
-    case ArrayExpr:
-        FreeExprVector(expr->expr._array.elems);
-        break;
-    case BlockExpr:
-        FreeExprVector(expr->expr._block.body);
-        break;
-    case IfExpr:
-        FreeExpr(expr->expr._if.con);
-        FreeExprVector(expr->expr._if.body);
-        break;
-    case ElseExpr:
-        FreeExprVector(expr->expr._else.body);
-        break;
-    case LoopExpr:
-        FreeExprVector(expr->expr._loop.body);
-        break;
-    case WhileExpr:
-        FreeExpr(expr->expr._while.con);
-        FreeExprVector(expr->expr._while.body);
-        break;
-    case ForExpr:
-        // free(expr->expr._for.iter);
-        FreeExpr(expr->expr._for.range);
-        FreeExprVector(expr->expr._for.body);
-        break;
-    }
-}
-
-void FreeExprVector(ExprVector vector)
-{
-    for (int i = 0; i < vector.size; ++i)
-    {
-        FreeExpr(&vector.array[i]);
-    }
-
-    free(vector.array);
-}
-
 int main(int argc, char **argv)
 {
     if (argc == 1)
@@ -1712,15 +1627,6 @@ int main(int argc, char **argv)
     fputs("#include <stdint.h>\n", filepoint);
     GenerateVector(ast, filepoint, 0, 0);
     fclose(filepoint);
-
-    // Free the memory
-    free(buffer);
-    for (int i = 0; i < tokens.size; ++i)
-    {
-        free(tokens.array[i].value);
-    }
-    free(tokens.array);
-    FreeExprVector(ast);
 
     return 0;
 }
