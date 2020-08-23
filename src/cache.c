@@ -3,31 +3,43 @@
 #include <string.h>
 #include <ctype.h>
 
-typedef struct CharVector
-{
-    char *array;
-    int size;
-    int capacity;
-} CharVector;
+#define VECTOR(n, t)     \
+    VECTOR_STRUCT(n, t); \
+    VECTOR_FUNC(n, t);
 
-CharVector NewCharVector(int capacity)
-{
-    CharVector vector;
-    vector.array = malloc(capacity);
-    vector.size = 0;
-    vector.capacity = capacity;
-    return vector;
-}
+#define VECTOR_STRUCT(n, t)  \
+    typedef struct n##Vector \
+    {                        \
+        t *array;            \
+        int size;            \
+        int capacity;        \
+    } n##Vector;
 
-void PushChar(CharVector *vector, char c)
-{
-    vector->array[vector->size++] = c;
-    if (vector->size == vector->capacity)
-    {
-        int capacity = vector->capacity *= 2;
-        vector->array = realloc(vector->array, capacity);
-    }
-}
+#define VECTOR_FUNC(n, t)                                \
+    n##Vector New##n##Vector(int c)                      \
+    {                                                    \
+        n##Vector v;                                     \
+        v.array = malloc(sizeof(t) * c);                 \
+        v.size = 0;                                      \
+        v.capacity = c;                                  \
+        return v;                                        \
+    };                                                   \
+    void Push##n(n##Vector *v, t o)                      \
+    {                                                    \
+        v->array[v->size++] = o;                         \
+        if (v->size == v->capacity)                      \
+        {                                                \
+            int c = v->capacity *= 2;                    \
+            v->array = realloc(v->array, sizeof(t) * c); \
+        }                                                \
+    };
+
+VECTOR(Char, char);
+VECTOR(String, CharVector);
+
+char *file_name = NULL;
+int file_size;
+char *file;
 
 #pragma region Lexer
 typedef enum TokenType
@@ -87,40 +99,16 @@ typedef struct Token
 {
     TokenType type;
     char *value;
-    int line;
-    int column;
+    int index;
 } Token;
 
-typedef struct TokenVector
-{
-    Token *array;
-    int size;
-    int capacity;
-} TokenVector;
+VECTOR(Token, Token);
 
-TokenVector NewTokenVector(int capacity)
-{
-    TokenVector vector;
-    vector.array = malloc(sizeof(Token) * capacity);
-    vector.size = 0;
-    vector.capacity = capacity;
-    return vector;
-}
-
-void PushToken(TokenVector *vector, Token expr)
-{
-    vector->array[vector->size++] = expr;
-    if (vector->size == vector->capacity)
-    {
-        int capacity = vector->capacity *= 2;
-        vector->array = realloc(vector->array, sizeof(Token) * capacity);
-    }
-}
-
-Token IdentToken(CharVector *vector)
+Token IdentToken(CharVector *vector, int index)
 {
     Token token;
     token.type = Ident;
+    token.index = index;
     token.value = malloc(vector->size + 1);
     memcpy(token.value, vector->array, vector->size);
     token.value[vector->size] = '\0';
@@ -128,34 +116,16 @@ Token IdentToken(CharVector *vector)
     return token;
 }
 
-void AddToken(Token *tokens, size_t *size, Token token)
-{
-    tokens[*size] = token;
-    ++(*size);
-}
-
-TokenVector Tokenize(int file_size, char *buffer)
+TokenVector Tokenize()
 {
     TokenVector tokens = NewTokenVector(file_size / 4);
     CharVector value = NewCharVector(32);
     char is_comment = 0;
-    int line = 0;
-    int column = 0;
 
     // Loop through all characters and create tokens
     for (int i = 0; i < file_size; ++i)
     {
-        char c = buffer[i];
-
-        if (c == '\n')
-        {
-            ++line;
-            column = 0;
-        }
-        else
-        {
-            ++column;
-        }
+        char c = file[i];
 
         if (is_comment)
         {
@@ -171,19 +141,18 @@ TokenVector Tokenize(int file_size, char *buffer)
             PushChar(&value, c);
             if (c == '"')
             {
-                PushToken(&tokens, IdentToken(&value));
+                PushToken(&tokens, IdentToken(&value, i));
             }
         }
         else
         {
             Token token;
-            token.line = line;
-            token.column = column;
+            token.index = i;
             token.type = -1;
             token.value = NULL;
 
             // Check assign
-            char is_assign = i + 1 < file_size && buffer[i + 1] == '=';
+            char is_assign = i + 1 < file_size && file[i + 1] == '=';
 
             switch (c)
             {
@@ -246,94 +215,94 @@ TokenVector Tokenize(int file_size, char *buffer)
                 break;
             case '.':
                 token.type = Dot;
-                if (i + 1 < file_size && buffer[i + 1] == '.')
+                if (i + 1 < file_size && file[i + 1] == '.')
                 {
                     token.type = Range;
                     i += 1;
                 }
                 break;
             case 'm':
-                if (i + 3 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'd' && isspace(buffer[i + 3]))
+                if (i + 3 < file_size && file[i + 1] == 'o' && file[i + 2] == 'd' && isspace(file[i + 3]))
                 {
                     token.type = Module;
                     i += 3;
                 }
                 break;
             case 'v':
-                if (i + 3 < file_size && buffer[i + 1] == 'a' && buffer[i + 2] == 'r' && isspace(buffer[i + 3]))
+                if (i + 3 < file_size && file[i + 1] == 'a' && file[i + 2] == 'r' && isspace(file[i + 3]))
                 {
                     token.type = Variable;
                     i += 3;
                 }
                 break;
             case 's':
-                if (i + 6 < file_size && buffer[i + 1] == 't' && buffer[i + 2] == 'r' && buffer[i + 3] == 'u' && buffer[i + 4] == 'c' && buffer[i + 5] == 't' && isspace(buffer[i + 6]))
+                if (i + 6 < file_size && file[i + 1] == 't' && file[i + 2] == 'r' && file[i + 3] == 'u' && file[i + 4] == 'c' && file[i + 5] == 't' && isspace(file[i + 6]))
                 {
                     token.type = Struct;
                     i += 6;
                 }
                 break;
             case 'i':
-                if (i + 2 < file_size && buffer[i + 1] == 'f' && isspace(buffer[i + 2]))
+                if (i + 2 < file_size && file[i + 1] == 'f' && isspace(file[i + 2]))
                 {
                     token.type = If;
                     i += 2;
                 }
                 break;
             case 'e':
-                if (i + 4 < file_size && buffer[i + 1] == 'n' && buffer[i + 2] == 'u' && buffer[i + 3] == 'm' && isspace(buffer[i + 4]))
+                if (i + 4 < file_size && file[i + 1] == 'n' && file[i + 2] == 'u' && file[i + 3] == 'm' && isspace(file[i + 4]))
                 {
                     token.type = Enum;
                     i += 4;
                 }
-                else if (i + 4 < file_size && buffer[i + 1] == 'l' && buffer[i + 2] == 'i' && buffer[i + 3] == 'f' && isspace(buffer[i + 4]))
+                else if (i + 4 < file_size && file[i + 1] == 'l' && file[i + 2] == 'i' && file[i + 3] == 'f' && isspace(file[i + 4]))
                 {
                     token.type = Elif;
                     i += 4;
                 }
-                else if (i + 4 < file_size && buffer[i + 1] == 'l' && buffer[i + 2] == 's' && buffer[i + 3] == 'e' && isspace(buffer[i + 4]))
+                else if (i + 4 < file_size && file[i + 1] == 'l' && file[i + 2] == 's' && file[i + 3] == 'e' && isspace(file[i + 4]))
                 {
                     token.type = Else;
                     i += 4;
                 }
                 break;
             case 'l':
-                if (i + 4 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'o' && buffer[i + 3] == 'p' && (isspace(buffer[i + 4]) || buffer[i + 4] == '{'))
+                if (i + 4 < file_size && file[i + 1] == 'o' && file[i + 2] == 'o' && file[i + 3] == 'p' && (isspace(file[i + 4]) || file[i + 4] == '{'))
                 {
                     token.type = Loop;
                     i += 3;
                 }
                 break;
             case 'w':
-                if (i + 5 < file_size && buffer[i + 1] == 'h' && buffer[i + 2] == 'i' && buffer[i + 3] == 'l' && buffer[i + 4] == 'e' && isspace(buffer[i + 5]))
+                if (i + 5 < file_size && file[i + 1] == 'h' && file[i + 2] == 'i' && file[i + 3] == 'l' && file[i + 4] == 'e' && isspace(file[i + 5]))
                 {
                     token.type = While;
                     i += 5;
                 }
                 break;
             case 'f':
-                if (i + 2 < file_size && buffer[i + 1] == 'n' && isspace(buffer[i + 2]))
+                if (i + 2 < file_size && file[i + 1] == 'n' && isspace(file[i + 2]))
                 {
                     token.type = Function;
                     i += 2;
                 }
                 break;
             case 'r':
-                if (i + 6 < file_size && buffer[i + 1] == 'e' && buffer[i + 2] == 't' && buffer[i + 3] == 'u' && buffer[i + 4] == 'r' && buffer[i + 5] == 'n' && (isspace(buffer[i + 6]) || buffer[i + 6] == ';'))
+                if (i + 6 < file_size && file[i + 1] == 'e' && file[i + 2] == 't' && file[i + 3] == 'u' && file[i + 4] == 'r' && file[i + 5] == 'n' && (isspace(file[i + 6]) || file[i + 6] == ';'))
                 {
                     token.type = Return;
                     i += 5;
                 }
                 break;
             case 'b':
-                if (i + 5 < file_size && buffer[i + 1] == 'r' && buffer[i + 2] == 'e' && buffer[i + 3] == 'a' && buffer[i + 4] == 'k' && (isspace(buffer[i + 5]) || buffer[i + 5] == ';'))
+                if (i + 5 < file_size && file[i + 1] == 'r' && file[i + 2] == 'e' && file[i + 3] == 'a' && file[i + 4] == 'k' && (isspace(file[i + 5]) || file[i + 5] == ';'))
                 {
                     token.type = Break;
                     i += 4;
                 }
                 break;
             case 'c':
-                if (i + 8 < file_size && buffer[i + 1] == 'o' && buffer[i + 2] == 'n' && buffer[i + 3] == 't' && buffer[i + 4] == 'i' && buffer[i + 5] == 'n' && buffer[i + 6] == 'u' && buffer[i + 7] == 'e' && (isspace(buffer[i + 8]) || buffer[i + 8] == ';'))
+                if (i + 8 < file_size && file[i + 1] == 'o' && file[i + 2] == 'n' && file[i + 3] == 't' && file[i + 4] == 'i' && file[i + 5] == 'n' && file[i + 6] == 'u' && file[i + 7] == 'e' && (isspace(file[i + 8]) || file[i + 8] == ';'))
                 {
                     token.type = Continue;
                     i += 7;
@@ -346,7 +315,7 @@ TokenVector Tokenize(int file_size, char *buffer)
             {
                 if (value.size != 0)
                 {
-                    PushToken(&tokens, IdentToken(&value));
+                    PushToken(&tokens, IdentToken(&value, i));
                 }
                 PushToken(&tokens, token);
             }
@@ -366,12 +335,7 @@ TokenVector Tokenize(int file_size, char *buffer)
 #pragma region Parser
 typedef struct Expr Expr;
 
-typedef struct ExprVector
-{
-    Expr *array;
-    int size;
-    int capacity;
-} ExprVector;
+VECTOR_STRUCT(Expr, Expr);
 
 struct Mod
 {
@@ -539,24 +503,7 @@ typedef struct Expr
     ExprUnion expr;
 } Expr;
 
-ExprVector NewExprVector(int capacity)
-{
-    ExprVector vector;
-    vector.array = malloc(sizeof(Expr) * capacity);
-    vector.size = 0;
-    vector.capacity = capacity;
-    return vector;
-}
-
-void PushExpr(ExprVector *vector, Expr expr)
-{
-    vector->array[vector->size++] = expr;
-    if (vector->size == vector->capacity)
-    {
-        int capacity = vector->capacity *= 2;
-        vector->array = realloc(vector->array, sizeof(Expr) * capacity);
-    }
-}
+VECTOR_FUNC(Expr, Expr);
 
 int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
 {
@@ -570,11 +517,70 @@ int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
     return -1;
 }
 
+int *LineColumn(int index)
+{
+    int *line_column = malloc(sizeof(int) * 2);
+    line_column[0] = 1;
+    line_column[1] = 1;
+    for (int i = 0; i < index; ++i)
+    {
+        if (file[i] == '\n')
+        {
+            line_column[0] += 1;
+            line_column[1] = 1;
+        }
+        else
+        {
+            line_column[1] += 1;
+        }
+    }
+    return line_column;
+}
+
 #define EXPECTED(e) \
     else { ERROR("expected " e) }
-#define ERROR(e)                                           \
-    printf(":%i:%i: error: " e, token.line, token.column); \
-    exit(1);
+#define ERROR(e)                                                                               \
+    {                                                                                          \
+        int *line_column = LineColumn(token.index);                                            \
+        printf("%s:%i:%i: error: " e, file_name, line_column[0], line_column[1], token.value); \
+        exit(1);                                                                               \
+    }
+
+VECTOR(Var, struct Arg);
+
+typedef struct VarStack VarStack;
+
+typedef struct VarStack
+{
+    VarVector vars;
+    VarStack *before;
+} VarStack;
+
+VarStack *NewVarStack()
+{
+    VarStack *stack = malloc(sizeof(VarStack));
+    stack->vars = NewVarVector(2);
+    stack->before = NULL;
+    return stack;
+}
+
+VarStack *var_stack = NULL;
+
+char VariableDefined(VarStack stack, char *name)
+{
+    for (int i = 0; i < stack.vars.size; ++i)
+    {
+        if (strcmp(stack.vars.array[i].name, name) == 0)
+        {
+            return 1;
+        }
+    }
+    if (stack.before != NULL && VariableDefined(*stack.before, name))
+    {
+        return 1;
+    }
+    return 0;
+}
 
 Expr *Parse(TokenVector tokens, int start, int end)
 {
@@ -728,6 +734,10 @@ Expr *Parse(TokenVector tokens, int start, int end)
             }
             else
             {
+                if (!VariableDefined(*var_stack, token.value))
+                {
+                    ERROR("variable '%s' is undefined");
+                }
                 expr->type = VarUseExpr;
                 expr->expr._var_use.name = token.value;
                 return expr;
@@ -748,6 +758,10 @@ Expr *Parse(TokenVector tokens, int start, int end)
 
 ExprVector ParseBlock(TokenVector tokens, int *index)
 {
+    VarStack *old = var_stack;
+    var_stack = NewVarStack();
+    var_stack->before = old;
+
     char global_scope = *index == 0;
 
     ExprVector vector = NewExprVector(8);
@@ -766,7 +780,12 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
             switch (token.type)
             {
             case RightBrace:
+            {
+                VarStack *old = var_stack;
+                var_stack = var_stack->before;
+                free(old);
                 return vector;
+            }
             case Module:
                 expr.type = ModExpr;
                 break;
@@ -969,6 +988,9 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     if (token.type == Ident)
                     {
                         expr->expr._var_def.name = token.value;
+                        struct Arg var;
+                        var.name = token.value;
+                        PushVar(&var_stack->vars, var);
                         ++expr_state;
                     }
                     EXPECTED("variable name after 'var'");
@@ -1255,6 +1277,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
 
     if (global_scope)
     {
+        free(var_stack);
         return vector;
     }
 
@@ -1553,7 +1576,6 @@ int main(int argc, char **argv)
     }
 
     char help = 0;
-    char *input = NULL;
     char *output = NULL;
     for (int i = 1; i < argc; ++i)
     {
@@ -1573,9 +1595,9 @@ int main(int argc, char **argv)
                 return 1;
             }
         }
-        else if (input == NULL)
+        else if (file_name == NULL)
         {
-            input = argv[i];
+            file_name = argv[i];
         }
         else
         {
@@ -1591,25 +1613,25 @@ int main(int argc, char **argv)
     }
 
     // Open the file
-    FILE *filepoint;
-    if (fopen_s(&filepoint, input, "rb"))
+    FILE *file_point;
+    if (fopen_s(&file_point, file_name, "rb"))
     {
-        printf("Error: no such file or directory: '%s'", input);
+        printf("Error: no such file or directory: '%s'", file_name);
         return 1;
     }
 
     // Get the size of the file
-    fseek(filepoint, 0L, SEEK_END);
-    int file_size = ftell(filepoint);
-    rewind(filepoint);
+    fseek(file_point, 0L, SEEK_END);
+    file_size = ftell(file_point);
+    rewind(file_point);
 
     // Allocate the buffer, read contents and close the file
-    char *buffer = malloc(file_size);
-    fread(buffer, file_size, 1, filepoint);
-    fclose(filepoint);
+    file = malloc(file_size);
+    fread(file, file_size, 1, file_point);
+    fclose(file_point);
 
     // Tokenize the file
-    TokenVector tokens = Tokenize(file_size, buffer);
+    TokenVector tokens = Tokenize();
 
     // Parse the tokens
     int index = 0;
@@ -1618,15 +1640,15 @@ int main(int argc, char **argv)
     // Generate output file
     if (output != NULL)
     {
-        fopen_s(&filepoint, output, "w");
+        fopen_s(&file_point, output, "w");
     }
     else
     {
-        fopen_s(&filepoint, "main.c", "w");
+        fopen_s(&file_point, "main.c", "w");
     }
-    fputs("#include <stdint.h>\n", filepoint);
-    GenerateVector(ast, filepoint, 0, 0);
-    fclose(filepoint);
+    fputs("#include <stdint.h>\n", file_point);
+    GenerateVector(ast, file_point, 0, 0);
+    fclose(file_point);
 
     return 0;
 }

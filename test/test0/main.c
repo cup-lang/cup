@@ -1,7 +1,2 @@
 #include <stdint.h>
-void main()
-{
-    string a;
-    a = scan();
-    break;
-}
+void main(){{int b;int a;int a;int a;}a*5;}
