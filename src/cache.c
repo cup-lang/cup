@@ -517,33 +517,40 @@ int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
     return -1;
 }
 
-int *LineColumn(int index)
+typedef struct ErrorData
 {
-    int *line_column = malloc(sizeof(int) * 2);
-    line_column[0] = 1;
-    line_column[1] = 1;
+    int line;
+    int column;
+    char *error; //TODO: error code snippet
+} ErrorData;
+
+ErrorData GetErrorData(int index)
+{
+    ErrorData error;
+    error.line = 0;
+    error.column = 0;
     for (int i = 0; i < index; ++i)
     {
         if (file[i] == '\n')
         {
-            line_column[0] += 1;
-            line_column[1] = 1;
+            ++error.line;
+            error.column = 0;
         }
         else
         {
-            line_column[1] += 1;
+            ++error.column;
         }
     }
-    return line_column;
+    return error;
 }
 
 #define EXPECTED(e) \
     else { ERROR("expected " e) }
-#define ERROR(e)                                                                               \
-    {                                                                                          \
-        int *line_column = LineColumn(token.index);                                            \
-        printf("%s:%i:%i: error: " e, file_name, line_column[0], line_column[1], token.value); \
-        exit(1);                                                                               \
+#define ERROR(e)                                                                                      \
+    {                                                                                                 \
+        ErrorData error = GetErrorData(token.index);                                                  \
+        printf("%s:%i:%i: error: " e "\n", file_name, error.line + 1, error.column + 1, token.value); \
+        exit(1);                                                                                      \
     }
 
 VECTOR(Var, struct Arg);
