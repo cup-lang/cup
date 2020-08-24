@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
+#include <stdlib.h>
 
 #define VECTOR(n, t)     \
     VECTOR_STRUCT(n, t); \
@@ -159,7 +161,7 @@ TokenVector Tokenize()
             {
             case '#':
                 is_comment = 1;
-                break;
+                continue;
             case '=':
                 token.type = Assign + is_assign;
                 break;
@@ -531,7 +533,6 @@ typedef struct ErrorData
 
 ErrorData GetErrorData(int index)
 {
-    printf("%i", index);
     ErrorData error;
     error.line = 1;
     error.column = 1;
@@ -1624,6 +1625,8 @@ void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma)
 
 int main(int argc, char **argv)
 {
+    system("color 0a"); 
+
     if (argc == 1)
     {
         printf("Error: no input file specified");
@@ -1704,6 +1707,8 @@ int main(int argc, char **argv)
     fputs("#include <stdint.h>\n", file_point);
     GenerateVector(ast, file_point, 0, 0);
     fclose(file_point);
+
+    printf("Compilation successful in %fs\n", (double)clock() / CLOCKS_PER_SEC);
 
     return 0;
 }

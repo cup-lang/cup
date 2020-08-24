@@ -1,19 +1,10 @@
-mod abc {
-    fn main() {
-a
-        abcdef * 5;
+fn main() {
+    # rewrite tokenizer
 
-        var a: int;
+    var avar : int;
 
-        a * 5;
+    # var;
 
-        {
-            a * 5;
-
-            var b: int;
-            var a: int;
-            var a: int;
-            var a: int;
-        }
-    }
+    # a
+    # abcdef;
 }
