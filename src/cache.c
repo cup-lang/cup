@@ -109,7 +109,7 @@ Token IdentToken(CharVector *vector, int index)
     Token token;
     token.type = Ident;
     token.index = index;
-    token.value = malloc(vector->size + 1);
+    token.value = malloc(vector->size);
     memcpy(token.value, vector->array, vector->size);
     token.value[vector->size] = '\0';
     vector->size = 0;
@@ -120,6 +120,7 @@ TokenVector Tokenize()
 {
     TokenVector tokens = NewTokenVector(file_size / 4);
     CharVector value = NewCharVector(32);
+    int index;
     char is_comment = 0;
 
     // Loop through all characters and create tokens
@@ -141,7 +142,7 @@ TokenVector Tokenize()
             PushChar(&value, c);
             if (c == '"')
             {
-                PushToken(&tokens, IdentToken(&value, i));
+                PushToken(&tokens, IdentToken(&value, index));
             }
         }
         else
@@ -315,13 +316,17 @@ TokenVector Tokenize()
             {
                 if (value.size != 0)
                 {
-                    PushToken(&tokens, IdentToken(&value, i));
+                    PushToken(&tokens, IdentToken(&value, index));
                 }
                 PushToken(&tokens, token);
             }
             // Update value
-            else if (!is_comment && !isspace(c))
+            else if (!isspace(c))
             {
+                if (value.size == 0)
+                {
+                    index = i;
+                }
                 PushChar(&value, c);
             }
         }
@@ -521,36 +526,79 @@ typedef struct ErrorData
 {
     int line;
     int column;
-    char *error; //TODO: error code snippet
+    char *error;
 } ErrorData;
 
 ErrorData GetErrorData(int index)
 {
+    printf("%i", index);
     ErrorData error;
-    error.line = 0;
-    error.column = 0;
+    error.line = 1;
+    error.column = 1;
     for (int i = 0; i < index; ++i)
     {
         if (file[i] == '\n')
         {
             ++error.line;
-            error.column = 0;
+            error.column = 1;
         }
         else
         {
             ++error.column;
         }
     }
+    CharVector vector = NewCharVector(64);
+    PushChar(&vector, ' ');
+    int i = error.line;
+    int length = 2;
+    while (i)
+    {
+        ++length;
+        PushChar(&vector, i % 10 + 48);
+        i /= 10;
+    }
+    PushChar(&vector, ' ');
+    PushChar(&vector, '|');
+    int line = 1;
+    for (int i = 0; i < file_size; ++i)
+    {
+        if (file[i] == '\n')
+        {
+            ++line;
+            if (line > error.line)
+            {
+                break;
+            }
+        }
+        else if (line == error.line)
+        {
+            PushChar(&vector, file[i]);
+        }
+    }
+    PushChar(&vector, '\n');
+    for (int i = 0; i < length; ++i)
+    {
+        PushChar(&vector, ' ');
+    }
+    PushChar(&vector, '|');
+    for (int i = 0; i < error.column - 1; ++i)
+    {
+        PushChar(&vector, ' ');
+    }
+    PushChar(&vector, '^');
+    error.error = vector.array;
+    error.error[vector.size] = '\0';
     return error;
 }
 
 #define EXPECTED(e) \
     else { ERROR("expected " e) }
-#define ERROR(e)                                                                                      \
-    {                                                                                                 \
-        ErrorData error = GetErrorData(token.index);                                                  \
-        printf("%s:%i:%i: error: " e "\n", file_name, error.line + 1, error.column + 1, token.value); \
-        exit(1);                                                                                      \
+#define ERROR(e)                                                                              \
+    {                                                                                         \
+        ErrorData error = GetErrorData(token.index);                                          \
+        printf("%s:%i:%i: error: " e "\n", file_name, error.line, error.column, token.value); \
+        printf("%s\n", error.error);                                                          \
+        exit(1);                                                                              \
     }
 
 VECTOR(Var, struct Arg);

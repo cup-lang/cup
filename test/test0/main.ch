@@ -1,6 +1,7 @@
 mod abc {
     fn main() {
-        a * 5;
+a
+        abcdef * 5;
 
         var a: int;
 
