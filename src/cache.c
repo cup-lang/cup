@@ -3,7 +3,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include <stdlib.h>
+#ifdef _WIN32
+#include <windows.h>
+HANDLE console;
+#endif
 
 #define VECTOR(n, t)     \
     VECTOR_STRUCT(n, t); \
@@ -44,7 +47,7 @@ int file_size;
 char *file;
 
 #pragma region Lexer
-typedef enum TokenType
+typedef enum _TokenType
 {
     Ident,
     Public, // TODO
@@ -95,11 +98,11 @@ typedef enum TokenType
     ModuloAssign,
     Not,
     NotEqual
-} TokenType;
+} _TokenType;
 
 typedef struct Token
 {
-    TokenType type;
+    _TokenType type;
     char *value;
     int index;
 } Token;
@@ -396,7 +399,7 @@ struct VarUse
 
 struct Op
 {
-    TokenType type;
+    _TokenType type;
     Expr *lhs;
     Expr *rhs;
 };
@@ -512,7 +515,7 @@ typedef struct Expr
 
 VECTOR_FUNC(Expr, Expr);
 
-int NextTokenOfType(TokenVector tokens, int start, TokenType type, int end)
+int NextTokenOfType(TokenVector tokens, int start, _TokenType type, int end)
 {
     for (int i = start; i < end; ++i)
     {
@@ -592,14 +595,28 @@ ErrorData GetErrorData(int index)
     return error;
 }
 
+#ifdef _WIN32
+#define COLOR(c) SetConsoleTextAttribute(console, c);
+#define RESET 7
+#define RED 12
+#else
+#define COLOR(c) printf(c);
+#define RESET "\033[0m;"
+#define RED “\033[0;31m”
+#endif
+
 #define EXPECTED(e) \
-    else { ERROR("expected " e) }
-#define ERROR(e)                                                                              \
-    {                                                                                         \
-        ErrorData error = GetErrorData(token.index);                                          \
-        printf("%s:%i:%i: error: " e "\n", file_name, error.line, error.column, token.value); \
-        printf("%s\n", error.error);                                                          \
-        exit(1);                                                                              \
+    else { THROW("expected " e) }
+#define THROW(e)                                                   \
+    {                                                              \
+        ErrorData error = GetErrorData(token.index);               \
+        printf("%s:%i:%i: ", file_name, error.line, error.column); \
+        COLOR(RED);                                                \
+        printf("error: ");                                         \
+        SetConsoleTextAttribute(console, 7);                       \
+        printf(e "\n", token.value);                               \
+        printf("%s\n", error.error);                               \
+        exit(1);                                                   \
     }
 
 VECTOR(Var, struct Arg);
@@ -643,12 +660,12 @@ Expr *Parse(TokenVector tokens, int start, int end)
     int op_level = 0;
     int op_count = 0;
     int op_index;
-    TokenType op_type;
+    _TokenType op_type;
 
     for (int i = start; i < end; ++i)
     {
         ++op_count;
-        TokenType type = tokens.array[i].type;
+        _TokenType type = tokens.array[i].type;
         switch (type)
         {
         case Assign:
@@ -742,7 +759,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
 
         if (tokens.array[start].type != Ident)
         {
-            ERROR("expected identifier");
+            THROW("expected identifier");
         }
 
         switch (tokens.array[start + 1].type)
@@ -753,7 +770,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
             int paren = NextTokenOfType(tokens, start, RightParen, tokens.size);
             if (paren == -1)
             {
-                ERROR("expected ')' after '('");
+                THROW("expected ')' after '('");
             }
             if (start + 2 == paren)
             {
@@ -792,7 +809,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
             {
                 if (!VariableDefined(*var_stack, token.value))
                 {
-                    ERROR("variable '%s' is undefined");
+                    THROW("variable '%s' is undefined");
                 }
                 expr->type = VarUseExpr;
                 expr->expr._var_use.name = token.value;
@@ -1267,13 +1284,13 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                     switch (expr->type)
                     {
                     case IfExpr:
-                        ERROR("expected '{' after 'if'");
+                        THROW("expected '{' after 'if'");
                         break;
                     case ElifExpr:
-                        ERROR("expected '{' after 'elif'");
+                        THROW("expected '{' after 'elif'");
                         break;
                     case WhileExpr:
-                        ERROR("expected '{' after 'while'");
+                        THROW("expected '{' after 'while'");
                         break;
                     }
                 }
@@ -1338,7 +1355,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
     }
 
     Token token = tokens.array[tokens.size - 1];
-    ERROR("expected '}' token");
+    THROW("expected '}' token");
 }
 #pragma endregion
 
@@ -1573,7 +1590,7 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon, char parenths)
         fputc('}', fp);
         break;
     case LoopExpr:
-        fputs("while(1){", fp);
+        fputs("for(;;){", fp);
         GenerateVector(expr.expr._loop.body, fp, 1, 0);
         fputc('}', fp);
         break;
@@ -1625,7 +1642,9 @@ void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma)
 
 int main(int argc, char **argv)
 {
-    system("color 0a"); 
+#ifdef _WIN32
+    console = GetStdHandle(STD_OUTPUT_HANDLE);
+#endif
 
     if (argc == 1)
     {
