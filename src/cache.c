@@ -527,72 +527,30 @@ int NextTokenOfType(TokenVector tokens, int start, _TokenType type, int end)
     return -1;
 }
 
-typedef struct ErrorData
+typedef struct Location
 {
     int line;
     int column;
-    char *error;
-} ErrorData;
+} Location;
 
-ErrorData GetErrorData(int index)
+Location GetLocation(int index)
 {
-    ErrorData error;
-    error.line = 1;
-    error.column = 1;
+    Location location;
+    location.line = 1;
+    location.column = 1;
     for (int i = 0; i < index; ++i)
     {
         if (file[i] == '\n')
         {
-            ++error.line;
-            error.column = 1;
+            ++location.line;
+            location.column = 1;
         }
         else
         {
-            ++error.column;
+            ++location.column;
         }
     }
-    CharVector vector = NewCharVector(64);
-    PushChar(&vector, ' ');
-    int i = error.line;
-    int length = 2;
-    while (i)
-    {
-        ++length;
-        PushChar(&vector, i % 10 + 48);
-        i /= 10;
-    }
-    PushChar(&vector, ' ');
-    PushChar(&vector, '|');
-    int line = 1;
-    for (int i = 0; i < file_size; ++i)
-    {
-        if (file[i] == '\n')
-        {
-            ++line;
-            if (line > error.line)
-            {
-                break;
-            }
-        }
-        else if (line == error.line)
-        {
-            PushChar(&vector, file[i]);
-        }
-    }
-    PushChar(&vector, '\n');
-    for (int i = 0; i < length; ++i)
-    {
-        PushChar(&vector, ' ');
-    }
-    PushChar(&vector, '|');
-    for (int i = 0; i < error.column - 1; ++i)
-    {
-        PushChar(&vector, ' ');
-    }
-    PushChar(&vector, '^');
-    error.error = vector.array;
-    error.error[vector.size] = '\0';
-    return error;
+    return location;
 }
 
 #ifdef _WIN32
@@ -605,18 +563,58 @@ ErrorData GetErrorData(int index)
 #define RED “\033[0;31m”
 #endif
 
+void PrintSnippet(Location location)
+{
+    printf(" %i | ", location.line);
+    int i = location.line;
+    int length = 2;
+    while (i)
+    {
+        ++length;
+        i /= 10;
+    }
+    int line_index = 1;
+    for (int i = 0; i < file_size; ++i)
+    {
+        if (file[i] == '\n')
+        {
+            if (++line_index > location.line)
+            {
+                break;
+            }
+        }
+        else if (line_index == location.line)
+        {
+            printf("%c", file[i]);
+        }
+    }
+    printf("\n");
+    for (int i = 0; i < length; ++i)
+    {
+        printf(" ");
+    }
+    printf("|");
+    for (int i = 0; i < location.column; ++i)
+    {
+        printf(" ");
+    }
+    COLOR(RED);
+    printf("^");
+    COLOR(RESET);
+}
+
 #define EXPECTED(e) \
     else { THROW("expected " e) }
-#define THROW(e)                                                   \
-    {                                                              \
-        ErrorData error = GetErrorData(token.index);               \
-        printf("%s:%i:%i: ", file_name, error.line, error.column); \
-        COLOR(RED);                                                \
-        printf("error: ");                                         \
-        SetConsoleTextAttribute(console, 7);                       \
-        printf(e "\n", token.value);                               \
-        printf("%s\n", error.error);                               \
-        exit(1);                                                   \
+#define THROW(e)                                                         \
+    {                                                                    \
+        Location location = GetLocation(token.index);                    \
+        printf("%s:%i:%i: ", file_name, location.line, location.column); \
+        COLOR(RED);                                                      \
+        printf("error: ");                                               \
+        SetConsoleTextAttribute(console, 7);                             \
+        printf(e "\n", token.value);                                     \
+        PrintSnippet(location);                                          \
+        exit(1);                                                         \
     }
 
 VECTOR(Var, struct Arg);

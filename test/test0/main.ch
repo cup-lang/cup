@@ -1,6 +1,4 @@
-fn () {
-    # remove spaces and do one space
-
+fn main() {
     # rewrite tokenizer
 
     # var avar : int;
