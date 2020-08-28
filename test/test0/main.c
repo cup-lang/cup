@@ -1,2 +1,2 @@
 #include <stdint.h>
-void main(){}
+void main() { int avar; }

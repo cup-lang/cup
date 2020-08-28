@@ -70,7 +70,7 @@ typedef enum _TokenType
     For,
     Return,
     Break,
-    Continue,
+    Next,
     // Brackets
     LeftParen,
     RightParen,
@@ -113,7 +113,7 @@ Token IdentToken(CharVector *vector, int index)
 {
     Token token;
     token.type = Ident;
-    token.index = index;
+    token.index = index - vector->size;
     token.value = malloc(vector->size);
     memcpy(token.value, vector->array, vector->size);
     token.value[vector->size] = '\0';
@@ -125,221 +125,296 @@ TokenVector Tokenize()
 {
     TokenVector tokens = NewTokenVector(file_size / 4);
     CharVector value = NewCharVector(32);
-    int index;
-    char is_comment = 0;
+    char comment = 0;
 
-    // Loop through all characters and create tokens
     for (int i = 0; i < file_size; ++i)
     {
         char c = file[i];
 
-        if (is_comment)
+        if (comment)
         {
             if (c == '\n')
             {
-                is_comment = 0;
+                comment = 0;
             }
             continue;
         }
 
-        if (value.size != 0 && value.array[0] == '"')
+        if (c == '#')
         {
-            PushChar(&value, c);
-            if (c == '"')
+            comment = 1;
+            continue;
+        }
+
+        _TokenType type = 0;
+
+        if (isspace(c))
+        {
+            type = -1;
+        }
+
+        switch (c)
+        {
+        case ';':
+            type = Semicolon;
+            break;
+        case ':':
+            type = Colon;
+            break;
+        case ',':
+            type = Comma;
+            break;
+        case '.':
+            if (i + 1 < file_size && file[i + 1] == '.')
             {
-                PushToken(&tokens, IdentToken(&value, index));
+                type = Range;
+                ++i;
+            }
+            else
+            {
+                type = Dot;
+            }
+            break;
+        case '(':
+            type = LeftParen;
+            break;
+        case ')':
+            type = RightParen;
+            break;
+        case '{':
+            type = LeftBrace;
+            break;
+        case '}':
+            type = RightBrace;
+            break;
+        case '[':
+            type = LeftSquare;
+            break;
+        case ']':
+            type = RightSquare;
+            break;
+        case '=':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = Equal;
+                ++i;
+            }
+            else
+            {
+                type = Assign;
+            }
+            break;
+        case '<':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = LessEqual;
+                ++i;
+            }
+            else
+            {
+                type = Less;
+            }
+            break;
+        case '>':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = GreaterEqual;
+                ++i;
+            }
+            else
+            {
+                type = Greater;
+            }
+            break;
+        case '+':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = AddAssign;
+                ++i;
+            }
+            else
+            {
+                type = Add;
+            }
+            break;
+        case '-':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = SubstractAssign;
+                ++i;
+            }
+            else
+            {
+                type = Substract;
+            }
+            break;
+        case '*':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = MultiplyAssign;
+                ++i;
+            }
+            else
+            {
+                type = Multiply;
+            }
+            break;
+        case '/':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = Divide;
+                ++i;
+            }
+            else
+            {
+                type = DivideAssign;
+            }
+            break;
+        case '%':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = ModuloAssign;
+                ++i;
+            }
+            else
+            {
+                type = Modulo;
+            }
+            break;
+        case '!':
+            if (i + 1 < file_size && file[i + 1] == '=')
+            {
+                type = NotEqual;
+                ++i;
+            }
+            else
+            {
+                type = Not;
+            }
+            break;
+        }
+
+        if (type)
+        {
+            _TokenType value_type = 0;
+
+            if (value.size)
+            {
+                value_type = -1;
+            }
+
+            switch (value.size)
+            {
+            case 2:
+                if (value.array[0] == 'f' && value.array[1] == 'n')
+                {
+                    value_type = Function;
+                }
+                else if (value.array[0] == 'i' && value.array[1] == 'f')
+                {
+                    value_type = If;
+                }
+                else if (value.array[0] == 'i' && value.array[1] == 'n')
+                {
+                    value_type = In;
+                }
+                break;
+            case 3:
+                if (value.array[0] == 'p' && value.array[1] == 'u' && value.array[2] == 'b')
+                {
+                    value_type = Public;
+                }
+                else if (value.array[0] == 'm' && value.array[1] == 'o' && value.array[2] == 'd')
+                {
+                    value_type = Module;
+                }
+                else if (value.array[0] == 'v' && value.array[1] == 'a' && value.array[2] == 'r')
+                {
+                    value_type = Variable;
+                }
+                else if (value.array[0] == 'f' && value.array[1] == 'o' && value.array[2] == 'r')
+                {
+                    value_type = For;
+                }
+                break;
+            case 4:
+                if (value.array[0] == 'e' && value.array[1] == 'n' && value.array[2] == 'u' && value.array[3] == 'm')
+                {
+                    value_type = Enum;
+                }
+                else if (value.array[0] == 'e' && value.array[1] == 'l' && value.array[2] == 'i' && value.array[3] == 'f')
+                {
+                    value_type = Elif;
+                }
+                else if (value.array[0] == 'e' && value.array[1] == 'l' && value.array[2] == 's' && value.array[3] == 'e')
+                {
+                    value_type = Else;
+                }
+                else if (value.array[0] == 'l' && value.array[1] == 'o' && value.array[2] == 'o' && value.array[3] == 'p')
+                {
+                    value_type = Loop;
+                }
+                else if (value.array[0] == 'n' && value.array[1] == 'e' && value.array[2] == 'x' && value.array[3] == 't')
+                {
+                    value_type = Next;
+                }
+                break;
+            case 5:
+                if (value.array[0] == 'w' && value.array[1] == 'h' && value.array[2] == 'i' && value.array[3] == 'l' && value.array[4] == 'e')
+                {
+                    value_type = While;
+                }
+                else if (value.array[0] == 'b' && value.array[1] == 'r' && value.array[2] == 'e' && value.array[3] == 'a' && value.array[4] == 'k')
+                {
+                    value_type = Break;
+                }
+                break;
+            case 6:
+                if (value.array[0] == 's' && value.array[1] == 't' && value.array[2] == 'r' && value.array[3] == 'u' && value.array[4] == 'c' && value.array[5] == 't')
+                {
+                    value_type = Struct;
+                }
+                else if (value.array[0] == 'r' && value.array[1] == 'e' && value.array[2] == 't' && value.array[3] == 'u' && value.array[4] == 'r' && value.array[5] == 'n')
+                {
+                    value_type = Return;
+                }
+                break;
+            }
+
+            if (value_type)
+            {
+                if (value_type == -1)
+                {
+                    PushToken(&tokens, IdentToken(&value, i));
+                }
+                else
+                {
+                    Token token;
+                    token.index = i - value.size;
+                    token.type = value_type;
+                    PushToken(&tokens, token);
+                    value.size = 0;
+                }
+            }
+
+            if (type != -1)
+            {
+                Token token;
+                token.index = i; //FIX: for 2 character tokens
+                token.type = type;
+                PushToken(&tokens, token);
             }
         }
         else
         {
-            Token token;
-            token.index = i;
-            token.type = -1;
-            token.value = NULL;
-
-            // Check assign
-            char is_assign = i + 1 < file_size && file[i + 1] == '=';
-
-            switch (c)
-            {
-            case '#':
-                is_comment = 1;
-                continue;
-            case '=':
-                token.type = Assign + is_assign;
-                break;
-            case '<':
-                token.type = Less + is_assign;
-                break;
-            case '>':
-                token.type = Greater + is_assign;
-                break;
-            case '+':
-                token.type = Add + is_assign;
-                break;
-            case '-':
-                token.type = Substract + is_assign;
-                break;
-            case '*':
-                token.type = Multiply + is_assign;
-                break;
-            case '/':
-                token.type = Divide + is_assign;
-                break;
-            case '%':
-                token.type = Modulo + is_assign;
-                break;
-            case '!':
-                token.type = Not + is_assign;
-                break;
-            case '(':
-                token.type = LeftParen;
-                break;
-            case ')':
-                token.type = RightParen;
-                break;
-            case '{':
-                token.type = LeftBrace;
-                break;
-            case '}':
-                token.type = RightBrace;
-                break;
-            case '[':
-                token.type = LeftSquare;
-                break;
-            case ']':
-                token.type = RightSquare;
-                break;
-            case ';':
-                token.type = Semicolon;
-                break;
-            case ':':
-                token.type = Colon;
-                break;
-            case ',':
-                token.type = Comma;
-                break;
-            case '.':
-                token.type = Dot;
-                if (i + 1 < file_size && file[i + 1] == '.')
-                {
-                    token.type = Range;
-                    i += 1;
-                }
-                break;
-            case 'm':
-                if (i + 3 < file_size && file[i + 1] == 'o' && file[i + 2] == 'd' && isspace(file[i + 3]))
-                {
-                    token.type = Module;
-                    i += 3;
-                }
-                break;
-            case 'v':
-                if (i + 3 < file_size && file[i + 1] == 'a' && file[i + 2] == 'r' && isspace(file[i + 3]))
-                {
-                    token.type = Variable;
-                    i += 3;
-                }
-                break;
-            case 's':
-                if (i + 6 < file_size && file[i + 1] == 't' && file[i + 2] == 'r' && file[i + 3] == 'u' && file[i + 4] == 'c' && file[i + 5] == 't' && isspace(file[i + 6]))
-                {
-                    token.type = Struct;
-                    i += 6;
-                }
-                break;
-            case 'i':
-                if (i + 2 < file_size && file[i + 1] == 'f' && isspace(file[i + 2]))
-                {
-                    token.type = If;
-                    i += 2;
-                }
-                break;
-            case 'e':
-                if (i + 4 < file_size && file[i + 1] == 'n' && file[i + 2] == 'u' && file[i + 3] == 'm' && isspace(file[i + 4]))
-                {
-                    token.type = Enum;
-                    i += 4;
-                }
-                else if (i + 4 < file_size && file[i + 1] == 'l' && file[i + 2] == 'i' && file[i + 3] == 'f' && isspace(file[i + 4]))
-                {
-                    token.type = Elif;
-                    i += 4;
-                }
-                else if (i + 4 < file_size && file[i + 1] == 'l' && file[i + 2] == 's' && file[i + 3] == 'e' && isspace(file[i + 4]))
-                {
-                    token.type = Else;
-                    i += 4;
-                }
-                break;
-            case 'l':
-                if (i + 4 < file_size && file[i + 1] == 'o' && file[i + 2] == 'o' && file[i + 3] == 'p' && (isspace(file[i + 4]) || file[i + 4] == '{'))
-                {
-                    token.type = Loop;
-                    i += 3;
-                }
-                break;
-            case 'w':
-                if (i + 5 < file_size && file[i + 1] == 'h' && file[i + 2] == 'i' && file[i + 3] == 'l' && file[i + 4] == 'e' && isspace(file[i + 5]))
-                {
-                    token.type = While;
-                    i += 5;
-                }
-                break;
-            case 'f':
-                if (i + 2 < file_size && file[i + 1] == 'n' && isspace(file[i + 2]))
-                {
-                    token.type = Function;
-                    i += 2;
-                }
-                break;
-            case 'r':
-                if (i + 6 < file_size && file[i + 1] == 'e' && file[i + 2] == 't' && file[i + 3] == 'u' && file[i + 4] == 'r' && file[i + 5] == 'n' && (isspace(file[i + 6]) || file[i + 6] == ';'))
-                {
-                    token.type = Return;
-                    i += 5;
-                }
-                break;
-            case 'b':
-                if (i + 5 < file_size && file[i + 1] == 'r' && file[i + 2] == 'e' && file[i + 3] == 'a' && file[i + 4] == 'k' && (isspace(file[i + 5]) || file[i + 5] == ';'))
-                {
-                    token.type = Break;
-                    i += 4;
-                }
-                break;
-            case 'c':
-                if (i + 8 < file_size && file[i + 1] == 'o' && file[i + 2] == 'n' && file[i + 3] == 't' && file[i + 4] == 'i' && file[i + 5] == 'n' && file[i + 6] == 'u' && file[i + 7] == 'e' && (isspace(file[i + 8]) || file[i + 8] == ';'))
-                {
-                    token.type = Continue;
-                    i += 7;
-                }
-                break;
-            }
-
-            // Push the token
-            if (token.type != -1)
-            {
-                if (value.size != 0)
-                {
-                    PushToken(&tokens, IdentToken(&value, index));
-                }
-                PushToken(&tokens, token);
-            }
-            // Update value
-            else if (!isspace(c))
-            {
-                if (value.size == 0)
-                {
-                    index = i;
-                }
-                PushChar(&value, c);
-            }
+            PushChar(&value, c);
         }
     }
 
     free(value.array);
     return tokens;
 }
+
 #pragma endregion
 
 #pragma region Parser
@@ -482,7 +557,7 @@ typedef enum ExprType
     ForExpr,
     ReturnExpr,
     BreakExpr,
-    ContinueExpr
+    NextExpr
 } ExprType;
 
 typedef union ExprUnion {
@@ -927,8 +1002,8 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
             case Break:
                 expr.type = BreakExpr;
                 break;
-            case Continue:
-                expr.type = ContinueExpr;
+            case Next:
+                expr.type = NextExpr;
                 break;
             }
 
@@ -1333,7 +1408,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                 }
                 EXPECTED("';' after 'break'");
                 break;
-            case ContinueExpr:
+            case NextExpr:
                 if (token.type == Semicolon)
                 {
                     ++expr_index;
@@ -1618,7 +1693,7 @@ void GenerateExpr(Expr expr, FILE *fp, char last, char semicolon, char parenths)
     case BreakExpr:
         fputs("break;", fp);
         break;
-    case ContinueExpr:
+    case NextExpr:
         fputs("continue;", fp);
         break;
     }
@@ -1725,7 +1800,7 @@ int main(int argc, char **argv)
     GenerateVector(ast, file_point, 0, 0);
     fclose(file_point);
 
-    printf("Compilation successful in %fs\n", (double)clock() / CLOCKS_PER_SEC);
+    printf("Compilation successful (%.3lfs elapsed)\n", (double)clock() / CLOCKS_PER_SEC);
 
     return 0;
 }
