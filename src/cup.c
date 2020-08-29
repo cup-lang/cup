@@ -1758,7 +1758,7 @@ int main(int argc, char **argv)
     // Print help informations
     if (help)
     {
-        printf("Usage: cache [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n    -o, --output        Specify the output file name");
+        printf("Usage: cup [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n    -o, --output        Specify the output file name");
         return 0;
     }
 
