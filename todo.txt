@@ -1,0 +1,9 @@
+    - type errors
+    - visibility and structure
+    - multifile support
+    - std stub
+I. Usable language
+    - compiler rewrite in Cache
+    - C bindgen
+    - more language features like generics and type inheritance
+II. Game Engine

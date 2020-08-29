@@ -1,0 +1,8 @@
+cache -h --help # Help
+cache -d --docgen # Docgen
+cache -b --bindgen <HEADER> # Bindgen
+cache <INPUT> # Compile
+cache <INPUT> -r --run # Compile and run
+cache <INPUT> -o <OUTPUT> # Output file name
+cache -i --install <PACKAGE> # Install package
+cache -u --uninstall <PACKAGE> # Uninstall package
