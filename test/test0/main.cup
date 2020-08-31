@@ -1,5 +1,11 @@
 fn main() {
-    var a: int;
-    a += 3 * 5 + 7 * 9;
-    # easy
+    # does /= for some reason 
+    # 5 + 3 / abc() 3 * 2;
+
+    # stops parsing after first paren 
+    # (5 + 3) * 3;
+
+    # no syntax error 
+    # 1 + 9);
+    # (3 + 7;
 }

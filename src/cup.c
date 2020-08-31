@@ -592,11 +592,36 @@ VECTOR_FUNC(Expr, Expr);
 
 int NextTokenOfType(TokenVector tokens, int start, _TokenType type, int end)
 {
+    int paren_count = 0;
+    
     for (int i = start; i < end; ++i)
     {
-        if (tokens.array[i].type == type)
+        _TokenType t = tokens.array[i].type;
+
+        switch (t)
         {
-            return i;
+        case LeftParen:
+            ++paren_count;
+            break;
+        case RightParen:
+            --paren_count;
+            break;
+        }
+
+        switch (type)
+        {
+        case RightParen:
+        case Comma:
+            if (paren_count > 0)
+            {
+                break;
+            }
+        default:
+            if (t == type)
+            {
+                return i;
+            }
+            break;
         }
     }
     return -1;
@@ -733,12 +758,31 @@ Expr *Parse(TokenVector tokens, int start, int end)
     int op_level = 0;
     int op_count = 0;
     int op_index;
+    int paren_count = 0;
     _TokenType op_type;
 
+    // Find the highest op_level
     for (int i = start; i < end; ++i)
     {
-        ++op_count;
         _TokenType type = tokens.array[i].type;
+
+        switch (type)
+        {
+        case LeftParen:
+            ++paren_count;
+            break;
+        case RightParen:
+            --paren_count;
+            break;
+        }
+
+        if (paren_count)
+        {
+            continue;
+        }
+
+        ++op_count;
+
         switch (type)
         {
         case Assign:
@@ -830,7 +874,16 @@ Expr *Parse(TokenVector tokens, int start, int end)
         Expr *expr = malloc(sizeof(Expr));
         Token token = tokens.array[start];
 
-        if (tokens.array[start].type != Ident)
+        if (token.type == LeftParen)
+        {
+            if (tokens.array[end - 1].type != RightParen)
+            {
+                THROW("expected ')' after '('");
+            }
+            return Parse(tokens, start + 1, end - 1);
+        }
+
+        if (token.type != Ident)
         {
             THROW("expected identifier");
         }
@@ -840,7 +893,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
         case LeftParen:
             expr->type = FnCallExpr;
             expr->expr._fn_call.name = token.value;
-            int paren = NextTokenOfType(tokens, start, RightParen, tokens.size);
+            int paren = NextTokenOfType(tokens, start + 2, RightParen, tokens.size);
             if (paren == -1)
             {
                 THROW("expected ')' after '('");
@@ -852,7 +905,7 @@ Expr *Parse(TokenVector tokens, int start, int end)
             else
             {
                 expr->expr._fn_call.args = NewExprVector(2);
-                int comma = NextTokenOfType(tokens, start, Comma, paren);
+                int comma = NextTokenOfType(tokens, start + 2, Comma, paren);
                 int index = start + 2;
                 while (comma != -1 && comma + 1 < paren)
                 {
