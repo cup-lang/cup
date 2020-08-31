@@ -262,12 +262,12 @@ TokenVector Tokenize()
         case '/':
             if (i + 1 < file_size && file[i + 1] == '=')
             {
-                type = Divide;
+                type = DivideAssign;
                 ++i;
             }
             else
             {
-                type = DivideAssign;
+                type = Divide;
             }
             break;
         case '%':
@@ -593,7 +593,7 @@ VECTOR_FUNC(Expr, Expr);
 int NextTokenOfType(TokenVector tokens, int start, _TokenType type, int end)
 {
     int paren_count = 0;
-    
+
     for (int i = start; i < end; ++i)
     {
         _TokenType t = tokens.array[i].type;
@@ -770,10 +770,14 @@ Expr *Parse(TokenVector tokens, int start, int end)
         {
         case LeftParen:
             ++paren_count;
-            break;
+            continue;
         case RightParen:
-            --paren_count;
-            break;
+            if (paren_count-- == 0)
+            {
+                Token token = tokens.array[i];
+                THROW("unexpected ')'");
+            }
+            continue;
         }
 
         if (paren_count)
@@ -950,6 +954,21 @@ Expr *Parse(TokenVector tokens, int start, int end)
         expr->type = OpExpr;
         expr->expr._op.type = op_type;
         expr->expr._op.lhs = Parse(tokens, start, op_index);
+        switch (op_type)
+        {
+        case Assign:
+        case AddAssign:
+        case SubstractAssign:
+        case MultiplyAssign:
+        case DivideAssign:
+        case ModuloAssign:
+            if (expr->expr._op.lhs->type != VarUseExpr)
+            {
+                Token token = tokens.array[op_index - 1];
+                THROW("expected a mutable variable");
+            }
+            break;
+        }
         expr->expr._op.rhs = Parse(tokens, op_index + 1, end);
         return expr;
     }
@@ -978,6 +997,8 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
 
             switch (token.type)
             {
+            case RightParen:
+                THROW("unexpected ')'");
             case RightBrace:
             {
                 VarStack *old = var_stack;
@@ -994,6 +1015,7 @@ ExprVector ParseBlock(TokenVector tokens, int *index)
                 expr.expr._fn_def.type = NULL;
                 break;
             case Ident:
+            case LeftParen:
             {
                 int semicolon = NextTokenOfType(tokens, *index, Semicolon, tokens.size);
                 Expr *temp = Parse(tokens, *index, semicolon);

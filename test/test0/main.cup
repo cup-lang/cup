@@ -1,11 +1,21 @@
 fn main() {
-    # does /= for some reason 
-    # 5 + 3 / abc() 3 * 2;
+    ## elif or else without if
+    # elif 5 { }
+    # else { }
 
-    # stops parsing after first paren 
-    # (5 + 3) * 3;
+    ## restrict expr to certain scopes
+    # struct, enum, fn - only globals
+    # rest only in functions
 
-    # no syntax error 
-    # 1 + 9);
-    # (3 + 7;
+    ## analyze globals first
+
+    ## fn checks
+    # 1. fn not defined 
+    # 2. fn already defined
+    # 3. wrong number of args in fn call
+
+    ## check for types
+    # 1. fn return type
+    # 2. operator types
+    # 3. fn call types
 }
