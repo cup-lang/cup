@@ -1,4 +1,8 @@
 fn main() {
+    ## no \n after invalid argument 
+
+    ## better --help
+
     ## elif or else without if
     # elif 5 { }
     # else { }
