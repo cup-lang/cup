@@ -1875,6 +1875,11 @@ int main(int argc, char **argv)
     GenerateVector(ast, file_point, 0, 0);
     fclose(file_point);
 
+    int no_gcc = system("gcc test\\test0\\main.c -o test\\test0\\main.exe");
+    if (no_gcc) {
+        printf("");
+    }
+
     printf("Compilation successful (%.3lfs elapsed)\n", (double)clock() / CLOCKS_PER_SEC);
 
     return 0;

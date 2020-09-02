@@ -1,0 +1,25 @@
+fn main() {
+    ## no \n after invalid argument 
+
+    ## better --help
+
+    ## elif or else without if
+    # elif 5 { }
+    # else { }
+
+    ## restrict expr to certain scopes
+    # struct, enum, fn - only globals
+    # rest only in functions
+
+    ## analyze globals first
+
+    ## fn checks
+    # 1. fn not defined 
+    # 2. fn already defined
+    # 3. wrong number of args in fn call
+
+    ## check for types
+    # 1. fn return type
+    # 2. operator types
+    # 3. fn call types
+}
