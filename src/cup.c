@@ -1788,54 +1788,164 @@ void GenerateVector(ExprVector vector, FILE *fp, char semicolon, char comma)
 }
 #pragma endregion
 
+typedef enum Command
+{
+    None,
+    Help,
+    Run,
+    Build,
+    Check,
+    UpdatePackage,
+    AddPackage,
+    RemovePackage,
+    GenDocs,
+    GenBinds,
+    SelfUpdate,
+    SelfInstall,
+    SelfUninstall
+} Command;
+
+Command GetCommand(int argc, char *arg0, char *arg1)
+{
+    if (argc == 1)
+    {
+        return 0;
+    }
+
+    if (strcmp(arg0, "help") == 0)
+    {
+        return Help;
+    }
+    else if (strcmp(arg0, "run") == 0)
+    {
+        return Run;
+    }
+    else if (strcmp(arg0, "build") == 0)
+    {
+        return Build;
+    }
+    else if (strcmp(arg0, "check") == 0)
+    {
+        return Check;
+    }
+    else if (strcmp(arg0, "update") == 0)
+    {
+        return UpdatePackage;
+    }
+    else if (strcmp(arg0, "add") == 0)
+    {
+        return AddPackage;
+    }
+    else if (strcmp(arg0, "remove") == 0)
+    {
+        return RemovePackage;
+    }
+    else if (argc > 2 && strcmp(arg0, "gen") == 0)
+    {
+        if (strcmp(arg1, "docs") == 0)
+        {
+            return GenDocs;
+        }
+        else if (strcmp(arg1, "binds") == 0)
+        {
+            return GenBinds;
+        }
+    }
+    else if (argc > 2 && strcmp(arg0, "self") == 0)
+    {
+        if (strcmp(arg1, "update") == 0)
+        {
+            return SelfUpdate;
+        }
+        else if (strcmp(arg1, "install") == 0)
+        {
+            return SelfInstall;
+        }
+        else if (strcmp(arg1, "uninstall") == 0)
+        {
+            return SelfUninstall;
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
 #ifdef _WIN32
     console = GetStdHandle(STD_OUTPUT_HANDLE);
 #endif
 
-    if (argc == 1)
+    Command command = GetCommand(argc, argv[1], argv[2]);
+
+    if (argc == 1 || command == Help)
     {
-        printf("Error: no input file specified");
+        printf("Cup Toolkit v0.0.1\n\n");
+        printf("USAGE:\n    cup [COMMAND] [OPTIONS]");
+        printf("\n\nCOMMANDS:");
+        printf("\n    run                  Compile and run the current package");
+        printf("\n    build                Compile the current package");
+        printf("\n    check                Analyze the current package");
+        printf("\n    update [PACKAGE]     Update given dependency");
+        printf("\n    add [PACKAGE]        Adds given dependency");
+        printf("\n    remove [PACKAGE]     Removes given dependency");
+        printf("\n    gen docs             Generate documentation for the current package");
+        printf("\n    gen binds [HEADER]   Generate bindings for a given C header file");
+        printf("\n    self update          Update the Cup Toolkit");
+        printf("\n    self install         Install the Cup Toolkit");
+        printf("\n    self uninstall       Uninstall the Cup Toolkit");
+        printf("\n\nOPTIONS:");
+        printf("\n    -i, --input    Specify the input file name");
+        printf("\n    -o, --output   Specify the output file name");
+        printf("\n    -cg, --gcc     Use GCC as a compiler");
+        printf("\n    -cm, --msvc    Use MSVC as a compiler");
+        printf("\n    -cc, --clang   use Clang as a compiler");
+        printf("\n    -ct, --tcc     Use TinyCC as a compiler");
+        printf("\n\nSee 'cup help [COMMAND]' for more info about a specific command.\n");
+        return 0;
+    }
+    else if (!command)
+    {
+        COLOR(RED);
+        printf("error: ");
+        COLOR(RESET);
+        printf("no such command: '%s", argv[1]);
+        for (int i = 2; i < argc; ++i)
+        {
+            printf(" %s", argv[i]);
+        }
+        printf("'\n\nSee 'cup help' for the list of available commands.\n");
         return 1;
     }
 
-    char help = 0;
     char *output = NULL;
-    for (int i = 1; i < argc; ++i)
-    {
-        if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
-        {
-            help = 1;
-        }
-        else if (strcmp("-o", argv[i]) == 0 || strcmp("--output", argv[i]) == 0)
-        {
-            if (i + 1 < argc)
-            {
-                output = argv[++i];
-            }
-            else
-            {
-                printf("Error: no output file specified");
-                return 1;
-            }
-        }
-        else if (file_name == NULL)
-        {
-            file_name = argv[i];
-        }
-        else
-        {
-            printf("Error: invalid argument '%s'", argv[i]);
-        }
-    }
-
-    // Print help informations
-    if (help)
-    {
-        printf("Usage: cup [OPTIONS] INPUT\n\nOptions:\n    -h, --help          Display available options\n    -o, --output        Specify the output file name");
-        return 0;
-    }
+    // for (int i = 1; i < argc; ++i)
+    // {
+    //     if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
+    //     {
+    //         help = 1;
+    //     }
+    //     else if (strcmp("-o", argv[i]) == 0 || strcmp("--output", argv[i]) == 0)
+    //     {
+    //         if (i + 1 < argc)
+    //         {
+    //             output = argv[++i];
+    //         }
+    //         else
+    //         {
+    //             printf("Error: no output file specified");
+    //             return 1;
+    //         }
+    //     }
+    //     else if (file_name == NULL)
+    //     {
+    //         file_name = argv[i];
+    //     }
+    //     else
+    //     {
+    //         printf("Error: invalid argument '%s'", argv[i]);
+    //     }
+    // }
 
     // Open the file
     FILE *file_point;
@@ -1875,10 +1985,11 @@ int main(int argc, char **argv)
     GenerateVector(ast, file_point, 0, 0);
     fclose(file_point);
 
-    int no_gcc = system("gcc test\\test0\\main.c -o test\\test0\\main.exe");
-    if (no_gcc) {
-        printf("");
-    }
+    int no_tcc = system("tcc test\\test0\\main.c -o test\\test0\\main.exe");
+    // int no_gcc = system("gcc test\\test0\\main.c -o test\\test0\\main.exe");
+    // if (no_gcc) {
+    //     printf("download gcc");
+    // }
 
     printf("Compilation successful (%.3lfs elapsed)\n", (double)clock() / CLOCKS_PER_SEC);
 
