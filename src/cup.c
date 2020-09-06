@@ -560,7 +560,8 @@ typedef enum ExprType
     NextExpr
 } ExprType;
 
-typedef union ExprUnion {
+typedef union ExprUnion
+{
     struct Mod _mod;
     struct FnDef _fn_def;
     struct Arg _arg;
@@ -1792,6 +1793,17 @@ typedef enum Command
 {
     None,
     Help,
+    HelpRun,
+    HelpBuild,
+    HelpCheck,
+    HelpUpdatePackage,
+    HelpAddPackage,
+    HelpRemovePackage,
+    HelpGenDocs,
+    HelpGenBinds,
+    HelpSelfUpdate,
+    HelpSelfInstall,
+    HelpSelfUninstall,
     Run,
     Build,
     Check,
@@ -1870,6 +1882,19 @@ Command GetCommand(int argc, char *arg0, char *arg1)
     return 0;
 }
 
+char *GetOption(int *index, int argc, char **argv)
+{
+    if (strlen(argv[*index]) > 2)
+    {
+        return argv[*index] + 1;
+    }
+    else if (argc > *index)
+    {
+        return argv[++*index];
+    }
+    return NULL;
+}
+
 int main(int argc, char **argv)
 {
 #ifdef _WIN32
@@ -1894,14 +1919,7 @@ int main(int argc, char **argv)
         printf("\n    self update          Update the Cup Toolkit");
         printf("\n    self install         Install the Cup Toolkit");
         printf("\n    self uninstall       Uninstall the Cup Toolkit");
-        printf("\n\nOPTIONS:");
-        printf("\n    -i, --input    Specify the input file name");
-        printf("\n    -o, --output   Specify the output file name");
-        printf("\n    -cg, --gcc     Use GCC as a compiler");
-        printf("\n    -cm, --msvc    Use MSVC as a compiler");
-        printf("\n    -cc, --clang   use Clang as a compiler");
-        printf("\n    -ct, --tcc     Use TinyCC as a compiler");
-        printf("\n\nSee 'cup help [COMMAND]' for more info about a specific command.\n");
+        printf("\n\nSee 'cup help [COMMAND]' for more info about a specific command and it's available options.\n");
         return 0;
     }
     else if (!command)
@@ -1918,40 +1936,50 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // FIX: temp behaviour
+    if (command != Build)
+    {
+        return 1;
+    }
+
     char *output = NULL;
-    // for (int i = 1; i < argc; ++i)
-    // {
-    //     if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
-    //     {
-    //         help = 1;
-    //     }
-    //     else if (strcmp("-o", argv[i]) == 0 || strcmp("--output", argv[i]) == 0)
-    //     {
-    //         if (i + 1 < argc)
-    //         {
-    //             output = argv[++i];
-    //         }
-    //         else
-    //         {
-    //             printf("Error: no output file specified");
-    //             return 1;
-    //         }
-    //     }
-    //     else if (file_name == NULL)
-    //     {
-    //         file_name = argv[i];
-    //     }
-    //     else
-    //     {
-    //         printf("Error: invalid argument '%s'", argv[i]);
-    //     }
-    // }
+    for (int i = 2; i < argc; ++i)
+    {
+        if (argv[i][0] == '-')
+        {
+            switch (argv[i][1])
+            {
+            case 'i':
+                if (file_name == NULL)
+                {
+                    file_name = GetOption(&i, argc, argv);
+                }
+                break;
+            case 'o':
+                if (output == NULL)
+                {
+                    output = GetOption(&i, argc, argv);
+                }
+                break;
+            }
+        }
+        else
+        {
+            COLOR(RED);
+            printf("error: ");
+            COLOR(RESET);
+            printf("invalid option '%s'", argv[i]);
+        }
+    }
 
     // Open the file
     FILE *file_point;
     if (fopen_s(&file_point, file_name, "rb"))
     {
-        printf("Error: no such file or directory: '%s'", file_name);
+        COLOR(RED);
+        printf("error: ");
+        COLOR(RESET);
+        printf("no such file or directory: '%s'", file_name);
         return 1;
     }
 

@@ -1,5 +1,4 @@
 fn main() {
-    ## command line options
     ## specific help for every command
     ## did you mean 'some command' ?
 
