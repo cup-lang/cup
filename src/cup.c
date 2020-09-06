@@ -1796,6 +1796,7 @@ typedef enum Command
     HelpRun,
     HelpBuild,
     HelpCheck,
+    HelpNewPackage,
     HelpUpdatePackage,
     HelpAddPackage,
     HelpRemovePackage,
@@ -1807,6 +1808,7 @@ typedef enum Command
     Run,
     Build,
     Check,
+    NewPackage,
     UpdatePackage,
     AddPackage,
     RemovePackage,
@@ -1817,66 +1819,132 @@ typedef enum Command
     SelfUninstall
 } Command;
 
-Command GetCommand(int argc, char *arg0, char *arg1)
+Command GetCommand(int argc, char **argv)
 {
     if (argc == 1)
     {
         return 0;
     }
 
-    if (strcmp(arg0, "help") == 0)
+    char is_command = 0;
+    CharVector vector = NewCharVector(16);
+    for (int i = 1; i < argc; ++i)
+    {
+        if (i == 4)
+        {
+            break;
+        }
+        if (argv[i][0] == '-')
+        {
+            if (is_command)
+            {
+                break;
+            }
+            continue;
+        }
+        is_command = 1;
+
+        int length = strlen(argv[i]);
+        for (int c = 0; c < length; ++c)
+        {
+            PushChar(&vector, argv[i][c]);
+        }
+    }
+
+    PushChar(&vector, '\0');
+    char *input = vector.array;
+
+    if (strcmp(input, "help") == 0)
     {
         return Help;
     }
-    else if (strcmp(arg0, "run") == 0)
+    else if (strcmp(input, "helprun") == 0)
+    {
+        return HelpRun;
+    }
+    else if (strcmp(input, "helpbuild") == 0)
+    {
+        return HelpBuild;
+    }
+    else if (strcmp(input, "helpcheck") == 0)
+    {
+        return HelpCheck;
+    }
+    else if (strcmp(input, "helpupdate") == 0)
+    {
+        return HelpUpdatePackage;
+    }
+    else if (strcmp(input, "helpadd") == 0)
+    {
+        return HelpAddPackage;
+    }
+    else if (strcmp(input, "helpremove") == 0)
+    {
+        return HelpRemovePackage;
+    }
+    else if (strcmp(input, "helpgendocs") == 0)
+    {
+        return HelpGenDocs;
+    }
+    else if (strcmp(input, "helpgenbinds") == 0)
+    {
+        return HelpGenBinds;
+    }
+    else if (strcmp(input, "helpselfupdate") == 0)
+    {
+        return HelpSelfUpdate;
+    }
+    else if (strcmp(input, "helpselfinstall") == 0)
+    {
+        return HelpSelfInstall;
+    }
+    else if (strcmp(input, "helpselfuninstall") == 0)
+    {
+        return HelpSelfUninstall;
+    }
+    else if (strcmp(input, "run") == 0)
     {
         return Run;
     }
-    else if (strcmp(arg0, "build") == 0)
+    else if (strcmp(input, "build") == 0)
     {
         return Build;
     }
-    else if (strcmp(arg0, "check") == 0)
+    else if (strcmp(input, "check") == 0)
     {
         return Check;
     }
-    else if (strcmp(arg0, "update") == 0)
+    else if (strcmp(input, "update") == 0)
     {
         return UpdatePackage;
     }
-    else if (strcmp(arg0, "add") == 0)
+    else if (strcmp(input, "add") == 0)
     {
         return AddPackage;
     }
-    else if (strcmp(arg0, "remove") == 0)
+    else if (strcmp(input, "remove") == 0)
     {
         return RemovePackage;
     }
-    else if (argc > 2 && strcmp(arg0, "gen") == 0)
+    else if (strcmp(input, "gendocs") == 0)
     {
-        if (strcmp(arg1, "docs") == 0)
-        {
-            return GenDocs;
-        }
-        else if (strcmp(arg1, "binds") == 0)
-        {
-            return GenBinds;
-        }
+        return GenDocs;
     }
-    else if (argc > 2 && strcmp(arg0, "self") == 0)
+    else if (strcmp(input, "genbinds") == 0)
     {
-        if (strcmp(arg1, "update") == 0)
-        {
-            return SelfUpdate;
-        }
-        else if (strcmp(arg1, "install") == 0)
-        {
-            return SelfInstall;
-        }
-        else if (strcmp(arg1, "uninstall") == 0)
-        {
-            return SelfUninstall;
-        }
+        return GenBinds;
+    }
+    else if (strcmp(input, "selfupdate") == 0)
+    {
+        return SelfUpdate;
+    }
+    else if (strcmp(input, "selfinstall") == 0)
+    {
+        return SelfInstall;
+    }
+    else if (strcmp(input, "selfuninstall") == 0)
+    {
+        return SelfUninstall;
     }
 
     return 0;
@@ -1895,13 +1963,26 @@ char *GetOption(int *index, int argc, char **argv)
     return NULL;
 }
 
+#define COMMAND_HELP(n, d, o)                                           \
+    printf(d "\n\nUSAGE:\n    cup " n " [OPTIONS]\n\nOPTIONS:" o "\n"); \
+    return 0;
+
+#define COMPILE_OPTIONS "\n    -i, --input     Specify the input file name"  \
+                        "\n    -o, --output    Specify the output file name" \
+                        "\n    -cg, --gcc     Use GCC as a compiler"         \
+                        "\n    -cm, --msvc    Use MSVC as a compiler"        \
+                        "\n    -cc, --clang   use Clang as a compiler"       \
+                        "\n    -ct, --tcc     Use TinyCC as a compiler"
+
+#define NO_OPTIONS "\n    No options are available for this command"
+
 int main(int argc, char **argv)
 {
 #ifdef _WIN32
     console = GetStdHandle(STD_OUTPUT_HANDLE);
 #endif
 
-    Command command = GetCommand(argc, argv[1], argv[2]);
+    Command command = GetCommand(argc, argv);
 
     if (argc == 1 || command == Help)
     {
@@ -1911,6 +1992,7 @@ int main(int argc, char **argv)
         printf("\n    run                  Compile and run the current package");
         printf("\n    build                Compile the current package");
         printf("\n    check                Analyze the current package");
+        printf("\n    new [PACKAGE]        Create a new package");
         printf("\n    update [PACKAGE]     Update given dependency");
         printf("\n    add [PACKAGE]        Adds given dependency");
         printf("\n    remove [PACKAGE]     Removes given dependency");
@@ -1936,10 +2018,57 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // FIX: temp behaviour
-    if (command != Build)
+    switch (command)
     {
-        return 1;
+    case Run:
+    case Build:
+        break;
+    case Check:
+    case NewPackage:
+    case UpdatePackage:
+    case AddPackage:
+    case RemovePackage:
+    case GenDocs:
+    case GenBinds:
+    case SelfUpdate:
+    case SelfInstall:
+    case SelfUninstall:
+        return 0;
+    case HelpRun:
+        COMMAND_HELP("run", "Compile and run the current package", COMPILE_OPTIONS);
+    case HelpBuild:
+        COMMAND_HELP("build", "Compile the current package", COMPILE_OPTIONS);
+        return 0;
+    case HelpCheck:
+        COMMAND_HELP("check", "Analyze the current package", NO_OPTIONS);
+        return 0;
+    case HelpNewPackage:
+        COMMAND_HELP("new", "Create a new package", NO_OPTIONS);
+        return 0;
+    case HelpUpdatePackage:
+        COMMAND_HELP("update", "Update given dependency", NO_OPTIONS);
+        return 0;
+    case HelpAddPackage:
+        COMMAND_HELP("add", "Adds given dependency", NO_OPTIONS);
+        return 0;
+    case HelpRemovePackage:
+        COMMAND_HELP("remove", "Removes given dependency", NO_OPTIONS);
+        return 0;
+    case HelpGenDocs:
+        COMMAND_HELP("gen docs", "Generate documentation for the current package", NO_OPTIONS);
+        return 0;
+    case HelpGenBinds:
+        COMMAND_HELP("gen binds", "Generate bindings for a given C header file", NO_OPTIONS);
+        return 0;
+    case HelpSelfUpdate:
+        COMMAND_HELP("self update", "Update the Cup Toolkit", NO_OPTIONS);
+        return 0;
+    case HelpSelfInstall:
+        COMMAND_HELP("self install", "Install the Cup Toolkit", NO_OPTIONS);
+        return 0;
+    case HelpSelfUninstall:
+        COMMAND_HELP("self uninstall", "Uninstall the Cup Toolkite", NO_OPTIONS);
+        return 0;
     }
 
     char *output = NULL;
@@ -2013,11 +2142,7 @@ int main(int argc, char **argv)
     GenerateVector(ast, file_point, 0, 0);
     fclose(file_point);
 
-    int no_tcc = system("tcc test\\test0\\main.c -o test\\test0\\main.exe");
-    // int no_gcc = system("gcc test\\test0\\main.c -o test\\test0\\main.exe");
-    // if (no_gcc) {
-    //     printf("download gcc");
-    // }
+    system("tcc test\\test0\\main.c -o test\\test0\\main.exe");
 
     printf("Compilation successful (%.3lfs elapsed)\n", (double)clock() / CLOCKS_PER_SEC);
 

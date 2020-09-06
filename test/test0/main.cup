@@ -1,15 +1,4 @@
 fn main() {
-    ## specific help for every command
-    ## did you mean 'some command' ?
-
-    ## try compile with tcc, gcc, clang, msvc
-    ## error when no compiler found
-    ## notify what compiler is used
-
-    ## yt acc
-    ## fb acc
-    ## ig acc
-
     ## elif or else without if
     # elif 5 { }
     # else { }
@@ -30,3 +19,9 @@ fn main() {
     # 2. operator types
     # 3. fn call types
 }
+
+## did you mean 'some command' ?
+
+## try compile with tcc, gcc, clang, msvc
+# error when no compiler found
+# notify what compiler is used
