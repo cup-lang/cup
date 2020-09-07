@@ -1,23 +1,12 @@
 fn main() {
-    ## elif or else without if
-    # elif 5 { }
-    # else { }
+    ## revisit keywords
 
-    ## restrict expr to certain scopes
-    # struct, enum, fn - only globals
-    # rest only in functions
+    ## generics
+    # fn some_func<T, U, V>(arg: T) {}
+    # struct SomeStruct<T, U, V>
+    # enum SomeEnum<T, U, V>
 
-    ## analyze globals first
-
-    ## fn checks
-    # 1. fn not defined 
-    # 2. fn already defined
-    # 3. wrong number of args in fn call
-
-    ## check for types
-    # 1. fn return type
-    # 2. operator types
-    # 3. fn call types
+    ## ptr 
 }
 
 ## did you mean 'some command' ?
@@ -25,3 +14,26 @@ fn main() {
 ## try compile with tcc, gcc, clang, msvc
 # error when no compiler found
 # notify what compiler is used
+
+## combo declarations
+# let a, b = 0, c;
+
+## elif or else without if
+# elif 5 { }
+# else { }
+
+## restrict expr to certain scopes
+# struct, enum, fn - only globals
+# rest only in functions
+
+## analyze globals first
+
+## fn checks
+# 1. fn not defined 
+# 2. fn already defined
+# 3. wrong number of args in fn call
+
+## check for types
+# 1. fn return type
+# 2. operator types
+# 3. fn call types
