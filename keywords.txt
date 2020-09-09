@@ -1,0 +1,55 @@
+in #
+pub #
+defer #
+do #
+if
+fn
+mod
+var
+for
+enum
+elif
+else
+loop
+next
+while
+break
+struct
+return
+
+## types:
+int i8 i16 i32 i64
+uint u8 u16 u32 u64
+f32
+f64
+str
+
+;
+:
+,
+.
+(
+)
+{
+}
+[
+]
+..
+=
+==
+<
+<=
+>
+>=
++
++=
+-
+-=
+*
+*=
+/
+/=
+%
+%=
+!
+!=

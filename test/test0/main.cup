@@ -1,12 +1,48 @@
 fn main() {
-    ## revisit keywords
+    ## ptr
 
     ## generics
     # fn some_func<T, U, V>(arg: T) {}
     # struct SomeStruct<T, U, V>
     # enum SomeEnum<T, U, V>
 
-    ## ptr 
+    ## revisit keywords
+
+    ## break with value
+    # let a = loop {
+    #     break 2 + 2;
+    # }
+
+    ## string interpolation
+    # "hello $a";
+
+    ## match
+    # match number {
+    #     0..1 -> println!("One!"),
+    #     2 -> println!("Two!"),
+    # }
+
+    for _ in items {    
+    }
+
+    let i = 0;
+    while i < 10 {
+        ++i;
+    }
+
+    a + 5
+}
+
+fn some_func(a: int, b: f32): ptr<int> {
+    var a = 5;
+    a += a;
+    addr(a)
+}
+
+fn some_func(): ptr<int> {
+    var a = 5;
+    a += a;
+    return addr(a);
 }
 
 ## did you mean 'some command' ?
