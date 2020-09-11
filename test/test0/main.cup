@@ -1,12 +1,11 @@
 fn main() {
-    ## ptr
-
     ## generics
     # fn some_func<T, U, V>(arg: T) {}
     # struct SomeStruct<T, U, V>
     # enum SomeEnum<T, U, V>
 
-    ## revisit keywords
+    ## ptr<T>
+    # deref
 
     ## break with value
     # let a = loop {
@@ -18,17 +17,33 @@ fn main() {
 
     ## match
     # match number {
-    #     0..1 -> println!("One!"),
-    #     2 -> println!("Two!"),
+    #     0..1 => println!("One!"),
+    #     2 => println!("Two!"),
     # }
 
-    for _ in items {    
+    ## for in
+    # for item in items {
+    #     print(item);
+    # }
+
+    var abc: SomeStruct;
+
+    do_something(&abc);
+
+    fn do_something(abc: *SomeStruct) {
+        *abc.foobar();
+        *next.*next = 1;
+        next->next = 1;
+        abc->some_field + abc->some_field;
     }
 
-    let i = 0;
-    while i < 10 {
-        ++i;
-    }
+    static const
+    self and Self
+    global vars
+    null
+    struct inititialization
+    errors
+    do/while
 
     a + 5
 }
