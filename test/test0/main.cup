@@ -5,7 +5,8 @@ fn main() {
     # enum SomeEnum<T, U, V>
 
     ## ptr<T>
-    # deref
+    # deref with %
+    # ref with ?
 
     ## break with value
     # let a = loop {
@@ -17,8 +18,8 @@ fn main() {
 
     ## match
     # match number {
-    #     0..1 => println!("One!"),
-    #     2 => println!("Two!"),
+    #     -1..1 -> println!("Some range!"),
+    #     2 or 3 -> println!("Two or three!"),
     # }
 
     ## for in
@@ -26,38 +27,26 @@ fn main() {
     #     print(item);
     # }
 
-    var abc: SomeStruct;
+    ## and, or
 
-    do_something(&abc);
+    ## null
 
-    fn do_something(abc: *SomeStruct) {
-        *abc.foobar();
-        *next.*next = 1;
-        next->next = 1;
-        abc->some_field + abc->some_field;
-    }
+    var a: int;
+    let a: int;
+    stc c: int;
+    con d: int;
 
-    static const
-    self and Self
-    global vars
-    null
-    struct inititialization
-    errors
-    do/while
-
-    a + 5
-}
-
-fn some_func(a: int, b: f32): ptr<int> {
-    var a = 5;
-    a += a;
-    addr(a)
-}
-
-fn some_func(): ptr<int> {
-    var a = 5;
-    a += a;
-    return addr(a);
+    ## to decide
+    # static
+    # const
+    # self and Self
+    # inheritance
+    # labels
+    # struct inititialization
+    # errors
+    # do/while
+    # return or no return
+    # macros
 }
 
 ## did you mean 'some command' ?

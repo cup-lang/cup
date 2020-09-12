@@ -4,6 +4,7 @@ defer #
 do #
 if
 fn
+use #
 mod
 var
 for
