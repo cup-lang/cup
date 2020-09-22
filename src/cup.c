@@ -50,54 +50,54 @@ char *file;
 typedef enum _TokenType
 {
     Ident,
-    Public, // TODO    // pub
-    Module,            // mod
-    Function,          // fn
-    Variable,          // var
-    Struct,            // struct
-    Enum,              // enum
-    In,                // in
-    Semicolon,         // ;
-    Colon,             // :
-    Comma,             // ,
-    Dot,               // .
+    Public,    // TODO    // pub
+    Module,    // mod
+    Function,  // fn
+    Variable,  // var
+    Struct,    // struct
+    Enum,      // enum
+    In,        // in
+    Semicolon, // ;
+    Colon,     // :
+    Comma,     // ,
+    Dot,       // .
     // Flow Control
-    If,                // if
-    Elif,              // elif
-    Else,              // else
-    Loop,              // loop
-    While,             // while
-    For,               // for
-    Return,            // return
-    Break,             // break
-    Next,              // next
+    If,     // if
+    Elif,   // elif
+    Else,   // else
+    Loop,   // loop
+    While,  // while
+    For,    // for
+    Return, // return
+    Break,  // break
+    Next,   // next
     // Brackets
-    LeftParen,         // (
-    RightParen,        // )
-    LeftBrace,         // {
-    RightBrace,        // }
-    LeftSquare,        // [
-    RightSquare,       // ]
+    LeftParen,   // (
+    RightParen,  // )
+    LeftBrace,   // {
+    RightBrace,  // }
+    LeftSquare,  // [
+    RightSquare, // ]
     // Operators
-    Range,             // ..
-    Assign,            // =
-    Equal,             // ==
-    Less,              // <
-    LessEqual,         // <=
-    Greater,           // >
-    GreaterEqual,      // >=
-    Add,               // +
-    AddAssign,         // +=
-    Substract,         // -
-    SubstractAssign,   // -=
-    Multiply,          // *
-    MultiplyAssign,    // *=
-    Divide,            // /
-    DivideAssign,      // /=
-    Modulo,            // %
-    ModuloAssign,      // %=
-    Not,               // !
-    NotEqual           // !=
+    Range,           // ..
+    Assign,          // =
+    Equal,           // ==
+    Less,            // <
+    LessEqual,       // <=
+    Greater,         // >
+    GreaterEqual,    // >=
+    Add,             // +
+    AddAssign,       // +=
+    Substract,       // -
+    SubstractAssign, // -=
+    Multiply,        // *
+    MultiplyAssign,  // *=
+    Divide,          // /
+    DivideAssign,    // /=
+    Modulo,          // %
+    ModuloAssign,    // %=
+    Not,             // !
+    NotEqual         // !=
 } _TokenType;
 
 typedef struct Token

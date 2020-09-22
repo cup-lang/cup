@@ -1,30 +1,38 @@
+or
+do #
 in #
 pub #
-defer #
-do #
-if
-fn
-use #
-mod
-var
-for
-enum
-elif
-else
-loop
-next
-while
-break
-struct
-return
+if #
+use
+and
+mod #
+for #
+fall
+null
+impl
+true
+enum #
+elif #
+else #
+next #
+false
+trait
+const
+defer
+while #
+break #
+match #
+static
+struct #
+return #
 
-## types:
 int i8 i16 i32 i64
 uint u8 u16 u32 u64
-f32
-f64
-str
+f32 f64
+string
 
+->
+=>
 ;
 :
 ,
@@ -38,6 +46,8 @@ str
 ..
 =
 ==
+!=
+!
 <
 <=
 >
@@ -52,5 +62,3 @@ str
 /=
 %
 %=
-!
-!=

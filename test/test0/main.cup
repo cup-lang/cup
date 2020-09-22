@@ -4,7 +4,8 @@ fn main() {
     # struct SomeStruct<T, U, V>
     # enum SomeEnum<T, U, V>
 
-    ## ptr<T>
+    ## pointers
+    # ptr<T>
     # deref with %
     # ref with ?
 
@@ -18,42 +19,162 @@ fn main() {
 
     ## match
     # match number {
-    #     -1..1 -> println!("Some range!"),
-    #     2 or 3 -> println!("Two or three!"),
+    #     -1..1 => println!("Some range!"),
+    #     2 or 3 => println!("Two or three!"),
     # }
 
     ## for in
+    # use while if you dont like it
     # for item in items {
     #     print(item);
     # }
+
+    ## do/while
+    # or just do
 
     ## and, or
 
     ## null
 
-    var a: int;
-    let a: int;
-    stc c: int;
-    con d: int;
+    ## C constants
 
-    ## to decide
-    # static
-    # const
-    # self and Self
-    # inheritance
-    # labels
-    # struct inititialization
-    # errors
-    # do/while
+    ## self, Self
+
+    ## static
+    # globals need to be marked static implicitly
+
+    ## unions
+
+#######################
+#      POINTERS       #
+#######################
+
+foo := alloc<SomeStruct>();
+foo: ptr<SomeStruct> = alloc_size(size_of(SomeStruct));
+
+foo: ptr<int>;
+foo: const ptr<int>;
+foo: ptr<const int>;
+foo: const ptr<const int>;
+
+#######################
+#       STATICS       #
+#######################
+
+## outside impl
+
+# variables can only be static
+static foo := 42;
+
+# functions can only be static
+static some_func() {}
+
+impl SomeStruct {
+    ## inside impl
+
+    # variables can only be static
+    static foo := 69;
+
+    # functions can be static
+    static func() {}
+    non_static_func() {}
+
+    test() {
+        ## inside functions
+
+        # variables can be static
+        static foo := 42;
+        foo := 22;
+    }
+}
+
+#######################
+#      CLOSURES       #
+#######################
+
+(x) { print(x); }
+|x| { print(x); }
+
+#######################
+#       RETURN        #
+#######################
+
+   ## Add two ints together
+    add_two_ints(a: int, b: int) -> int {
+        sum: int = 0;
+        sum = a;
+        sum += b;
+
+        if sum == 3 {
+            return sum + 3;
+        } else if false {
+            return sum - 1;
+        }
+
+        return sum;
+    }
+
+    ## Add two ints together
+    add_two_ints(a: int, b: int) -> int {
+        sum: int = 0;
+        sum = a;
+        sum += b;
+
+        if sum == 3 {
+            sum + 3
+        } else if false {
+            sum - 1
+        }
+
+        sum
+    }
+
+#######################
+#      FREEING        #
+#######################
+
+struct string {
+    pointer: ptr<u8>,
+    pub size: int,
+    pub capacity: int,
+}
+
+impl free for string {
+    fn free() {
+        free(self.pointer);
+    }
+}
+
+struct SomeStruct {
+    a: int,
+    b: ref<string>,
+}
+
+%b = "asdasds";
+
+#######################
+#       DECIDE        #
+#######################
+
+    # inheritance for structs (enums too?)
+    # deref and address
+    # arrays/vectors/seqs/lists
+    # array views
+    # struct inititialization (= or :)
+    # multiple return values
+    # labels (break label;)
+    # errors (error handling)
     # return or no return
+    # externs
+    # license (zlib?)
     # macros
 }
 
 ## did you mean 'some command' ?
 
 ## try compile with tcc, gcc, clang, msvc
-# error when no compiler found
 # notify what compiler is used
+# error when no compiler found
 
 ## combo declarations
 # let a, b = 0, c;
@@ -77,3 +198,5 @@ fn main() {
 # 1. fn return type
 # 2. operator types
 # 3. fn call types
+
+## greek question mark ;
