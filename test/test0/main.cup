@@ -6,8 +6,6 @@ fn main() {
 
     ## pointers
     # ptr<T>
-    # deref with %
-    # ref with ?
 
     ## break with value
     # let a = loop {
@@ -30,7 +28,7 @@ fn main() {
     # }
 
     ## do/while
-    # or just do
+    # or just do for a infinite loop
 
     ## and, or
 
@@ -41,7 +39,7 @@ fn main() {
     ## self, Self
 
     ## static
-    # globals need to be marked static implicitly
+    # globals need to be marked static explicitly
 
     ## unions
 
@@ -96,38 +94,25 @@ impl SomeStruct {
 |x| { print(x); }
 
 #######################
-#       RETURN        #
+#     INHERITANCE     #
 #######################
 
-   ## Add two ints together
-    add_two_ints(a: int, b: int) -> int {
-        sum: int = 0;
-        sum = a;
-        sum += b;
+struct SomeStruct {
+    use SomeOtherStruct,
+    a: int,
+    b: f32,
+    use SomeOtherOtherStruct,
+    c: string,
+}
 
-        if sum == 3 {
-            return sum + 3;
-        } else if false {
-            return sum - 1;
-        }
-
-        return sum;
-    }
-
-    ## Add two ints together
-    add_two_ints(a: int, b: int) -> int {
-        sum: int = 0;
-        sum = a;
-        sum += b;
-
-        if sum == 3 {
-            sum + 3
-        } else if false {
-            sum - 1
-        }
-
-        sum
-    }
+enum SomeEnum {
+    use SomeOtherEnum,
+    Option1(),
+    Option2,
+    Option3,
+    use SomeOtherOtherEnum,
+    Option4,
+}
 
 #######################
 #      FREEING        #
@@ -140,7 +125,7 @@ struct string {
 }
 
 impl free for string {
-    fn free() {
+    free() {
         free(self.pointer);
     }
 }
@@ -150,24 +135,28 @@ struct SomeStruct {
     b: ref<string>,
 }
 
-%b = "asdasds";
+*b = "asdasds";
 
 #######################
 #       DECIDE        #
 #######################
 
-    # inheritance for structs (enums too?)
-    # deref and address
-    # arrays/vectors/seqs/lists
-    # array views
-    # struct inititialization (= or :)
-    # multiple return values
-    # labels (break label;)
-    # errors (error handling)
-    # return or no return
-    # externs
-    # license (zlib?)
-    # macros
+## inheritance for structs (enums too?)
+# `use` inside `struct`
+
+## deref and address
+# * for deref and & for adress
+
+# arrays/vectors/seqs/lists
+# array views
+# struct inititialization (= or :)
+# multiple return values
+# labels (break label;)
+# errors (error handling)
+# externs
+# license (zlib?)
+# macros
+
 }
 
 ## did you mean 'some command' ?
@@ -179,7 +168,7 @@ struct SomeStruct {
 ## combo declarations
 # let a, b = 0, c;
 
-## elif or else without if
+## don't allow elif or else without if
 # elif 5 { }
 # else { }
 

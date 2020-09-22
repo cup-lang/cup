@@ -1,30 +1,32 @@
-or
-do #
-in #
-pub #
-if #
-use
-and
-mod #
-for #
-fall
-null
-impl
+as # for lossless casting types
+or # replacement for "||"
+do # part of do-while; can be used without while
+in # used with `for`
+pub # for controlling visibility
+if
+use # replacement for "import"
+and # replacement for "&&"
+mod # replacement for "namespace"
+for # used with `in` to iterate over something
+fall # used in match to fallthrough
+null # represents a null pointer
+impl # used to implement a `trait`
 true
-enum #
-elif #
-else #
-next #
+enum # powerful ADT type of enum
+elif # short for "else if"
+else
+next # replacement for "continue"
 false
-trait
-const
-defer
-while #
-break #
-match #
+trait # replacement for "interfaces"
+const # used with types
+defer # defer execution of something till the end of the block
+while
+union # C union
+break
+match # replacement for "switch"
 static
-struct #
-return #
+struct
+return
 
 int i8 i16 i32 i64
 uint u8 u16 u32 u64
