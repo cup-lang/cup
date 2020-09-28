@@ -191,7 +191,7 @@ var file;
 try {
     file = fs.readFileSync(input).toString();
 } catch (err) {
-    console.log("error: no such file or directory: '%s'", file_name);
+    console.error("error: no such file or directory: '%s'", file_name);
     process.exit(1);
 }
 

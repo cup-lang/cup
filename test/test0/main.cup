@@ -6,6 +6,8 @@ fn main() {
 
     ## pointers
     # ptr<T>
+    # deref with *
+    # addr with &
 
     ## break with value
     # let a = loop {
@@ -43,6 +45,16 @@ fn main() {
 
     ## unions
 
+    ## struct inititialization
+    # foo := v2 { 
+    #    x = 1.0,
+    #    y = 1.0, 
+    # };
+    
+    ## inline
+
+    ## full struct inheritance with 'use'
+
 #######################
 #      POINTERS       #
 #######################
@@ -56,34 +68,18 @@ foo: ptr<const int>;
 foo: const ptr<const int>;
 
 #######################
-#       STATICS       #
+#        CONST        #
 #######################
 
-## outside impl
+const foo := 1;
+foo: ptr<const ptr<const int>> = alloc();
 
-# variables can only be static
-static foo := 42;
+func(const self, foo: const int) -> const int {
+    
+}
 
-# functions can only be static
-static some_func() {}
-
-impl SomeStruct {
-    ## inside impl
-
-    # variables can only be static
-    static foo := 69;
-
-    # functions can be static
-    static func() {}
-    non_static_func() {}
-
-    test() {
-        ## inside functions
-
-        # variables can be static
-        static foo := 42;
-        foo := 22;
-    }
+other_func(self, bar: i32) {
+    
 }
 
 #######################
@@ -97,21 +93,14 @@ impl SomeStruct {
 #     INHERITANCE     #
 #######################
 
-struct SomeStruct {
-    use SomeOtherStruct,
-    a: int,
-    b: f32,
-    use SomeOtherOtherStruct,
-    c: string,
+struct Entity {
+    id: i32,
 }
 
-enum SomeEnum {
-    use SomeOtherEnum,
-    Option1(),
-    Option2,
-    Option3,
-    use SomeOtherOtherEnum,
-    Option4,
+struct Light {
+    use Entity,
+    size int,
+    intensity: f32,
 }
 
 #######################
@@ -124,32 +113,24 @@ struct string {
     pub capacity: int,
 }
 
-impl free for string {
-    free() {
-        free(self.pointer);
+impl std::mem::free for string {
+    free(s: Self) {
+        free(s.pointer);
     }
 }
 
-struct SomeStruct {
-    a: int,
-    b: ref<string>,
-}
-
-*b = "asdasds";
-
 #######################
-#       DECIDE        #
+#      TO DECIDE      #
 #######################
 
-## inheritance for structs (enums too?)
-# `use` inside `struct`
+## inheritance for enums
 
-## deref and address
-# * for deref and & for adress
+## arrays/vectors/seqs/lists
+# array<T> (alloca?)
+# vector<T>
+# vector<T> `as` array<T>
 
-# arrays/vectors/seqs/lists
-# array views
-# struct inititialization (= or :)
+# views
 # multiple return values
 # labels (break label;)
 # errors (error handling)

@@ -24,13 +24,17 @@ while
 union # C union
 break
 match # replacement for "switch"
-static
 struct
 return
+inline # used to inline literals and functions
 
-int i8 i16 i32 i64
-uint u8 u16 u32 u64
+int i8 i16 i32 i64 (i128)
+uint u8 u16 u32 u64 (u128)
 f32 f64
+vec2 vec3 vec4
+mat3x3 mat4x4
+quat
+bool b8 b16 b32 b64 (b128)
 string
 
 ->
