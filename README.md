@@ -1,2 +1,1 @@
-# Cup Programming Language
- 
+# Cup Language ☕
