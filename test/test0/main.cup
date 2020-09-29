@@ -124,9 +124,12 @@ impl std::mem::free for string {
 #######################
 
 ## inheritance for enums
+# yes
+# no
 
 ## arrays/vectors/seqs/lists
-# array<T> (alloca?)
+# naming
+# arrays - stack allocated constant size
 # vector<T>
 # vector<T> `as` array<T>
 
