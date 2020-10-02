@@ -30,18 +30,15 @@ fn main() {
     # }
 
     ## do/while
-    # or just do for a infinite loop
-
-    ## and, or
+    # standalone "do" for a infinite loop
 
     ## null
 
     ## C constants
 
     ## self, Self
-
-    ## static
-    # globals need to be marked static explicitly
+    # self is C# "this"
+    # Self is typeof(self)
 
     ## unions
 
@@ -51,9 +48,13 @@ fn main() {
     #    y = 1.0, 
     # };
     
-    ## inline
+    ## inline keyword
+    # for vars ("statics")
+    # for funcs
 
-    ## full struct inheritance with 'use'
+    ## conversion/casting
+    # into<T> trait for conversion
+    # as keyword for casting
 
 #######################
 #      POINTERS       #
@@ -90,20 +91,6 @@ other_func(self, bar: i32) {
 |x| { print(x); }
 
 #######################
-#     INHERITANCE     #
-#######################
-
-struct Entity {
-    id: i32,
-}
-
-struct Light {
-    use Entity,
-    size int,
-    intensity: f32,
-}
-
-#######################
 #      FREEING        #
 #######################
 
@@ -119,27 +106,26 @@ impl std::mem::free for string {
     }
 }
 
+string impl std::mem::free {
+    free(s: Self) {
+        free(s.pointer);
+    }
+}
+
 #######################
 #      TO DECIDE      #
 #######################
 
-## inheritance for enums
-# yes
-# no
-
-## arrays/vectors/seqs/lists
-# naming
-# arrays - stack allocated constant size
-# vector<T>
-# vector<T> `as` array<T>
-
-# views
+# and, or
+# const (casting)
+# type NewType = SomeOtherType;
+# rest args
 # multiple return values
 # labels (break label;)
 # errors (error handling)
+# closures
+# impl syntax (for or no for)
 # externs
-# license (zlib?)
-# macros
 
 }
 
