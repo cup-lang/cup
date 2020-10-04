@@ -56,6 +56,8 @@ fn main() {
     # into<T> trait for conversion
     # as keyword for casting
 
+    ## `labels`
+
 #######################
 #      POINTERS       #
 #######################
@@ -116,15 +118,44 @@ string impl std::mem::free {
 #      TO DECIDE      #
 #######################
 
-# and, or
-# const (casting)
+imp std::mem::free for SomeStruct {
+    public inline do_something() {
+
+    }
+
+    pub inl do_something() {
+        `outer` for a in 0..10 {
+            `inner` for b in 0..20 {
+                break `outer`;
+            }
+        }
+    }
+}
+
+SomeStruct imp std::mem::free {
+    free(s: Self) {
+        free(s);
+    }
+}
+
+if 5 and 3 == 1 {
+    if 8 or 2 {
+        
+    }
+}
+
+## and, or
+# &&, ||
+# &, |
+
+## rest args
+# ...
+# "rest" keyword
+
 # type NewType = SomeOtherType;
-# rest args
-# multiple return values
-# labels (break label;)
 # errors (error handling)
 # closures
-# impl syntax (for or no for)
+# impl syntax ("for" or no "for")
 # externs
 
 }

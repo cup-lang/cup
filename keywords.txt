@@ -8,9 +8,10 @@ use # replacement for "import"
 and # replacement for "&&"
 mod # replacement for "namespace"
 for # used with `in` to iterate over something
+inl # used to inline literals and functions
+imp # used to implement a `trait`
 fall # used in match to fallthrough
 null # represents a null pointer
-impl # used to implement a `trait`
 true
 rest # for varargs in functions
 enum # powerful ADT type of enum
@@ -27,7 +28,6 @@ break
 match # replacement for "switch"
 struct
 return
-inline # used to inline literals and functions
 
 int i8 i16 i32 i64 (i128)
 uint u8 u16 u32 u64 (u128)
