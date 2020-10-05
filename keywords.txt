@@ -1,30 +1,28 @@
 as # for casting
-or # replacement for "||"
-do # part of do-while; can be used without while
-in # used with `for`
+do # part of do-while; can be used without while to create a infinite loop
+in # used with `for` to iterate over something
 pub # for controlling visibility
 if
-use # replacement for "import"
-and # replacement for "&&"
-mod # replacement for "namespace"
-for # used with `in` to iterate over something
-inl # used to inline literals and functions
-imp # used to implement a `trait`
+use # replacement for C# "using"
+mod # replacement for C# "namespace"
+for # used with or without `in` to iterate over something
+inl # used to inline variables and functions
+impl # used to implement a given `trait`
 fall # used in match to fallthrough
 null # represents a null pointer
-true
+true # `true` value for booleans
 rest # for varargs in functions
 enum # powerful ADT type of enum
 elif # short for "else if"
 else
 next # replacement for "continue"
-false
-trait # replacement for "interfaces"
+false # `false` value for booleans
+trait # replacement for "interfaces/inheritance"
 const # used with types
 defer # defer execution of something till the end of the block
 while
-union # C union
-break
+union # C union (don't use)
+break # break with or without value from the current or specified loop
 match # replacement for "switch"
 struct
 return
