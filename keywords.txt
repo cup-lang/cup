@@ -16,6 +16,7 @@ enum # powerful ADT type of enum
 elif # short for "else if"
 else
 next # replacement for "continue"
+goto # C goto (dont't use)
 false # `false` value for booleans
 trait # replacement for "interfaces/inheritance"
 const # used with types

@@ -111,9 +111,26 @@ string impl std::mem::free {
 #      TO DECIDE      #
 #######################
 
+print<T>(arg: T) { # some printing based on type }
+
+printf(s: string, rest args) {
+    i := 0;
+    for c in s {
+        if c == '%' {
+            print(args[i]);
+            i += 1;
+        } else {
+            putc(c);
+        }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+    }
+}
+
+printf("foo % bar %", 0.0, 1);
+printf("foo % bar %", 12, true);
+
 impl std::mem::free for SomeStruct {
     public inline do_something() {
-
+        
     }
 
     pub inl do_something() {
