@@ -1,13 +1,13 @@
 as # for casting
 do # part of do-while; can be used without while to create a infinite loop
 in # used with `for` to iterate over something
-pub # for controlling visibility
 if
+pub # for controlling visibility
 use # replacement for C# "using"
 mod # replacement for C# "namespace"
 for # used with or without `in` to iterate over something
+imp # used to implement a given `trait`
 inl # used to inline variables and functions
-impl # used to implement a given `trait`
 fall # used in match to fallthrough
 null # represents a null pointer
 true # `true` value for booleans
@@ -15,40 +15,39 @@ rest # for varargs in functions
 enum # powerful ADT type of enum
 elif # short for "else if"
 else
-next # replacement for "continue"
-goto # C goto (dont't use)
+next # replacement for "continue" (`labels`)
+goto # goto `label`
+self # for making methods
 false # `false` value for booleans
 trait # replacement for "interfaces/inheritance"
 const # used with types
 defer # defer execution of something till the end of the block
 while
-union # C union (don't use)
+union # C union
 break # break with or without value from the current or specified loop
 match # replacement for "switch"
+macro # macro function
 struct
 return
 
 int i8 i16 i32 i64 (i128)
 uint u8 u16 u32 u64 (u128)
-f32 f64
-vec2 vec3 vec4
-mat3x3 mat4x4
-quat
 bool b8 b16 b32 b64 (b128)
+f32 f64
 string
 
-->
-=>
-;
-:
-,
-.
 (
 )
 {
 }
 [
 ]
+->
+=>
+;
+:
+,
+.
 ..
 =
 ==
@@ -68,3 +67,14 @@ string
 /=
 %
 %=
+~
+&
+&=
+|
+|=
+^
+^=
+<<
+<<=
+>>
+>>=

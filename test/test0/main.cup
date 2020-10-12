@@ -1,4 +1,4 @@
-fn main() {
+main() {
     ## generics
     # fn some_func<T, U, V>(arg: T) {}
     # struct SomeStruct<T, U, V>
@@ -43,9 +43,9 @@ fn main() {
     ## unions
 
     ## struct inititialization
-    # foo := v2 { 
+    # foo := v2 {
     #    x = 1.0,
-    #    y = 1.0, 
+    #    y = 1.0,
     # };
     
     ## inline keyword
@@ -53,115 +53,21 @@ fn main() {
     # for funcs
 
     ## conversion/casting
-    # into<T> trait for conversion
+    # into<T> trait for conversion (when something is done only)
     # as keyword for casting
 
     ## `labels`
 
-#######################
-#      POINTERS       #
-#######################
+    ## rest
+    # is an arr<void> by default
 
-foo := alloc<SomeStruct>();
-foo: ptr<SomeStruct> = alloc_size(size_of(SomeStruct));
-
-foo: ptr<int>;
-foo: const ptr<int>;
-foo: ptr<const int>;
-foo: const ptr<const int>;
-
-#######################
-#        CONST        #
-#######################
-
-const foo := 1;
-foo: ptr<const ptr<const int>> = alloc();
-
-func(const self, foo: const int) -> const int {
-    
+    ## closures
+    # |x| { print(x); }
 }
 
-other_func(self, bar: i32) {
-    
-}
+## C externs
 
-#######################
-#      FREEING        #
-#######################
-
-pub struct string {
-    pointer: ptr<u8>,
-    pub size: int,
-    pub capacity: int,
-}
-
-impl std::mem::free for string {
-    free(s: Self) {
-        free(s.pointer);
-    }
-}
-
-string impl std::mem::free {
-    free(s: Self) {
-        free(s.pointer);
-    }
-}
-
-#######################
-#      TO DECIDE      #
-#######################
-
-print<T>(arg: T) { # some printing based on type }
-
-printf(s: string, rest args) {
-    i := 0;
-    for c in s {
-        if c == '%' {
-            print(args[i]);
-            i += 1;
-        } else {
-            putc(c);
-        }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-    }
-}
-
-printf("foo % bar %", 0.0, 1);
-printf("foo % bar %", 12, true);
-
-impl std::mem::free for SomeStruct {
-    public inline do_something() {
-        
-    }
-
-    pub inl do_something() {
-        `outer` for a in 0..10 {
-            `inner` for b in 0..20 {
-                break `outer`;
-            }
-        }
-    }
-}
-
-SomeStruct impl std::mem::free {
-    free(s: Self) {
-        free(s);
-    }
-}
-
-## rest args
-# ...
-# "rest" keyword
-
-## closures
-# (x) { print(x); }
-# |x| { print(x); }
-
-# errors (error handling)
-# type NewType = SomeOtherType;
-# impl syntax ("for" or no "for")
-# C externs
-
-}
+## type abstraction (type NewType = SomeOtherType)
 
 ## did you mean 'some command' ?
 
