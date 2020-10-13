@@ -1,4 +1,21 @@
-main() {
+# main() {
+    # struct SomeStruct {
+    #     a: int,
+    #     b: f32,
+    # }
+
+    # enum SomeEnum {
+    #     Option1(foobar: i32),
+    #     Option2(x: i32, y: f32, z: u8),
+    #     Option3(),
+    # }
+
+    # 13 % a + 2 + 3 / 2 * foo;
+    
+    # while 1 + 1 { }
+
+    # if 2 + 3 { } elif 1 { } else { }
+
     ## generics
     # fn some_func<T, U, V>(arg: T) {}
     # struct SomeStruct<T, U, V>
@@ -63,7 +80,7 @@ main() {
 
     ## closures
     # |x| { print(x); }
-}
+# }
 
 ## C externs
 
