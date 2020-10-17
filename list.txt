@@ -1,0 +1,4 @@
+1. generics structs
+2. deref op
+3. addr op
+4. simple match
