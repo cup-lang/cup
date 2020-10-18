@@ -991,7 +991,7 @@ function compile(file) {
                                     while (gens !== 0 || index < ind + 2) {
                                         if (tokens[index].type === token_type.LESS) {
                                             expr.args[expr.args.length - 1].type += "<";
-                                            ++gens;   
+                                            ++gens;
                                         }
                                         else if (tokens[index].type === token_type.GREATER) {
                                             expr.args[expr.args.length - 1].type += ">";
@@ -1206,6 +1206,10 @@ function compile(file) {
                                 if (token.type === token_type.IDENTIFIER) {
                                     const v = expr.body[expr.body.length - 1].body;
                                     v[v.length - 1].type = token.value;
+                                    if (tokens[index + 1].type === token_type.LESS) {
+                                        v[v.length - 1].type += "<" + tokens[index + 2].value + ">";
+                                        index += 3;
+                                    }
                                     expr_state = 5;
                                 } else {
                                     throw "field type after ':'";
@@ -1324,6 +1328,9 @@ function compile(file) {
             case null:
                 type = "void";
                 break;
+            case "int":
+            case "char":
+                break;
             case "uint":
                 type = "unsigned int";
                 break;
@@ -1357,6 +1364,9 @@ function compile(file) {
             case "u16":
                 type = "uint16_t";
                 break;
+            default:
+                type = prefix_name(type);
+                break;
         }
         return type;
     }
@@ -1364,11 +1374,14 @@ function compile(file) {
     function generate_type(type) {
         if (type.includes("ptr<ptr<")) {
             type = basic_type(type.substring(8, type.length - 2)) + "**";
+            code += type;
         }
         else if (type.includes("ptr<")) {
             type = basic_type(type.substring(4, type.length - 1)) + "*";
+            code += type;
+        } else {
+            code += basic_type(type);
         }
-        code += basic_type(type);
     }
 
     function prefix_name(name) {
@@ -1387,10 +1400,7 @@ function compile(file) {
                 code += " " + prefix_name(expr.name) + "(";
                 generate_block(expr.args, false, false);
                 code += "){";
-                const temp = [...mod];
-                mod = [];
                 generate_block(expr.body, true, false);
-                mod = temp;
                 code += "}";
                 break;
             case expr_type.ARG:
@@ -1403,7 +1413,7 @@ function compile(file) {
                 }
                 break;
             case expr_type.FN_CALL:
-                code += expr.name.replace("::", "_") + "(";
+                code += prefix_name(expr.name).replace("::", "_") + "(";
                 generate_block(expr.args, false, true);
                 code += ")";
                 if (semicolon) {
@@ -1416,7 +1426,7 @@ function compile(file) {
                 code += " " + name;
                 if (expr.value) {
                     let type;
-                    if ((type = opt[expr.value.value.replace("::", "_")]) !== undefined) {
+                    if (expr.value.name && (type = opt[expr.value.name.replace("::", "_")]) !== undefined) {
                         code += ";" + name + ".t=" + type + ";";
                     } else {
                         code += "=";
@@ -1447,6 +1457,9 @@ function compile(file) {
                 //         code += "#define " + prefix_name(expr.body[i].name) + " " + i + "\n";
                 //     }
                 // } else {
+                for (let i = 0; i < expr.body.length; ++i) {
+                    expr.body[i].body.push({ kind: 2, name: "_", type: "char" });
+                }
                 generate_block(expr.body, true, false);
                 code += "typedef union{";
                 for (let i = 0; i < expr.body.length; i++) {
