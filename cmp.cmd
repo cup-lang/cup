@@ -4,6 +4,4 @@ REM tcc src\cup.c -o bin\cup.exe
 REM cl src\cup.c /O2 /Fe:bin\cup.exe
 REM clang src\cup.c -Ofast -o bin\cup.exe
 REM bin\cup build -i test\test0\main.cup -o test\test0\main.c
-cd ..\cup-test
-node ..\cup\src\cup.js build
-cd ..\cup
+node .\src\cup.js build

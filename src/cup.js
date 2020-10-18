@@ -188,6 +188,7 @@ for (let i = 3; i < argc; ++i) {
 
 let code = "#include <stdint.h>\n";
 let mod = [];
+let opt = {};
 
 compile_deep(process.cwd() + "\\src");
 
@@ -256,6 +257,7 @@ function compile(file) {
         COLON: 41,
         COMMA: 42,
         DOT: 43,
+        QUESTION: 999,
         // Operators
         RANGE: 44,
         ASSIGN: 45,
@@ -355,6 +357,9 @@ function compile(file) {
                     type = token_type.DOT;
                 }
                 break;
+            case "?":
+                type = token_type.QUESTION;
+                break;
             case "=":
                 if (file[i + 1] === ">") {
                     type = token_type.EQUAL_ARROW;
@@ -392,18 +397,10 @@ function compile(file) {
                 break;
             case ">":
                 if (file[i + 1] === "=") {
-                    type = token_type.GREATER;
-                    ++i;
-                } else if (file[i + 1] === ">") {
-                    if (file[i + 2] === "=") {
-                        type = token_type.RIGHT_SHIFT_ASSIGN;
-                        ++i;
-                    } else {
-                        type = token_type.RIGHT_SHIFT;
-                    }
+                    type = token_type.GREATER_EQUAL;
                     ++i;
                 } else {
-                    type = token_type.GREATER_EQUAL;
+                    type = token_type.GREATER;
                 }
                 break;
             case "+":
@@ -585,6 +582,7 @@ function compile(file) {
         OP: 10,
         VALUE: 11,
         ARRAY: 12,
+        ADDRESS: 42,
         BLOCK: 13,
         IF: 14,
         ELIF: 15,
@@ -595,7 +593,8 @@ function compile(file) {
         FOR: 20,
         RETURN: 21,
         BREAK: 22,
-        NEXT: 23
+        NEXT: 23,
+        OPTION: 24
     };
 
     let var_stack = null;
@@ -637,7 +636,7 @@ function compile(file) {
         const split = s.split("");
         for (let i = 0; i < split.length; ++i) {
             const c = split[i];
-            if (parseInt(c)) {
+            if (parseInt(c) !== NaN) {
                 continue;
             }
             return 0;
@@ -778,6 +777,22 @@ function compile(file) {
                         expr.args.push(parse(i, paren));
                     }
                     return expr;
+                case token_type.LEFT_SQUARE:
+                    const brace = next_token_of_type(token_type.RIGHT_SQUARE, start + 2, tokens.length);
+                    if (brace === -1) {
+                        throw "expected ']' after '['";
+                    }
+                    expr = { kind: expr_type.ARRAY, name: token.value };
+                    if (start + 2 !== brace) {
+                        expr.index = parse(start + 2, brace);
+                    }
+                    return expr;
+                case token_type.QUESTION:
+                    expr = { kind: expr_type.ADDRESS, name: token.value };
+                    return expr;
+                case token_type.DOT:
+                    expr = { kind: expr_type.OP, op_type: token_type.DOT, lhs: { kind: expr_type.VAR_USE, name: token.value }, rhs: { kind: expr_type.VAR_USE, name: tokens[start + 2].value } };
+                    return expr;
                 default:
                     if (token.value[0] === "\"") {
                         expr.kind = expr_type.VALUE;
@@ -798,18 +813,6 @@ function compile(file) {
             expr.kind = expr_type.OP;
             expr.op_type = op_type;
             expr.lhs = parse(start, op_index);
-            switch (op_type) {
-                case token_type.ASSIGN:
-                case token_type.ADD_ASSIGN:
-                case token_type.SUBSTRACT_ASSIGN:
-                case token_type.MULTIPLY_ASSIGN:
-                case token_type.DIVIDE_ASSIGN:
-                case token_type.MODULO_ASSIGN:
-                    if (expr.lhs.type !== expr_type.VAR_USE) {
-                        throw "expected a mutable variable";
-                    }
-                    break;
-            }
             expr.rhs = parse(op_index + 1, end);
             return expr;
         }
@@ -819,7 +822,7 @@ function compile(file) {
         let old = var_stack;
         var_stack = { vars: [], before: old };
 
-        const global_scope = index == 0;
+        const global_scope = index === 0;
 
         let vector = [];
         let expr_index = 0;
@@ -828,7 +831,7 @@ function compile(file) {
         while (index < tokens.length) {
             const token = tokens[index];
 
-            if (expr_index == vector.length) {
+            if (expr_index === vector.length) {
                 let expr = { kind: -1 };
 
                 main: switch (token.type) {
@@ -851,13 +854,18 @@ function compile(file) {
                                 while (i < tokens.length) {
                                     if (tokens[i].type === token_type.RIGHT_PAREN) {
                                         while (i < tokens.length) {
-                                            if (tokens[i].type === token_type.LEFT_BRACE) {
+                                            if (tokens[i].type === token_type.SEMICOLON) {
+                                                break;
+                                            }
+                                            else if (tokens[i].type === token_type.LEFT_BRACE) {
                                                 expr = { kind: expr_type.FN_DEF, name: token.value, args: [] };
                                                 ++index;
                                                 break main;
                                             }
                                             ++i;
                                         }
+                                        const semicolon = next_token_of_type(token_type.SEMICOLON, index, tokens.length);
+                                        expr = parse(index, semicolon);
                                     }
                                     ++i;
                                 }
@@ -919,6 +927,9 @@ function compile(file) {
                     case token_type.NEXT:
                         expr.kind = expr_type.NEXT;
                         break;
+                    case token_type.MATCH:
+                        expr.kind = expr_type.MATCH;
+                        break;
                 }
 
                 if (expr.kind !== -1) {
@@ -975,6 +986,24 @@ function compile(file) {
                             case 2:
                                 if (token.type === token_type.IDENTIFIER) {
                                     expr.args[expr.args.length - 1].type = token.value;
+                                    let gens = 0;
+                                    let ind = index++;
+                                    while (gens !== 0 || index < ind + 2) {
+                                        if (tokens[index].type === token_type.LESS) {
+                                            expr.args[expr.args.length - 1].type += "<";
+                                            ++gens;   
+                                        }
+                                        else if (tokens[index].type === token_type.GREATER) {
+                                            expr.args[expr.args.length - 1].type += ">";
+                                            --gens;
+                                            ind = index;
+                                        }
+                                        else if (tokens[index].type === token_type.IDENTIFIER) {
+                                            expr.args[expr.args.length - 1].type += tokens[index].value;
+                                        }
+                                        ++index;
+                                    }
+                                    index = ind;
                                     ++expr_state;
                                 } else {
                                     throw "expected argument type after ':'";
@@ -1017,6 +1046,10 @@ function compile(file) {
                             case 0:
                                 if (token.type === token_type.IDENTIFIER) {
                                     expr.type = token.value;
+                                    if (tokens[index + 1].type === token_type.LESS) {
+                                        expr.type += "<" + tokens[index + 2].value + ">";
+                                        index += 3;
+                                    }
                                     ++expr_state;
                                 } else if (token.type === token_type.ASSIGN) {
                                     expr_state = 2;
@@ -1219,6 +1252,46 @@ function compile(file) {
                         break;
                     case expr_type.DO:
                         break;
+                    case expr_type.MATCH:
+                        switch (expr_state) {
+                            case 0:
+                                if (token.type === token_type.IDENTIFIER) {
+                                    expr.name = token.value;
+                                    ++expr_state;
+                                } else {
+                                    throw "expected match variable name";
+                                }
+                                break;
+                            case 1:
+                                if (token.type === token_type.LEFT_BRACE) {
+                                    expr.body = [];
+                                    expr_state = 3;
+                                } else {
+                                    throw "expected '{' after match variable name";
+                                }
+                                break;
+                            case 2:
+                                if (token.type === token_type.COMMA) {
+                                    ++expr_state;
+                                } else if (token.type === token_type.RIGHT_BRACE) {
+                                    ++expr_index;
+                                } else {
+                                    throw "',' or '}' after option definition";
+                                }
+                                break;
+                            case 3:
+                                if (token.type === token_type.IDENTIFIER) {
+                                    index += 3;
+                                    expr.body.push({ kind: expr_type.OPTION, name: token.value, body: parse_block() });
+                                    --expr_state;
+                                } else if (token.type === token_type.RIGHT_BRACE) {
+                                    ++expr_index;
+                                } else {
+                                    throw "expected a option or '}'";
+                                }
+                                break;
+                        }
+                        break;
                 }
             }
 
@@ -1246,48 +1319,56 @@ function compile(file) {
 
     // #region Generator
 
-    function generate_type(type) {
+    function basic_type(type) {
         switch (type) {
             case null:
-                code += "void";
+                type = "void";
                 break;
             case "uint":
-                code += "unsigned int";
+                type = "unsigned int";
                 break;
             case "i32":
-                code += "int32_t";
+                type = "int32_t";
                 break;
             case "f32":
-                code += "float";
+                type = "float";
                 break;
             case "i8":
-                code += "int8_t";
+                type = "int8_t";
                 break;
             case "f64":
-                code += "double";
+                type = "double";
                 break;
             case "u32":
-                code += "uint32_t";
+                type = "uint32_t";
                 break;
             case "i64":
-                code += "int64_t";
+                type = "int64_t";
                 break;
             case "i16":
-                code += "int16_t";
+                type = "int16_t";
                 break;
             case "u8":
-                code += "uint8_t";
+                type = "uint8_t";
                 break;
             case "u64":
-                code += "uint64_t";
+                type = "uint64_t";
                 break;
             case "u16":
-                code += "uint16_t";
-                break;
-            default:
-                code += type;
+                type = "uint16_t";
                 break;
         }
+        return type;
+    }
+
+    function generate_type(type) {
+        if (type.includes("ptr<ptr<")) {
+            type = basic_type(type.substring(8, type.length - 2)) + "**";
+        }
+        else if (type.includes("ptr<")) {
+            type = basic_type(type.substring(4, type.length - 1)) + "*";
+        }
+        code += basic_type(type);
     }
 
     function prefix_name(name) {
@@ -1329,16 +1410,23 @@ function compile(file) {
                     code += ";";
                 }
                 break;
-            case expr_type.VAR_DEF:
+            case expr_type.VAR_DEF: {
                 generate_type(expr.type);
-                code += " " + prefix_name(expr.name);
+                const name = prefix_name(expr.name);
+                code += " " + name;
                 if (expr.value) {
-                    code += "=";
-                    generate_expr(expr.value, false, true, false);
+                    let type;
+                    if ((type = opt[expr.value.value.replace("::", "_")]) !== undefined) {
+                        code += ";" + name + ".t=" + type + ";";
+                    } else {
+                        code += "=";
+                        generate_expr(expr.value, false, true, false);
+                    }
                 } else {
                     code += ";";
                 }
                 break;
+            }
             case expr_type.STRUCT:
                 code += "typedef struct{";
                 generate_block(expr.body, true, false);
@@ -1353,22 +1441,24 @@ function compile(file) {
                 }
                 const name = prefix_name(expr.name);
                 mod.push(expr.name);
-                if (simple) {
-                    code += "\n";
-                    for (let i = 0; i < expr.body.length; ++i) {
-                        code += "#define " + prefix_name(expr.body[i].name) + " " + i + "\n";
-                    }
-                } else {
-                    generate_block(expr.body, true, false);
-                    code += "typedef union{";
-                    for (let i = 0; i < expr.body.length; i++) {
-                        code += prefix_name(expr.body[i].name) + " _" + i + ";";
-                    }
-                    code += "}" + name + "Union;";
-                    code += "typedef struct{" + name + "Union u;";
-                    generate_type("uint");
-                    code += " t;}" + name + ";";
+                // if (simple) {
+                //     code += "\n";
+                //     for (let i = 0; i < expr.body.length; ++i) {
+                //         code += "#define " + prefix_name(expr.body[i].name) + " " + i + "\n";
+                //     }
+                // } else {
+                generate_block(expr.body, true, false);
+                code += "typedef union{";
+                for (let i = 0; i < expr.body.length; i++) {
+                    const uname = prefix_name(expr.body[i].name);
+                    opt[uname] = i;
+                    code += uname + " _" + i + ";";
                 }
+                code += "}" + name + "Union;";
+                code += "typedef struct{" + name + "Union u;";
+                generate_type("uint");
+                code += " t;}" + name + ";";
+                // }
                 mod.pop();
                 break;
             case expr_type.VAR_USE:
@@ -1383,6 +1473,9 @@ function compile(file) {
                 }
                 generate_expr(expr.lhs, false, false, parens + 1);
                 switch (expr.op_type) {
+                    case token_type.DOT:
+                        code += ".";
+                        break;
                     case token_type.ASSIGN:
                         code += "=";
                         break;
@@ -1453,6 +1546,15 @@ function compile(file) {
                 }
                 break;
             case expr_type.ARRAY:
+                code += "*(" + expr.name;
+                if (expr.index) {
+                    code += "+";
+                    generate_expr(expr.index, false, false, false);
+                }
+                code += ")";
+                break;
+            case expr_type.ADDRESS:
+                code += "&(" + expr.name + ")";
                 break;
             case expr_type.BLOCK:
                 code += "{";
@@ -1496,6 +1598,15 @@ function compile(file) {
                 break;
             case expr_type.NEXT:
                 code += "continue;";
+                break;
+            case expr_type.MATCH:
+                code += "switch(" + expr.name + ".t){";
+                for (let i = 0; i < expr.body.length; ++i) {
+                    code += "case " + opt[expr.body[i].name.replace("::", "_")] + ":{";
+                    generate_block(expr.body[i].body, true, false);
+                    code += "break;}";
+                }
+                code += "}";
                 break;
         }
     }
