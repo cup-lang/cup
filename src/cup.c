@@ -31,6 +31,8 @@
 
 VECTOR(String, string, char);
 
+#define THROW(...) fprintf(stderr, __VA_ARGS__);exit(1);
+
 typedef enum
 {
     IDENT,
@@ -72,9 +74,11 @@ typedef enum
     COLON,
     COMMA,
     DOT,
-    ARROW,
+    TYPE_ARROW,
     MATCH_ARROW,
     QUESTION_MARK,
+    BACKTICK,
+    AT,
     LEFT_PAREN,
     RIGHT_PAREN,
     LEFT_BRACE,
@@ -129,7 +133,6 @@ TokenVector lex(String input)
 {
     TokenVector tokens = token_vector_new(input.size / 4);
     char is_comment = 0;
-    int possible_generic = 0;
     String value = string_new(32);
 
     for (int i = 0; i < input.size + 1; ++i)
@@ -170,6 +173,12 @@ TokenVector lex(String input)
                 break;
             case '?':
                 kind = QUESTION_MARK;
+                break;
+            case '`':
+                kind = BACKTICK;
+                break;
+            case '@':
+                kind = AT;
                 break;
             case '(':
                 kind = LEFT_PAREN;
@@ -250,7 +259,7 @@ TokenVector lex(String input)
                     switch (input.array[i + 1])
                     {
                     case '>':
-                        kind = ARROW;
+                        kind = TYPE_ARROW;
                         ++i;
                         break;
                     case '=':
@@ -378,12 +387,12 @@ TokenVector lex(String input)
                         if (i + 2 < input.size && input.array[i + 2] == '=')
                         {
                             kind = LEFT_SHIFT_ASSIGN;
-                            ++i;
+                            i += 2;
                         }
                         else
                         {
                             kind = LEFT_SHIFT;
-                            ++i;
+                            i += 2;
                         }
                         break;
                     default:
@@ -404,18 +413,23 @@ TokenVector lex(String input)
                         kind = GREATER_EQUAL;
                         ++i;
                         break;
-                    case '<':
-                        if (i + 2 < input.size && input.array[i + 2] == '=')
+                    case '>':
+                        if (i + 2 < input.size)
                         {
-                            kind = RIGHT_SHIFT_ASSIGN;
-                            ++i;
+                            char next = input.array[i + 2];
+                            if (next == '=')
+                            {
+                                kind = RIGHT_SHIFT_ASSIGN;
+                                i += 2;
+                                break;
+                            }
+                            else if (next == '_' || isalnum(next))
+                            {
+                                kind = RIGHT_SHIFT;
+                                i += 2;
+                                break;
+                            }
                         }
-                        else
-                        {
-                            kind = RIGHT_SHIFT;
-                            ++i;
-                        }
-                        break;
                     default:
                         kind = GREATER;
                     }
@@ -430,7 +444,14 @@ TokenVector lex(String input)
 
         if (kind == -1)
         {
-            string_push(&value, c);
+            if (c == '_' || isalnum(c))
+            {
+                string_push(&value, c);
+            }
+            else
+            {
+                THROW("Unexpected symbol '%c'", c);
+            }
         }
         else
         {
@@ -473,7 +494,8 @@ TokenVector lex(String input)
                 else if (strcmp(value.array, "self") == 0)
                 {
                     value_kind = SELF;
-                }else if (strcmp(value.array, "rest") == 0)
+                }
+                else if (strcmp(value.array, "rest") == 0)
                 {
                     value_kind = REST;
                 }
@@ -588,19 +610,6 @@ TokenVector lex(String input)
                 token_vector_push(&tokens, token);
             }
         }
-
-        // if we have < check if we don't have any operators afterwards
-        // if we don't then it's 100% generic thingy and not an operation
-        // if we see a : then only allow + but disallow rest of the ops
-        // if it's 100% generic thingy >> is not right shift but two greater tokens
-
-        // func(foo: ptr<ptr<ptr<ptr<int>>>>) {
-        //    a: ptr<ptr<int>>;
-        //    a>>b;
-        //    a<<b;
-        //    a<ptr<T>>()>>b;
-        //    name::space::func<foo::f32, bar::Something<ptr<u8>>>();
-        // }
     }
 
     free(value.array);
@@ -646,9 +655,11 @@ TokenVector lex(String input)
             [COLON] = "COLON",
             [COMMA] = "COMMA",
             [DOT] = "DOT",
-            [ARROW] = "ARROW",
+            [TYPE_ARROW] = "TYPE_ARROW",
             [MATCH_ARROW] = "MATCH_ARROW",
             [QUESTION_MARK] = "QUESTION_MARK",
+            [BACKTICK] = "BACKTICK",
+            [AT] = "AT",
             [LEFT_PAREN] = "LEFT_PAREN",
             [RIGHT_PAREN] = "RIGHT_PAREN",
             [LEFT_BRACE] = "LEFT_BRACE",
@@ -705,9 +716,98 @@ TokenVector lex(String input)
     return tokens;
 }
 
-typedef struct
+/*
+
+    pub applies to:
+        - mods
+        - static variables
+        - structs
+        - traits
+        - enums
+        - unions
+        - fields
+        - imps
+        - functions
+        
+    mod:
+        - pub
+        - name 
+        - body
+
+    use:
+
+    struct:
+
+    enum:
+
+    union:
+
+    trait:
+
+    imp:
+
+    self:
+
+    rest:
+
+    inl:
+
+    macro:
+
+    const:
+
+    true:
+
+    false:
+
+    null:
+
+    if:
+
+    elif:
+
+    else:
+
+    do:
+
+    while:
+
+    for:
+
+    in:
+
+    match:
+
+    fall:
+
+    break:
+
+    next:
+
+    return:
+
+    defer:
+
+    goto:
+
+    as:
+
+*/
+
+typedef enum
+{
+    A
+} ExprKind;
+
+typedef union
 {
     char _;
+} ExprUnion;
+
+typedef struct
+{
+    ExprKind kind;
+    ExprUnion u;
 } Expr;
 
 VECTOR(ExprVector, expr_vector, Expr);
@@ -800,6 +900,6 @@ int main()
 
 //////////////////////////////
 
-// lex
+// lex - DONE
 // parse
 // gen
