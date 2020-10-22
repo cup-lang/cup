@@ -718,41 +718,76 @@ TokenVector lex(String input)
 
 /*
 
+    ops
+    fn defs
+    generics
+
     pub applies to:
         - mods
-        - static variables
         - structs
         - traits
         - enums
         - unions
         - fields
         - imps
+        - static variables
+        - functions
+
+    inl applies to:
+        - static variables
+        - functions  
+
+    macro applies to:
         - functions
         
-    mod:
-        - pub
-        - name 
-        - body
+    (pub) mod:
+        - name: string
+        - body: arr<expr>
 
     use:
+        - name: string
 
-    struct:
+    (pub) (generic) struct:
+        - name: string
+        - body: arr<field>
 
-    enum:
+    (pub) field:
+        - name: string
+        - type: string?
 
-    union:
+    (pub) (generic) enum:
+        - name: string
+        - body: arr<option>
 
-    trait:
+    (pub) (generic) option:
+        - name: string
+        - body: arr<field>
 
-    imp:
+    (pub) (generic) union:
+        - name: string
+        - body: arr<field>
 
-    self:
+    (pub) (generic) trait:
+        - name: string
+        - body: arr<function>
+
+    (pub) (generic) imp:
+        - trait: string?
+        - target: string?
+
+    (pub) (generic) fn_def:
+        - name: string
+        - args: arr<arg>
+        - type: string?
+        - body: arr<expr>
+
+    arg:
+        name: string
+        type: string?
+
+    self
 
     rest:
-
-    inl:
-
-    macro:
 
     const:
 
