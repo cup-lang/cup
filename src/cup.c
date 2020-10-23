@@ -31,7 +31,9 @@
 
 VECTOR(String, string, char);
 
-#define THROW(...) fprintf(stderr, __VA_ARGS__);exit(1);
+#define THROW(...)                \
+    fprintf(stderr, __VA_ARGS__); \
+    exit(1);
 
 typedef enum
 {
@@ -108,7 +110,6 @@ typedef enum
     MODULO,
     MODULO_ASSIGN,
     BIT_NOT,
-    BIT_NOT_ASSIGN,
     BIT_AND,
     BIT_AND_ASSIGN,
     BIT_OR,
@@ -309,15 +310,7 @@ TokenVector lex(String input)
                 }
                 break;
             case '~':
-                if (i + 1 < input.size && input.array[i + 1] == '=')
-                {
-                    kind = BIT_NOT_ASSIGN;
-                    ++i;
-                }
-                else
-                {
-                    kind = BIT_NOT;
-                }
+                kind = BIT_NOT;
                 break;
             case '&':
                 if (i + 1 < input.size)
@@ -716,15 +709,14 @@ TokenVector lex(String input)
     return tokens;
 }
 
-
 /*
 
-    string literal (interpol)
-    arr literal
+    all ops
 
     value = op + fn_call + var_use + literal
     global = use + mod + struct + enum + union + trait + imp + fn_def + var_def
     local = for + do + if + elif + else + while + match + fall + break + next + goto + return + deref + local_var_def + value
+    literal = string_lit + arr_lit + num_lit + bool_lit + null_lit + self_lit
 
     type:
         - const: bool
@@ -830,18 +822,18 @@ TokenVector lex(String input)
     block:
         - body: arr<local>
 
-    "aasdasdasd ${foo} aadsas"
-    [1, 1, 1, 1, 1, 1]
-    12123123
-    123123.12312312
-    true
-    false
-    null
-    self
+    string_lit:
+    arr_lit:
+        - arr<value>
 
-    literal:
+    num_lit:
         - val: string
-        - type: type
+
+    bool_lit:
+        - val: bool
+
+    null_lit:
+    self_lit:
 
     if:
     elif:
@@ -865,11 +857,7 @@ TokenVector lex(String input)
     fall:
 
     break:
-        - label: string
-
     next:
-        - label: string
-
     goto:
         - label: string
 
@@ -879,17 +867,483 @@ TokenVector lex(String input)
     defer:
         - body: arr<local>
 
-    op:
-        - type: op_type
+    range_op:
+    equal_op:
+    not_equal_op:
+    and_op:
+    or_op:
+    less_op:
+    less_equal_op:
+    greater_op:
+    greater_equal_op:
+    add_op:
+    sub_op:
+    mul_op:
+    div_op:
+    mod_op:
+    bit_and:
+    bit_or:
+    bit_xor:
+    left_shift:
+    right_shift:
         - lhs: value
+        - rhs: value
+
+    not_op:
+    bit_not:
+        - rhs: value
+
+    assign_op:
+    add_assign_op:
+    sub_assign_op:
+    mul_assign_op:
+    div_assign_op:
+    mod_assign_op:
+    bit_and_assign:
+    bit_or_assign:
+    bit_xor_assign:
+    left_shift_assign:
+    right_shift_assign:
+        - lhs: var_use
         - rhs: value
 
 */
 
 typedef enum
 {
-    A
+    TYPE,
+    GEN_TYPE,
+    MOD,
+    USE,
+    STRUCT,
+    FIELD,
+    ENUM,
+    OPTION,
+    UNION,
+    TRAIT,
+    IMP,
+    FN_DEF,
+    ARG,
+    VAR_DEF,
+    LOCAL_VAR_DEF,
+    FN_CALL,
+    VAR_USE,
+    STRUCT_INST,
+    FIELD_VAL,
+    DO,
+    BLOCK,
+    STRING_LIT,
+    ARR_LIT,
+    NUM_LIT,
+    BOOL_LIT,
+    NULL_LIT,
+    SELF_LIT,
+    IF,
+    ELIF,
+    ELSE,
+    WHILE,
+    FOR,
+    MATCH,
+    CASE,
+    FALL,
+    BREAK,
+    NEXT,
+    GOTO,
+    RETURN,
+    DEFER,
+    RANGE_OP,
+    EQUAL_OP,
+    NOT_EQUAL_OP,
+    AND_OP,
+    OR_OP,
+    LESS_OP,
+    LESS_EQUAL_OP,
+    GREATER_OP,
+    GREATER_EQUAL_OP,
+    ADD_OP,
+    SUB_OP,
+    MUL_OP,
+    DIV_OP,
+    MOD_OP,
+    BIT_AND,
+    BIT_OR,
+    BIT_XOR,
+    LEFT_SHIFT,
+    RIGHT_SHIFT,
+    NOT_OP,
+    BIT_NOT_OP,
+    ASSIGN_OP,
+    ADD_ASSIGN_OP,
+    SUB_ASSIGN_OP,
+    MUL_ASSIGN_OP,
+    DIV_ASSIGN_OP,
+    MOD_ASSIGN_OP,
+    BIT_AND_ASSIGN,
+    BIT_OR_ASSIGN,
+    BIT_XOR_ASSIGN,
+    LEFT_SHIFT_ASSIGN,
+    RIGHT_SHIFT_ASSIGN
 } ExprKind;
+
+typedef struct
+{
+
+} Type;
+
+typedef struct
+{
+
+} GenType;
+
+typedef struct
+{
+
+} Mod;
+
+typedef struct
+{
+
+} Use;
+
+typedef struct
+{
+
+} Struct;
+
+typedef struct
+{
+
+} Field;
+
+typedef struct
+{
+
+} Enum;
+
+typedef struct
+{
+
+} Option;
+
+typedef struct
+{
+
+} Union;
+
+typedef struct
+{
+
+} Trait;
+
+typedef struct
+{
+
+} Imp;
+
+typedef struct
+{
+
+} FnDef;
+
+typedef struct
+{
+
+} Arg;
+
+typedef struct
+{
+
+} VarDef;
+
+typedef struct
+{
+
+} LocalVarDef;
+
+typedef struct
+{
+
+} FnCall;
+
+typedef struct
+{
+
+} VarUse;
+
+typedef struct
+{
+
+} StructInst;
+
+typedef struct
+{
+
+} FieldVal;
+
+typedef struct
+{
+
+} Do;
+
+typedef struct
+{
+
+} Block;
+
+typedef struct
+{
+
+} StringLit;
+
+typedef struct
+{
+
+} ArrLit;
+
+typedef struct
+{
+
+} NumLit;
+
+typedef struct
+{
+
+} BoolLit;
+
+typedef struct
+{
+
+} NullLit;
+
+typedef struct
+{
+
+} SelfLit;
+
+typedef struct
+{
+
+} If;
+
+typedef struct
+{
+
+} Elif;
+
+typedef struct
+{
+
+} Else;
+
+typedef struct
+{
+
+} While;
+
+typedef struct
+{
+
+} For;
+
+typedef struct
+{
+
+} Match;
+
+typedef struct
+{
+
+} Case;
+
+typedef struct
+{
+
+} Fall;
+
+typedef struct
+{
+
+} Break;
+
+typedef struct
+{
+
+} Next;
+
+typedef struct
+{
+
+} Goto;
+
+typedef struct
+{
+
+} Return;
+
+typedef struct
+{
+
+} Defer;
+
+typedef struct
+{
+
+} RangeOp;
+
+typedef struct
+{
+
+} EqualOp;
+
+typedef struct
+{
+
+} NotEqualOp;
+
+typedef struct
+{
+
+} AndOp;
+
+typedef struct
+{
+
+} OrOp;
+
+typedef struct
+{
+
+} LessOp;
+
+typedef struct
+{
+
+} LessEqualOp;
+
+typedef struct
+{
+
+} GreaterOp;
+
+typedef struct
+{
+
+} GreaterEqualOp;
+
+typedef struct
+{
+
+} AddOp;
+
+typedef struct
+{
+
+} SubOp;
+
+typedef struct
+{
+
+} MulOp;
+
+typedef struct
+{
+
+} DivOp;
+
+typedef struct
+{
+
+} ModOp;
+
+typedef struct
+{
+
+} BitAnd;
+
+typedef struct
+{
+
+} BitOr;
+
+typedef struct
+{
+
+} BitXor;
+
+typedef struct
+{
+
+} LeftShift;
+
+typedef struct
+{
+
+} RightShift;
+
+typedef struct
+{
+
+} NotOp;
+
+typedef struct
+{
+
+} BitNotOp;
+
+typedef struct
+{
+
+} AssignOp;
+
+typedef struct
+{
+
+} AddAssignOp;
+
+typedef struct
+{
+
+} SubAssignOp;
+
+typedef struct
+{
+
+} MulAssignOp;
+
+typedef struct
+{
+
+} DivAssignOp;
+
+typedef struct
+{
+
+} ModAssignOp;
+
+typedef struct
+{
+
+} BitAndAssign;
+
+typedef struct
+{
+
+} BitOrAssign;
+
+typedef struct
+{
+
+} BitXorAssign;
+
+typedef struct
+{
+
+} LeftShiftAssign;
+
+typedef struct
+{
+
+} RightShiftAssign;
 
 typedef union
 {
