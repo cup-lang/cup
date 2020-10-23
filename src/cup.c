@@ -716,116 +716,173 @@ TokenVector lex(String input)
     return tokens;
 }
 
+
 /*
 
-    ops
-    fn defs
-    generics
+    string literal (interpol)
+    arr literal
 
-    pub applies to:
-        - mods
-        - structs
-        - traits
-        - enums
-        - unions
-        - fields
-        - imps
-        - static variables
-        - functions
+    value = op + fn_call + var_use + literal
+    global = use + mod + struct + enum + union + trait + imp + fn_def + var_def
+    local = for + do + if + elif + else + while + match + fall + break + next + goto + return + deref + local_var_def + value
 
-    inl applies to:
-        - static variables
-        - functions  
+    type:
+        - const: bool
+        - name: string
+        - child: arr<type>
 
-    macro applies to:
-        - functions
-        
+    gen_type:
+        - name: string
+        - constr: arr<type>
+
     (pub) mod:
         - name: string
-        - body: arr<expr>
+        - body: arr<global>
 
     use:
         - name: string
 
     (pub) (generic) struct:
+        - pub: bool 
         - name: string
+        - gen: gen_type
         - body: arr<field>
 
     (pub) field:
+        - pub: bool 
         - name: string
-        - type: string?
+        - type: type
 
     (pub) (generic) enum:
+        - pub: bool 
         - name: string
+        - gen: gen_type
         - body: arr<option>
 
     (pub) (generic) option:
+        - pub: bool 
         - name: string
+        - gen: gen_type
         - body: arr<field>
 
     (pub) (generic) union:
+        - pub: bool 
         - name: string
+        - gen: gen_type
         - body: arr<field>
 
     (pub) (generic) trait:
+        - pub: bool
         - name: string
-        - body: arr<function>
+        - gen: gen_type
+        - body: arr<fn_def>
 
     (pub) (generic) imp:
-        - trait: string?
-        - target: string?
+        - pub: bool
+        - trait: type
+        - target: type
+        - gen: gen_type
+        - body: arr<fn_def>
 
-    (pub) (generic) fn_def:
+    (pub) (inl) (macro) (generic) fn_def:
+        - pub: bool
+        - inl: bool
+        - macro: bool
         - name: string
+        - gen: gen_type
         - args: arr<arg>
-        - type: string?
-        - body: arr<expr>
+        - type: type
+        - body: arr<local>
 
-    arg:
+    (rest) arg:
+        rest: bool
         name: string
-        type: string?
+        type: type
 
-    self
+    (pub) (inl) (combo) var_def:
+        - pub: bool
+        - inl: bool
+        - name: string
+        - type: type 
 
-    rest:
+    (combo) local_var_def:
+        - name: string
+        - type: type
+        - val: value
 
-    const:
+    fn_call:
+        - name: string
+        - gen: type
+        - args: arr<value>
 
-    true:
+    var_use:
+        - name: string
 
-    false:
+    struct_inst:
+        - type: type
+        - fields: arr<field_val>
 
-    null:
-
-    if:
-
-    elif:
-
-    else:
+    field_val:
+        - name: string
+        - val: value
 
     do:
+    block:
+        - body: arr<local>
 
+    "aasdasdasd ${foo} aadsas"
+    [1, 1, 1, 1, 1, 1]
+    12123123
+    123123.12312312
+    true
+    false
+    null
+    self
+
+    literal:
+        - val: string
+        - type: type
+
+    if:
+    elif:
+    else:
     while:
+        - con: value
+        - body: arr<local>
 
     for:
-
-    in:
+        - loop_var_name: string
+        - iter: value
 
     match:
+        - val: value
+        - body: arr<case>
+
+    case:
+        - val: value
+        - body: arr<local>
 
     fall:
 
     break:
+        - label: string
 
     next:
-
-    return:
-
-    defer:
+        - label: string
 
     goto:
+        - label: string
 
-    as:
+    return:
+        - val: value
+
+    defer:
+        - body: arr<local>
+
+    op:
+        - type: op_type
+        - lhs: value
+        - rhs: value
 
 */
 
