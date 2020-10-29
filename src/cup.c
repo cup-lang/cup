@@ -4,13 +4,19 @@
 #include <string.h>
 #include <ctype.h>
 
-#define VECTOR(name, lower, type)                           \
-    typedef struct                                          \
-    {                                                       \
-        type *array;                                        \
-        int size;                                           \
-        int capacity;                                       \
-    } name;                                                 \
+#define VECTOR(name, lower, type) \
+    VECTOR_STRUCT(name, type)     \
+    VECTOR_FUNC(name, lower, type)
+
+#define VECTOR_STRUCT(name, type) \
+    typedef struct                \
+    {                             \
+        type *array;              \
+        int size;                 \
+        int capacity;             \
+    } name;
+
+#define VECTOR_FUNC(name, lower, type)                      \
     name lower##_new(int c)                                 \
     {                                                       \
         name v;                                             \
@@ -45,7 +51,7 @@ typedef enum
     ENUM,
     UNION,
     TRAIT,
-    IMP,
+    IMPL,
     SELF,
     REST,
     INL,
@@ -129,6 +135,107 @@ typedef struct
 } Token;
 
 VECTOR(TokenVector, token_vector, Token);
+
+void print_token_vector(TokenVector tokens)
+{
+    const char *const token_names[] =
+        {
+            [IDENT] = "IDENT",
+            [PUB] = "PUB",
+            [MOD] = "MOD",
+            [USE] = "USE",
+            [STRUCT] = "STRUCT",
+            [ENUM] = "ENUM",
+            [UNION] = "UNION",
+            [TRAIT] = "TRAIT",
+            [IMPL] = "IMPL",
+            [SELF] = "SELF",
+            [REST] = "REST",
+            [INL] = "INL",
+            [MACRO] = "MACRO",
+
+            [_CONST] = "CONST",
+            [_TRUE] = "TRUE",
+            [_FALSE] = "_FALSE",
+            [_NULL] = "NULL",
+
+            [IF] = "IF",
+            [ELIF] = "ELIF",
+            [ELSE] = "ELSE",
+            [DO] = "DO",
+            [WHILE] = "WHILE",
+            [FOR] = "FOR",
+            [_IN] = "IN",
+            [MATCH] = "MATCH",
+            [FALL] = "FALL",
+            [BREAK] = "BREAK",
+            [NEXT] = "NEXT",
+            [RETURN] = "RETURN",
+            [DEFER] = "DEFER",
+            [GOTO] = "GOTO",
+            [AS] = "AS",
+
+            [SEMICOLON] = "SEMICOLON",
+            [COLON] = "COLON",
+            [COMMA] = "COMMA",
+            [DOT] = "DOT",
+            [TYPE_ARROW] = "TYPE_ARROW",
+            [MATCH_ARROW] = "MATCH_ARROW",
+            [QUESTION_MARK] = "QUESTION_MARK",
+            [BACKTICK] = "BACKTICK",
+            [AT] = "AT",
+            [LEFT_PAREN] = "LEFT_PAREN",
+            [RIGHT_PAREN] = "RIGHT_PAREN",
+            [LEFT_BRACE] = "LEFT_BRACE",
+            [RIGHT_BRACE] = "RIGHT_BRACE",
+            [LEFT_SQUARE] = "LEFT_SQUARE",
+            [RIGHT_SQUARE] = "RIGHT_SQUARE",
+
+            [RANGE] = "RANGE",
+            [ASSIGN] = "ASSIGN",
+            [EQUAL] = "EQUAL",
+            [NOT_EQUAL] = "NOT_EQUAL",
+            [NOT] = "NOT",
+            [AND] = "AND",
+            [OR] = "OR",
+            [LESS] = "LESS",
+            [LESS_EQUAL] = "LESS_EQUAL",
+            [GREATER] = "GREATER",
+            [GREATER_EQUAL] = "GREATER_EQUAL",
+            [ADD] = "ADD",
+            [ADD_ASSIGN] = "ADD_ASSIGN",
+            [SUB] = "SUB",
+            [SUB_ASSIGN] = "SUB_ASSIGN",
+            [MUL] = "MUL",
+            [MUL_ASSIGN] = "MUL_ASSIGN",
+            [DIV] = "DIV",
+            [DIV_ASSIGN] = "DIV_ASSIGN",
+            [MODULO] = "MODULO",
+            [MODULO_ASSIGN] = "MODULO_ASSIGN",
+            [BIT_NOT] = "BIT_NOT",
+            [BIT_AND] = "BIT_AND",
+            [BIT_AND_ASSIGN] = "BIT_AND_ASSIGN",
+            [BIT_OR] = "BIT_OR",
+            [BIT_OR_ASSIGN] = "BIT_OR_ASSIGN",
+            [BIT_XOR] = "BIT_XOR",
+            [BIT_XOR_ASSIGN] = "BIT_XOR_ASSIGN",
+            [LEFT_SHIFT] = "LEFT_SHIFT",
+            [LEFT_SHIFT_ASSIGN] = "LEFT_SHIFT_ASSIGN",
+            [RIGHT_SHIFT] = "RIGHT_SHIFT",
+            [RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIGN"};
+
+    puts("Tokens:");
+    for (int i = 0; i < tokens.size; ++i)
+    {
+        printf(" %s", token_names[tokens.array[i].kind]);
+        if (tokens.array[i].kind == IDENT)
+        {
+            printf("(\"%s\")", tokens.array[i].value);
+        }
+        puts("");
+    }
+    puts("");
+}
 
 TokenVector lex(String input)
 {
@@ -480,9 +587,9 @@ TokenVector lex(String input)
                 {
                     value_kind = TRAIT;
                 }
-                else if (strcmp(value.array, "imp") == 0)
+                else if (strcmp(value.array, "impl") == 0)
                 {
-                    value_kind = IMP;
+                    value_kind = IMPL;
                 }
                 else if (strcmp(value.array, "self") == 0)
                 {
@@ -607,137 +714,46 @@ TokenVector lex(String input)
 
     free(value.array);
 
-    const char *const token_names[] =
-        {
-            [IDENT] = "IDENT",
-            [PUB] = "PUB",
-            [MOD] = "MOD",
-            [USE] = "USE",
-            [STRUCT] = "STRUCT",
-            [ENUM] = "ENUM",
-            [UNION] = "UNION",
-            [TRAIT] = "TRAIT",
-            [IMP] = "IMP",
-            [SELF] = "SELF",
-            [REST] = "REST",
-            [INL] = "INL",
-            [MACRO] = "MACRO",
-
-            [_CONST] = "CONST",
-            [_TRUE] = "TRUE",
-            [_FALSE] = "_FALSE",
-            [_NULL] = "NULL",
-
-            [IF] = "IF",
-            [ELIF] = "ELIF",
-            [ELSE] = "ELSE",
-            [DO] = "DO",
-            [WHILE] = "WHILE",
-            [FOR] = "FOR",
-            [_IN] = "IN",
-            [MATCH] = "MATCH",
-            [FALL] = "FALL",
-            [BREAK] = "BREAK",
-            [NEXT] = "NEXT",
-            [RETURN] = "RETURN",
-            [DEFER] = "DEFER",
-            [GOTO] = "GOTO",
-            [AS] = "AS",
-
-            [SEMICOLON] = "SEMICOLON",
-            [COLON] = "COLON",
-            [COMMA] = "COMMA",
-            [DOT] = "DOT",
-            [TYPE_ARROW] = "TYPE_ARROW",
-            [MATCH_ARROW] = "MATCH_ARROW",
-            [QUESTION_MARK] = "QUESTION_MARK",
-            [BACKTICK] = "BACKTICK",
-            [AT] = "AT",
-            [LEFT_PAREN] = "LEFT_PAREN",
-            [RIGHT_PAREN] = "RIGHT_PAREN",
-            [LEFT_BRACE] = "LEFT_BRACE",
-            [RIGHT_BRACE] = "RIGHT_BRACE",
-            [LEFT_SQUARE] = "LEFT_SQUARE",
-            [RIGHT_SQUARE] = "RIGHT_SQUARE",
-
-            [RANGE] = "RANGE",
-            [ASSIGN] = "ASSIGN",
-            [EQUAL] = "EQUAL",
-            [NOT_EQUAL] = "NOT_EQUAL",
-            [NOT] = "NOT",
-            [AND] = "AND",
-            [OR] = "OR",
-            [LESS] = "LESS",
-            [LESS_EQUAL] = "LESS_EQUAL",
-            [GREATER] = "GREATER",
-            [GREATER_EQUAL] = "GREATER_EQUAL",
-            [ADD] = "ADD",
-            [ADD_ASSIGN] = "ADD_ASSIGN",
-            [SUB] = "SUB",
-            [SUB_ASSIGN] = "SUB_ASSIGN",
-            [MUL] = "MUL",
-            [MUL_ASSIGN] = "MUL_ASSIGN",
-            [DIV] = "DIV",
-            [DIV_ASSIGN] = "DIV_ASSIGN",
-            [MODULO] = "MODULO",
-            [MODULO_ASSIGN] = "MODULO_ASSIGN",
-            [BIT_NOT] = "BIT_NOT",
-            [BIT_NOT_ASSIGN] = "BIT_NOT_ASSIGN",
-            [BIT_AND] = "BIT_AND",
-            [BIT_AND_ASSIGN] = "BIT_AND_ASSIGN",
-            [BIT_OR] = "BIT_OR",
-            [BIT_OR_ASSIGN] = "BIT_OR_ASSIGN",
-            [BIT_XOR] = "BIT_XOR",
-            [BIT_XOR_ASSIGN] = "BIT_XOR_ASSIGN",
-            [LEFT_SHIFT] = "LEFT_SHIFT",
-            [LEFT_SHIFT_ASSIGN] = "LEFT_SHIFT_ASSIGN",
-            [RIGHT_SHIFT] = "RIGHT_SHIFT",
-            [RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIGN"};
-
-    puts("Tokens:");
-    for (int i = 0; i < tokens.size; ++i)
-    {
-        printf(" %s", token_names[tokens.array[i].kind]);
-        if (tokens.array[i].kind == IDENT)
-        {
-            printf("(\"%s\")", tokens.array[i].value);
-        }
-        puts("");
-    }
-    puts("");
+    print_token_vector(tokens);
 
     return tokens;
 }
 
 /*
 
-    all ops
-
     value = op + fn_call + var_use + literal
-    global = use + mod + struct + enum + union + trait + imp + fn_def + var_def
+    global = use + mod + struct + enum + union + trait + impl + fn_def + var_def
     local = for + do + if + elif + else + while + match + fall + break + next + goto + return + deref + local_var_def + value
     literal = string_lit + arr_lit + num_lit + bool_lit + null_lit + self_lit
+
+    attr:
+        - name: string
+        - data: string
 
     type:
         - const: bool
         - name: string
         - child: arr<type>
 
-    gen_type:
+    constr_type:
         - name: string
         - constr: arr<type>
 
-    (pub) mod:
+    (attr) (pub) mod:
+        - attr: arr<attr>
+        - pub: bool 
         - name: string
         - body: arr<global>
 
-    use:
+    (attr) use:
+        - attr: arr<attr>
         - name: string
 
-    (pub) (generic) struct:
+    (attr) (pub) (generic) struct:
+        - attr: arr<attr>
         - pub: bool 
         - name: string
-        - gen: gen_type
+        - gen: arr<constr_type>
         - body: arr<field>
 
     (pub) field:
@@ -745,45 +761,49 @@ TokenVector lex(String input)
         - name: string
         - type: type
 
-    (pub) (generic) enum:
+    (attr) (pub) (generic) enum:
+        - attr: arr<attr>
         - pub: bool 
         - name: string
-        - gen: gen_type
+        - gen: arr<constr_type>
         - body: arr<option>
 
-    (pub) (generic) option:
+    (pub) option:
         - pub: bool 
         - name: string
-        - gen: gen_type
         - body: arr<field>
 
-    (pub) (generic) union:
+    (attr) (pub) (generic) union:
+        - attr: arr<attr>
         - pub: bool 
         - name: string
-        - gen: gen_type
+        - gen: arr<constr_type>
         - body: arr<field>
 
-    (pub) (generic) trait:
+    (attr) (pub) (generic) trait:
+        - attr: arr<attr>
         - pub: bool
         - name: string
-        - gen: gen_type
+        - gen: arr<constr_type>
         - body: arr<fn_def>
 
-    (pub) (generic) imp:
+    (attr) (pub) (generic) impl:
+        - attr: arr<attr>
         - pub: bool
+        - gen: arr<constr_type>
         - trait: type
         - target: type
-        - gen: gen_type
         - body: arr<fn_def>
 
-    (pub) (inl) (macro) (generic) fn_def:
+    (attr) (pub) (inl) (macro) (generic) fn_def:
+        - attr: arr<attr>
         - pub: bool
         - inl: bool
         - macro: bool
         - name: string
-        - gen: gen_type
+        - gen: arr<constr_type>
         - args: arr<arg>
-        - type: type
+        - ret: type
         - body: arr<local>
 
     (rest) arg:
@@ -791,7 +811,8 @@ TokenVector lex(String input)
         name: string
         type: type
 
-    (pub) (inl) (combo) var_def:
+    (attr) (pub) (inl) (combo) var_def:
+        - attr: arr<attr>
         - pub: bool
         - inl: bool
         - name: string
@@ -800,11 +821,10 @@ TokenVector lex(String input)
     (combo) local_var_def:
         - name: string
         - type: type
-        - val: value
+        - value: value
 
     fn_call:
-        - name: string
-        - gen: type
+        - type: type
         - args: arr<value>
 
     var_use:
@@ -816,7 +836,7 @@ TokenVector lex(String input)
 
     field_val:
         - name: string
-        - val: value
+        - value: value
 
     do:
     block:
@@ -824,13 +844,13 @@ TokenVector lex(String input)
 
     string_lit:
     arr_lit:
-        - arr<value>
+        - value: arr<value>
 
     num_lit:
-        - val: string
+        - value: string
 
     bool_lit:
-        - val: bool
+        - value: bool
 
     null_lit:
     self_lit:
@@ -843,15 +863,15 @@ TokenVector lex(String input)
         - body: arr<local>
 
     for:
-        - loop_var_name: string
-        - iter: value
+        - loop_var: string
+        - range: value
 
     match:
-        - val: value
+        - value: value
         - body: arr<case>
 
     case:
-        - val: value
+        - value: value
         - body: arr<local>
 
     fall:
@@ -862,7 +882,7 @@ TokenVector lex(String input)
         - label: string
 
     return:
-        - val: value
+        - value: value
 
     defer:
         - body: arr<local>
@@ -909,460 +929,859 @@ TokenVector lex(String input)
 
 */
 
+typedef struct Expr Expr;
+
+VECTOR_STRUCT(ExprVector, Expr);
+
 typedef enum
 {
-    TYPE,
-    GEN_TYPE,
-    MOD,
-    USE,
-    STRUCT,
-    FIELD,
-    ENUM,
-    OPTION,
-    UNION,
-    TRAIT,
-    IMP,
-    FN_DEF,
-    ARG,
-    VAR_DEF,
-    LOCAL_VAR_DEF,
-    FN_CALL,
-    VAR_USE,
-    STRUCT_INST,
-    FIELD_VAL,
-    DO,
-    BLOCK,
-    STRING_LIT,
-    ARR_LIT,
-    NUM_LIT,
-    BOOL_LIT,
-    NULL_LIT,
-    SELF_LIT,
-    IF,
-    ELIF,
-    ELSE,
-    WHILE,
-    FOR,
-    MATCH,
-    CASE,
-    FALL,
-    BREAK,
-    NEXT,
-    GOTO,
-    RETURN,
-    DEFER,
-    RANGE_OP,
-    EQUAL_OP,
-    NOT_EQUAL_OP,
-    AND_OP,
-    OR_OP,
-    LESS_OP,
-    LESS_EQUAL_OP,
-    GREATER_OP,
-    GREATER_EQUAL_OP,
-    ADD_OP,
-    SUB_OP,
-    MUL_OP,
-    DIV_OP,
-    MOD_OP,
-    BIT_AND,
-    BIT_OR,
-    BIT_XOR,
-    LEFT_SHIFT,
-    RIGHT_SHIFT,
-    NOT_OP,
-    BIT_NOT_OP,
-    ASSIGN_OP,
-    ADD_ASSIGN_OP,
-    SUB_ASSIGN_OP,
-    MUL_ASSIGN_OP,
-    DIV_ASSIGN_OP,
-    MOD_ASSIGN_OP,
-    BIT_AND_ASSIGN,
-    BIT_OR_ASSIGN,
-    BIT_XOR_ASSIGN,
-    LEFT_SHIFT_ASSIGN,
-    RIGHT_SHIFT_ASSIGN
+    E_ATTR,
+    E_TYPE,
+    E_CONSTR_TYPE,
+    E_MOD,
+    E_USE,
+    E_STRUCT,
+    E_FIELD,
+    E_ENUM,
+    E_OPTION,
+    E_UNION,
+    E_TRAIT,
+    E_IMPL,
+    E_FN_DEF,
+    E_ARG,
+    E_VAR_DEF,
+    E_LOCAL_VAR_DEF,
+    E_FN_CALL,
+    E_VAR_USE,
+    E_STRUCT_INST,
+    E_FIELD_VAL,
+    E_DO,
+    E_BLOCK,
+    E_STRING_LIT,
+    E_ARR_LIT,
+    E_NUM_LIT,
+    E_BOOL_LIT,
+    E_NULL_LIT,
+    E_SELF_LIT,
+    E_IF,
+    E_ELIF,
+    E_ELSE,
+    E_WHILE,
+    E_FOR,
+    E_MATCH,
+    E_CASE,
+    E_FALL,
+    E_BREAK,
+    E_NEXT,
+    E_GOTO,
+    E_RETURN,
+    E_DEFER,
+    E_RANGE_OP,
+    E_EQUAL_OP,
+    E_NOT_EQUAL_OP,
+    E_AND_OP,
+    E_OR_OP,
+    E_LESS_OP,
+    E_LESS_EQUAL_OP,
+    E_GREATER_OP,
+    E_GREATER_EQUAL_OP,
+    E_ADD_OP,
+    E_SUB_OP,
+    E_MUL_OP,
+    E_DIV_OP,
+    E_MOD_OP,
+    E_BIT_AND,
+    E_BIT_OR,
+    E_BIT_XOR,
+    E_LEFT_SHIFT,
+    E_RIGHT_SHIFT,
+    E_NOT_OP,
+    E_BIT_NOT_OP,
+    E_ASSIGN_OP,
+    E_ADD_ASSIGN_OP,
+    E_SUB_ASSIGN_OP,
+    E_MUL_ASSIGN_OP,
+    E_DIV_ASSIGN_OP,
+    E_MOD_ASSIGN_OP,
+    E_BIT_AND_ASSIGN,
+    E_BIT_OR_ASSIGN,
+    E_BIT_XOR_ASSIGN,
+    E_LEFT_SHIFT_ASSIGN,
+    E_RIGHT_SHIFT_ASSIGN
 } ExprKind;
 
 typedef struct
 {
+    char *name;
+    char *data;
+} Attr;
 
+typedef struct
+{
+    char _const;
+    char *name;
+    ExprVector children;
 } Type;
 
 typedef struct
 {
-
-} GenType;
+    char *name;
+    ExprVector constr;
+} ConstrType;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char *name;
+    ExprVector body;
 } Mod;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char *name;
 } Use;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char *name;
+    ExprVector gen;
+    ExprVector body;
 } Struct;
 
 typedef struct
 {
-
+    char pub;
+    char *name;
+    Expr *type;
 } Field;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char *name;
+    ExprVector gen;
+    ExprVector body;
 } Enum;
 
 typedef struct
 {
-
+    char pub;
+    char *name;
+    ExprVector body;
 } Option;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char *name;
+    ExprVector gen;
+    ExprVector body;
 } Union;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char *name;
+    ExprVector gen;
+    ExprVector body;
 } Trait;
 
 typedef struct
 {
-
-} Imp;
+    ExprVector attr;
+    char pub;
+    ExprVector gen;
+    Expr *trait;
+    Expr *target;
+    ExprVector body;
+} Impl;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char inl;
+    char macro;
+    char *name;
+    ExprVector gen;
+    ExprVector args;
+    Expr *ret;
+    ExprVector body;
 } FnDef;
 
 typedef struct
 {
-
+    char rest;
+    char *name;
+    Expr *type;
 } Arg;
 
 typedef struct
 {
-
+    ExprVector attr;
+    char pub;
+    char inl;
+    char *name;
+    Expr *type;
 } VarDef;
 
 typedef struct
 {
-
+    char *name;
+    Expr *type;
+    Expr *value;
 } LocalVarDef;
 
 typedef struct
 {
-
+    Expr *type;
+    ExprVector args;
 } FnCall;
 
 typedef struct
 {
-
+    char *name;
 } VarUse;
 
 typedef struct
 {
-
+    Expr *type;
+    ExprVector fields;
 } StructInst;
 
 typedef struct
 {
-
+    char *name;
+    Expr *value;
 } FieldVal;
 
 typedef struct
 {
-
+    ExprVector body;
 } Do;
 
 typedef struct
 {
-
+    ExprVector body;
 } Block;
 
 typedef struct
 {
-
+    ExprVector value;
 } StringLit;
 
 typedef struct
 {
-
+    ExprVector value;
 } ArrLit;
 
 typedef struct
 {
-
+    char *value;
 } NumLit;
 
 typedef struct
 {
-
+    char value;
 } BoolLit;
 
 typedef struct
 {
-
-} NullLit;
-
-typedef struct
-{
-
-} SelfLit;
-
-typedef struct
-{
-
+    Expr *con;
+    ExprVector body;
 } If;
 
 typedef struct
 {
-
+    Expr *con;
+    ExprVector body;
 } Elif;
 
 typedef struct
 {
-
+    Expr *con;
+    ExprVector body;
 } Else;
 
 typedef struct
 {
-
+    Expr *con;
+    ExprVector body;
 } While;
 
 typedef struct
 {
-
+    char *loop_var;
+    Expr *range;
 } For;
 
 typedef struct
 {
-
+    Expr *value;
+    ExprVector body;
 } Match;
 
 typedef struct
 {
-
+    Expr *value;
+    ExprVector body;
 } Case;
 
 typedef struct
 {
-
-} Fall;
-
-typedef struct
-{
-
+    char *label;
 } Break;
 
 typedef struct
 {
-
+    char *label;
 } Next;
 
 typedef struct
 {
-
+    char *label;
 } Goto;
 
 typedef struct
 {
-
+    Expr *value;
 } Return;
 
 typedef struct
 {
-
+    ExprVector body;
 } Defer;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } RangeOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } EqualOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } NotEqualOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } AndOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } OrOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } LessOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } LessEqualOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } GreaterOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } GreaterEqualOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } AddOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } SubOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } MulOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } DivOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } ModOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } BitAnd;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } BitOr;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } BitXor;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } LeftShift;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } RightShift;
 
 typedef struct
 {
-
+    Expr *rhs;
 } NotOp;
 
 typedef struct
 {
-
+    Expr *rhs;
 } BitNotOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } AssignOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } AddAssignOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } SubAssignOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } MulAssignOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } DivAssignOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } ModAssignOp;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } BitAndAssign;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } BitOrAssign;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } BitXorAssign;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } LeftShiftAssign;
 
 typedef struct
 {
-
+    Expr *lhs;
+    Expr *rhs;
 } RightShiftAssign;
 
 typedef union
 {
-    char _;
+    Attr attr;
+    Type type;
+    ConstrType constr_type;
+    Mod mod;
+    Use use;
+    Struct _struct;
+    Field field;
+    Enum _enum;
+    Option option;
+    Union _union;
+    Trait trait;
+    Impl impl;
+    FnDef fn_def;
+    Arg arg;
+    VarDef var_def;
+    LocalVarDef local_var_def;
+    FnCall fn_call;
+    VarUse var_use;
+    StructInst struct_inst;
+    FieldVal field_val;
+    Do _do;
+    Block block;
+    StringLit string_lit;
+    ArrLit arr_lit;
+    NumLit num_lit;
+    BoolLit bool_lit;
+    If _if;
+    Elif elif;
+    Else _else;
+    While _while;
+    For _for;
+    Match match;
+    Case _case;
+    Break _break;
+    Next next;
+    Goto _goto;
+    Return _return;
+    Defer defer;
+    RangeOp range_op;
+    EqualOp equal_op;
+    NotEqualOp not_equal_op;
+    AndOp and_op;
+    OrOp or_op;
+    LessOp less_op;
+    LessEqualOp less_equal_op;
+    GreaterOp greater_op;
+    GreaterEqualOp greater_equal_op;
+    AddOp add_op;
+    SubOp sub_op;
+    MulOp mul_op;
+    DivOp div_op;
+    ModOp mod_op;
+    BitAnd bit_and_op;
+    BitOr bit_or_op;
+    BitXor bit_xor_op;
+    LeftShift left_shift_op;
+    RightShift right_shift_op;
+    NotOp not_op;
+    BitNotOp bit_not_op;
+    AssignOp assign_op;
+    AddAssignOp add_assign_op;
+    SubAssignOp sub_assign_op;
+    MulAssignOp mul_assign_op;
+    DivAssignOp div_assign_op;
+    ModAssignOp mod_assign_op;
+    BitAndAssign bit_and_assign_op;
+    BitOrAssign bit_or_assign_op;
+    BitXorAssign bit_xor_assign_op;
+    LeftShiftAssign left_shift_assign_op;
+    RightShiftAssign right_shift_assign_op;
 } ExprUnion;
 
-typedef struct
+typedef struct Expr
 {
     ExprKind kind;
     ExprUnion u;
 } Expr;
 
-VECTOR(ExprVector, expr_vector, Expr);
+VECTOR_FUNC(ExprVector, expr_vector, Expr);
+
+void print_expr(Expr expr)
+{
+    switch (expr.kind)
+    {
+    case E_ATTR:
+        break;
+    case E_TYPE:
+        break;
+    case E_CONSTR_TYPE:
+        break;
+    case E_MOD:
+        break;
+    case E_USE:
+        break;
+    case E_STRUCT:
+        break;
+    case E_FIELD:
+        break;
+    case E_ENUM:
+        break;
+    case E_OPTION:
+        break;
+    case E_UNION:
+        break;
+    case E_TRAIT:
+        break;
+    case E_IMPL:
+        break;
+    case E_FN_DEF:
+        break;
+    case E_ARG:
+        break;
+    case E_VAR_DEF:
+        break;
+    case E_LOCAL_VAR_DEF:
+        break;
+    case E_FN_CALL:
+        break;
+    case E_VAR_USE:
+        break;
+    case E_STRUCT_INST:
+        break;
+    case E_FIELD_VAL:
+        break;
+    case E_DO:
+        break;
+    case E_BLOCK:
+        break;
+    case E_STRING_LIT:
+        break;
+    case E_ARR_LIT:
+        break;
+    case E_NUM_LIT:
+        break;
+    case E_BOOL_LIT:
+        break;
+    case E_NULL_LIT:
+        break;
+    case E_SELF_LIT:
+        break;
+    case E_IF:
+        break;
+    case E_ELIF:
+        break;
+    case E_ELSE:
+        break;
+    case E_WHILE:
+        break;
+    case E_FOR:
+        break;
+    case E_MATCH:
+        break;
+    case E_CASE:
+        break;
+    case E_FALL:
+        break;
+    case E_BREAK:
+        break;
+    case E_NEXT:
+        break;
+    case E_GOTO:
+        break;
+    case E_RETURN:
+        break;
+    case E_DEFER:
+        break;
+    case E_RANGE_OP:
+        break;
+    case E_EQUAL_OP:
+        break;
+    case E_NOT_EQUAL_OP:
+        break;
+    case E_AND_OP:
+        break;
+    case E_OR_OP:
+        break;
+    case E_LESS_OP:
+        break;
+    case E_LESS_EQUAL_OP:
+        break;
+    case E_GREATER_OP:
+        break;
+    case E_GREATER_EQUAL_OP:
+        break;
+    case E_ADD_OP:
+        break;
+    case E_SUB_OP:
+        break;
+    case E_MUL_OP:
+        break;
+    case E_DIV_OP:
+        break;
+    case E_MOD_OP:
+        break;
+    case E_BIT_AND:
+        break;
+    case E_BIT_OR:
+        break;
+    case E_BIT_XOR:
+        break;
+    case E_LEFT_SHIFT:
+        break;
+    case E_RIGHT_SHIFT:
+        break;
+    case E_NOT_OP:
+        break;
+    case E_BIT_NOT_OP:
+        break;
+    case E_ASSIGN_OP:
+        break;
+    case E_ADD_ASSIGN_OP:
+        break;
+    case E_SUB_ASSIGN_OP:
+        break;
+    case E_MUL_ASSIGN_OP:
+        break;
+    case E_DIV_ASSIGN_OP:
+        break;
+    case E_MOD_ASSIGN_OP:
+        break;
+    case E_BIT_AND_ASSIGN:
+        break;
+    case E_BIT_OR_ASSIGN:
+        break;
+    case E_BIT_XOR_ASSIGN:
+        break;
+    case E_LEFT_SHIFT_ASSIGN:
+        break;
+    case E_RIGHT_SHIFT_ASSIGN:
+        break;
+    }
+}
+
+void print_expr_vector(ExprVector exprs)
+{
+
+    const char *const expr_names[] =
+        {
+            [E_ATTR] = "ATTR",
+            [E_TYPE] = "TYPE",
+            [E_CONSTR_TYPE] = "CONSTR_TYPE",
+            [E_MOD] = "MOD",
+            [E_USE] = "USE",
+            [E_STRUCT] = "STRUCT",
+            [E_FIELD] = "FIELD",
+            [E_ENUM] = "ENUM",
+            [E_OPTION] = "OPTION",
+            [E_UNION] = "UNION",
+            [E_TRAIT] = "TRAIT",
+            [E_IMPL] = "IMPL",
+            [E_FN_DEF] = "FN_DEF",
+            [E_ARG] = "ARG",
+            [E_VAR_DEF] = "VAR_DEF",
+            [E_LOCAL_VAR_DEF] = "LOCAL_VAR_DEF",
+            [E_FN_CALL] = "FN_CALL",
+            [E_VAR_USE] = "VAR_USE",
+            [E_STRUCT_INST] = "STRUCT_INST",
+            [E_FIELD_VAL] = "FIELD_VAL",
+            [E_DO] = "DO",
+            [E_BLOCK] = "BLOCK",
+            [E_STRING_LIT] = "STRING_LIT",
+            [E_ARR_LIT] = "ARR_LIT",
+            [E_NUM_LIT] = "NUM_LIT",
+            [E_BOOL_LIT] = "BOOL_LIT",
+            [E_NULL_LIT] = "NULL_LIT",
+            [E_SELF_LIT] = "SELF_LIT",
+            [E_IF] = "IF",
+            [E_ELIF] = "ELIF",
+            [E_ELSE] = "ELSE",
+            [E_WHILE] = "WHILE",
+            [E_FOR] = "FOR",
+            [E_MATCH] = "MATCH",
+            [E_CASE] = "CASE",
+            [E_FALL] = "FALL",
+            [E_BREAK] = "BREAK",
+            [E_NEXT] = "NEXT",
+            [E_GOTO] = "GOTO",
+            [E_RETURN] = "RETURN",
+            [E_DEFER] = "DEFER",
+            [E_RANGE_OP] = "RANGE_OP",
+            [E_EQUAL_OP] = "EQUAL_OP",
+            [E_NOT_EQUAL_OP] = "NOT_EQUAL_OP",
+            [E_AND_OP] = "AND_OP",
+            [E_OR_OP] = "OR_OP",
+            [E_LESS_OP] = "LESS_OP",
+            [E_LESS_EQUAL_OP] = "LESS_EQUAL_OP",
+            [E_GREATER_OP] = "GREATER_OP",
+            [E_GREATER_EQUAL_OP] = "GREATER_EQUAL_OP",
+            [E_ADD_OP] = "ADD_OP",
+            [E_SUB_OP] = "SUB_OP",
+            [E_MUL_OP] = "MUL_OP",
+            [E_DIV_OP] = "DIV_OP",
+            [E_MOD_OP] = "MOD_OP",
+            [E_BIT_AND] = "BIT_AND",
+            [E_BIT_OR] = "BIT_OR",
+            [E_BIT_XOR] = "BIT_XOR",
+            [E_LEFT_SHIFT] = "LEFT_SHIFT",
+            [E_RIGHT_SHIFT] = "RIGHT_SHIFT",
+            [E_NOT_OP] = "NOT_OP",
+            [E_BIT_NOT_OP] = "BIT_NOT_OP",
+            [E_ASSIGN_OP] = "ASSIGN_OP",
+            [E_ADD_ASSIGN_OP] = "ADD_ASSIGN_OP",
+            [E_SUB_ASSIGN_OP] = "SUB_ASSIGN_OP",
+            [E_MUL_ASSIGN_OP] = "MUL_ASSIGN_OP",
+            [E_DIV_ASSIGN_OP] = "DIV_ASSIGN_OP",
+            [E_MOD_ASSIGN_OP] = "MOD_ASSIGN_OP",
+            [E_BIT_AND_ASSIGN] = "BIT_AND_ASSIGN",
+            [E_BIT_OR_ASSIGN] = "BIT_OR_ASSIGN",
+            [E_BIT_XOR_ASSIGN] = "BIT_XOR_ASSIGN",
+            [E_LEFT_SHIFT_ASSIGN] = "LEFT_SHIFT_ASSIGN",
+            [E_RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIG",
+        };
+
+    puts("Exprs:");
+    for (int i = 0; i < exprs.size; ++i)
+    {
+        printf(" %s", expr_names[exprs.array[i].kind]);
+        print_expr(exprs.array[i]);
+        puts("");
+    }
+    puts("");
+}
 
 ExprVector parse(TokenVector tokens)
 {
+    ExprVector exprs = expr_vector_new(10);
+
+    print_expr_vector(exprs);
 }
 
-ExprVector compile(char *path, int length)
+ExprVector lex_parse_recursive(char *path, int length)
 {
     DIR *dir = opendir(path);
     struct dirent *ent;
@@ -1389,7 +1808,7 @@ ExprVector compile(char *path, int length)
             switch (ent->d_type)
             {
             case DT_DIR:
-                compile(new_path, length + new_length);
+                lex_parse_recursive(new_path, length + new_length);
                 break;
             case DT_REG:
             {
@@ -1418,7 +1837,7 @@ void gen(FILE *output, ExprVector exprs)
 
 int main()
 {
-    ExprVector ast = compile("./src/", 6);
+    ExprVector ast = lex_parse_recursive("./src/", 6);
 
     FILE *output;
     fopen_s(&output, "./bin/main.c", "w");
@@ -1437,7 +1856,7 @@ int main()
 // generic enums
 // generic traits
 // generic variables
-// match on enums (exhaistive)
+// match on enums (exhaustive)
 // if elif else
 // do while do-while
 // break return next
