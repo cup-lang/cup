@@ -227,7 +227,7 @@ void print_token_vector(TokenVector tokens)
     puts("Tokens:");
     for (int i = 0; i < tokens.size; ++i)
     {
-        printf(" %s", token_names[tokens.array[i].kind]);
+        printf("  %s", token_names[tokens.array[i].kind]);
         if (tokens.array[i].kind == IDENT)
         {
             printf("(\"%s\")", tokens.array[i].value);
@@ -1263,191 +1263,13 @@ typedef struct
 {
     Expr *lhs;
     Expr *rhs;
-} RangeOp;
+} BinaryOp;
 
 typedef struct
 {
     Expr *lhs;
     Expr *rhs;
-} EqualOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} NotEqualOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} AndOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} OrOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} LessOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} LessEqualOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} GreaterOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} GreaterEqualOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} AddOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} SubOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} MulOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} DivOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} ModOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} BitAnd;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} BitOr;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} BitXor;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} LeftShift;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} RightShift;
-
-typedef struct
-{
-    Expr *rhs;
-} NotOp;
-
-typedef struct
-{
-    Expr *rhs;
-} BitNotOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} AssignOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} AddAssignOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} SubAssignOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} MulAssignOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} DivAssignOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} ModAssignOp;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} BitAndAssign;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} BitOrAssign;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} BitXorAssign;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} LeftShiftAssign;
-
-typedef struct
-{
-    Expr *lhs;
-    Expr *rhs;
-} RightShiftAssign;
+} UnaryOp;
 
 typedef union
 {
@@ -1489,38 +1311,8 @@ typedef union
     Goto _goto;
     Return _return;
     Defer defer;
-    RangeOp range_op;
-    EqualOp equal_op;
-    NotEqualOp not_equal_op;
-    AndOp and_op;
-    OrOp or_op;
-    LessOp less_op;
-    LessEqualOp less_equal_op;
-    GreaterOp greater_op;
-    GreaterEqualOp greater_equal_op;
-    AddOp add_op;
-    SubOp sub_op;
-    MulOp mul_op;
-    DivOp div_op;
-    ModOp mod_op;
-    BitAnd bit_and_op;
-    BitOr bit_or_op;
-    BitXor bit_xor_op;
-    LeftShift left_shift_op;
-    RightShift right_shift_op;
-    NotOp not_op;
-    BitNotOp bit_not_op;
-    AssignOp assign_op;
-    AddAssignOp add_assign_op;
-    SubAssignOp sub_assign_op;
-    MulAssignOp mul_assign_op;
-    DivAssignOp div_assign_op;
-    ModAssignOp mod_assign_op;
-    BitAndAssign bit_and_assign_op;
-    BitOrAssign bit_or_assign_op;
-    BitXorAssign bit_xor_assign_op;
-    LeftShiftAssign left_shift_assign_op;
-    RightShiftAssign right_shift_assign_op;
+    BinaryOp binary_op;
+    UnaryOp unary_op;
 } ExprUnion;
 
 typedef struct Expr
@@ -1531,15 +1323,41 @@ typedef struct Expr
 
 VECTOR_FUNC(ExprVector, expr_vector, Expr);
 
-void print_expr(Expr expr)
+void indent(int depth)
+{
+    for (int i = 0; i <= depth; ++i)
+    {
+        printf("  ");
+    }
+}
+
+void print_expr_vector(ExprVector exprs, int depth);
+
+void print_expr(Expr expr, int depth)
 {
     switch (expr.kind)
     {
     case E_ATTR:
+        printf("(name = %s", expr.u.attr.name);
+        if (expr.u.attr.data)
+        {
+            printf(", data = %s", expr.u.attr.data);
+        }
+        putchar(')');
         break;
     case E_TYPE:
+        printf("(const = %i, name = %s", expr.u.type._const, expr.u.type.name);
+        if (expr.u.type.children.size)
+        {
+            printf(", children = [");
+            print_expr_vector(expr.u.type.children, depth + 1);
+            indent(depth);
+            putchar(']');
+        }
+        putchar(')');
         break;
     case E_CONSTR_TYPE:
+        printf("");
         break;
     case E_MOD:
         break;
@@ -1618,75 +1436,44 @@ void print_expr(Expr expr)
     case E_DEFER:
         break;
     case E_RANGE_OP:
-        break;
     case E_EQUAL_OP:
-        break;
     case E_NOT_EQUAL_OP:
-        break;
     case E_AND_OP:
-        break;
     case E_OR_OP:
-        break;
     case E_LESS_OP:
-        break;
     case E_LESS_EQUAL_OP:
-        break;
     case E_GREATER_OP:
-        break;
     case E_GREATER_EQUAL_OP:
-        break;
     case E_ADD_OP:
-        break;
     case E_SUB_OP:
-        break;
     case E_MUL_OP:
-        break;
     case E_DIV_OP:
-        break;
     case E_MOD_OP:
-        break;
     case E_BIT_AND:
-        break;
     case E_BIT_OR:
-        break;
     case E_BIT_XOR:
-        break;
     case E_LEFT_SHIFT:
-        break;
     case E_RIGHT_SHIFT:
+    case E_ASSIGN_OP:
+    case E_ADD_ASSIGN_OP:
+    case E_SUB_ASSIGN_OP:
+    case E_MUL_ASSIGN_OP:
+    case E_DIV_ASSIGN_OP:
+    case E_MOD_ASSIGN_OP:
+    case E_BIT_AND_ASSIGN:
+    case E_BIT_OR_ASSIGN:
+    case E_BIT_XOR_ASSIGN:
+    case E_LEFT_SHIFT_ASSIGN:
+    case E_RIGHT_SHIFT_ASSIGN:
         break;
     case E_NOT_OP:
-        break;
     case E_BIT_NOT_OP:
-        break;
-    case E_ASSIGN_OP:
-        break;
-    case E_ADD_ASSIGN_OP:
-        break;
-    case E_SUB_ASSIGN_OP:
-        break;
-    case E_MUL_ASSIGN_OP:
-        break;
-    case E_DIV_ASSIGN_OP:
-        break;
-    case E_MOD_ASSIGN_OP:
-        break;
-    case E_BIT_AND_ASSIGN:
-        break;
-    case E_BIT_OR_ASSIGN:
-        break;
-    case E_BIT_XOR_ASSIGN:
-        break;
-    case E_LEFT_SHIFT_ASSIGN:
-        break;
-    case E_RIGHT_SHIFT_ASSIGN:
         break;
     }
 }
 
-void print_expr_vector(ExprVector exprs)
+void print_expr_vector(ExprVector exprs, int depth)
 {
-
     const char *const expr_names[] =
         {
             [E_ATTR] = "ATTR",
@@ -1764,21 +1551,43 @@ void print_expr_vector(ExprVector exprs)
             [E_RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIG",
         };
 
-    puts("Exprs:");
+    if (depth == 0)
+    {
+        printf("Exprs:");
+    }
     for (int i = 0; i < exprs.size; ++i)
     {
-        printf(" %s", expr_names[exprs.array[i].kind]);
-        print_expr(exprs.array[i]);
-        puts("");
+        putchar('\n');
+        indent(depth);
+        printf("%s", expr_names[exprs.array[i].kind]);
+        print_expr(exprs.array[i], depth);
     }
-    puts("");
+    putchar('\n');
+    if (depth == 0)
+    {
+        putchar('\n');
+    }
 }
 
 ExprVector parse(TokenVector tokens)
 {
     ExprVector exprs = expr_vector_new(10);
 
-    print_expr_vector(exprs);
+    Expr expr;
+    for (int i = 0; i <= E_RIGHT_SHIFT_ASSIGN; ++i)
+    {
+        expr.kind = i;
+        if (i == 1)
+        {
+            expr.u.type.children = expr_vector_new(1);
+            Expr temp;
+            temp.kind = E_TYPE;
+            expr_vector_push(&expr.u.type.children, temp);
+        }
+        expr_vector_push(&exprs, expr);
+    }
+
+    print_expr_vector(exprs, 0);
 }
 
 ExprVector lex_parse_recursive(char *path, int length)
