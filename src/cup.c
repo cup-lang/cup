@@ -887,6 +887,11 @@ TokenVector lex(String input)
     defer:
         - body: arr<local>
 
+    cond_op:
+        - con: value
+        - lhs: value
+        - rhs: value
+
     range_op:
     equal_op:
     not_equal_op:
@@ -976,6 +981,7 @@ typedef enum
     E_GOTO,
     E_RETURN,
     E_DEFER,
+    E_COND_OP,
     E_RANGE_OP,
     E_EQUAL_OP,
     E_NOT_EQUAL_OP,
@@ -1261,6 +1267,13 @@ typedef struct
 
 typedef struct
 {
+    Expr *cond;
+    Expr *lhs;
+    Expr *rhs;
+} CondOp;
+
+typedef struct
+{
     Expr *lhs;
     Expr *rhs;
 } BinaryOp;
@@ -1311,6 +1324,7 @@ typedef union
     Goto _goto;
     Return _return;
     Defer defer;
+    CondOp cond_op;
     BinaryOp binary_op;
     UnaryOp unary_op;
 } ExprUnion;
@@ -1517,6 +1531,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_GOTO] = "GOTO",
             [E_RETURN] = "RETURN",
             [E_DEFER] = "DEFER",
+            [E_COND_OP] = "COND_OP",
             [E_RANGE_OP] = "RANGE_OP",
             [E_EQUAL_OP] = "EQUAL_OP",
             [E_NOT_EQUAL_OP] = "NOT_EQUAL_OP",
