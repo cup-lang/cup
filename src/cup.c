@@ -37,8 +37,90 @@
 
 VECTOR(String, string, char);
 
-#define THROW(...)                \
-    fprintf(stderr, __VA_ARGS__); \
+typedef struct Location
+{
+    int line;
+    int column;
+} Location;
+
+Location get_location(int index)
+{
+    Location loc;
+    loc.line = 1;
+    loc.column = 1;
+    for (int i = 0; i < index; ++i)
+    {
+        if (file[i] == '\n')
+        {
+            ++loc.line;
+            loc.column = 1;
+        }
+        else
+        {
+            ++loc.column;
+        }
+    }
+    return loc;
+}
+
+#ifdef _WIN32
+#define COLOR(c) SetConsoleTextAttribute(console, c);
+#define RESET 7
+#define RED 12
+#else
+#define COLOR(c) printf(c);
+#define RESET "\033[0m;"
+#define RED “\033[0;31m”
+#endif
+
+void print_snippet(Location location)
+{
+    printf(" %i | ", location.line);
+    int i = location.line;
+    int length = 2;
+    while (i)
+    {
+        ++length;
+        i /= 10;
+    }
+    int line_index = 1;
+    for (int i = 0; i < file_size; ++i)
+    {
+        if (file[i] == '\n')
+        {
+            if (++line_index > location.line)
+            {
+                break;
+            }
+        }
+        else if (line_index == location.line)
+        {
+            printf("%c", file[i]);
+        }
+    }
+    putchar('\n');
+    for (int i = 0; i < length; ++i)
+    {
+        putchar(' ');
+    }
+    putchar('|');
+    for (int i = 0; i < location.column; ++i)
+    {
+        putchar(' ');
+    }
+    COLOR(RED);
+    putchar('^');
+    COLOR(RESET);
+}
+
+#define THROW(index, error, ...)                           \
+    Location loc = get_location(index);                    \
+    printf("%s:%i:%i: ", file_name, loc.line, loc.column); \
+    COLOR(RED);                                            \
+    printf("error: ");                                     \
+    COLOR(RESET);                                          \
+    fprintf(stderr, error "\n", __VA_ARGS__);              \
+    print_snippet(loc);                                    \
     exit(1);
 
 typedef enum
@@ -132,6 +214,7 @@ typedef struct
 {
     TokenKind kind;
     char *value;
+    unsigned int index;
 } Token;
 
 VECTOR(TokenVector, token_vector, Token);
@@ -156,7 +239,7 @@ void print_token_vector(TokenVector tokens)
 
             [_CONST] = "CONST",
             [_TRUE] = "TRUE",
-            [_FALSE] = "_FALSE",
+            [_FALSE] = "FALSE",
             [_NULL] = "NULL",
 
             [IF] = "IF",
@@ -232,10 +315,96 @@ void print_token_vector(TokenVector tokens)
         {
             printf("(\"%s\")", tokens.array[i].value);
         }
-        puts("");
+        printf(" %i", tokens.array[i].index);
+        putchar('\n');
     }
-    puts("");
+    putchar('\n');
 }
+
+const int const token_lengths[] =
+    {
+        [PUB] = 3,
+        [MOD] = 3,
+        [USE] = 3,
+        [STRUCT] = 6,
+        [ENUM] = 4,
+        [UNION] = 5,
+        [TRAIT] = 5,
+        [IMPL] = 4,
+        [SELF] = 4,
+        [REST] = 4,
+        [INL] = 3,
+        [MACRO] = 5,
+
+        [_CONST] = 5,
+        [_TRUE] = 4,
+        [_FALSE] = 5,
+        [_NULL] = 4,
+
+        [IF] = 2,
+        [ELIF] = 4,
+        [ELSE] = 4,
+        [DO] = 2,
+        [WHILE] = 5,
+        [FOR] = 3,
+        [_IN] = 2,
+        [MATCH] = 5,
+        [FALL] = 4,
+        [BREAK] = 5,
+        [NEXT] = 4,
+        [RETURN] = 6,
+        [DEFER] = 5,
+        [GOTO] = 4,
+        [AS] = 2,
+
+        [SEMICOLON] = 1,
+        [COLON] = 1,
+        [COMMA] = 1,
+        [DOT] = 1,
+        [TYPE_ARROW] = 2,
+        [MATCH_ARROW] = 2,
+        [QUESTION_MARK] = 1,
+        [BACKTICK] = 1,
+        [AT] = 1,
+        [LEFT_PAREN] = 1,
+        [RIGHT_PAREN] = 1,
+        [LEFT_BRACE] = 1,
+        [RIGHT_BRACE] = 1,
+        [LEFT_SQUARE] = 1,
+        [RIGHT_SQUARE] = 1,
+
+        [RANGE] = 2,
+        [ASSIGN] = 1,
+        [EQUAL] = 2,
+        [NOT_EQUAL] = 2,
+        [NOT] = 1,
+        [AND] = 2,
+        [OR] = 2,
+        [LESS] = 1,
+        [LESS_EQUAL] = 2,
+        [GREATER] = 1,
+        [GREATER_EQUAL] = 2,
+        [ADD] = 1,
+        [ADD_ASSIGN] = 2,
+        [SUB] = 1,
+        [SUB_ASSIGN] = 2,
+        [MUL] = 1,
+        [MUL_ASSIGN] = 2,
+        [DIV] = 1,
+        [DIV_ASSIGN] = 2,
+        [MODULO] = 1,
+        [MODULO_ASSIGN] = 2,
+        [BIT_NOT] = 1,
+        [BIT_AND] = 1,
+        [BIT_AND_ASSIGN] = 2,
+        [BIT_OR] = 1,
+        [BIT_OR_ASSIGN] = 2,
+        [BIT_XOR] = 1,
+        [BIT_XOR_ASSIGN] = 2,
+        [LEFT_SHIFT] = 2,
+        [LEFT_SHIFT_ASSIGN] = 3,
+        [RIGHT_SHIFT] = 2,
+        [RIGHT_SHIFT_ASSIGN] = 3};
 
 TokenVector lex(String input)
 {
@@ -550,7 +719,7 @@ TokenVector lex(String input)
             }
             else
             {
-                THROW("Unexpected symbol '%c'", c);
+                THROW(i, "Unexpected symbol '%c'", c);
             }
         }
         else
@@ -558,6 +727,8 @@ TokenVector lex(String input)
             if (value.size)
             {
                 TokenKind value_kind = -1;
+
+                value.array[value.size] = '\0';
 
                 if (strcmp(value.array, "pub") == 0)
                 {
@@ -691,12 +862,14 @@ TokenVector lex(String input)
                     token.value = malloc(value.size);
                     memcpy(token.value, value.array, value.size);
                     token.value[value.size] = '\0';
+                    token.index = i - value.size;
                     token_vector_push(&tokens, token);
                 }
                 else
                 {
                     Token token;
                     token.kind = value_kind;
+                    token.index = i - token_lengths[value_kind];
                     token_vector_push(&tokens, token);
                 }
 
@@ -707,14 +880,13 @@ TokenVector lex(String input)
             {
                 Token token;
                 token.kind = kind;
+                token.index = i - token_lengths[kind] + 1;
                 token_vector_push(&tokens, token);
             }
         }
     }
 
     free(value.array);
-
-    print_token_vector(tokens);
 
     return tokens;
 }
@@ -1588,21 +1760,7 @@ ExprVector parse(TokenVector tokens)
 {
     ExprVector exprs = expr_vector_new(10);
 
-    Expr expr;
-    for (int i = 0; i <= E_RIGHT_SHIFT_ASSIGN; ++i)
-    {
-        expr.kind = i;
-        if (i == 1)
-        {
-            expr.u.type.children = expr_vector_new(1);
-            Expr temp;
-            temp.kind = E_TYPE;
-            expr_vector_push(&expr.u.type.children, temp);
-        }
-        expr_vector_push(&exprs, expr);
-    }
-
-    print_expr_vector(exprs, 0);
+    return exprs;
 }
 
 ExprVector lex_parse_recursive(char *path, int length)
@@ -1643,7 +1801,10 @@ ExprVector lex_parse_recursive(char *path, int length)
                 rewind(input);
                 fread(data.array, data.size = data.capacity, 1, input);
                 fclose(input);
-                parse(lex(data));
+                TokenVector tokens = lex(data);
+                print_token_vector(tokens);
+                ExprVector exprs = parse(tokens);
+                print_expr_vector(exprs, 0);
                 break;
             }
             }
