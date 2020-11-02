@@ -43,6 +43,9 @@ typedef struct Location
     int column;
 } Location;
 
+char *current_file_name;
+String current_file;
+
 Location get_location(int index)
 {
     Location loc;
@@ -50,7 +53,7 @@ Location get_location(int index)
     loc.column = 1;
     for (int i = 0; i < index; ++i)
     {
-        if (file[i] == '\n')
+        if (current_file.array[i] == '\n')
         {
             ++loc.line;
             loc.column = 1;
@@ -64,11 +67,12 @@ Location get_location(int index)
 }
 
 #ifdef _WIN32
-#define COLOR(c) SetConsoleTextAttribute(console, c);
+#include <windows.h>
+#define COLOR(c) SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), c)
 #define RESET 7
 #define RED 12
 #else
-#define COLOR(c) printf(c);
+#define COLOR(c) printf(c)
 #define RESET "\033[0m;"
 #define RED “\033[0;31m”
 #endif
@@ -84,9 +88,10 @@ void print_snippet(Location location)
         i /= 10;
     }
     int line_index = 1;
-    for (int i = 0; i < file_size; ++i)
+    for (int i = 0; i < current_file.size; ++i)
     {
-        if (file[i] == '\n')
+        char c = current_file.array[i];
+        if (c == '\n')
         {
             if (++line_index > location.line)
             {
@@ -95,7 +100,7 @@ void print_snippet(Location location)
         }
         else if (line_index == location.line)
         {
-            printf("%c", file[i]);
+            putchar(c);
         }
     }
     putchar('\n');
@@ -113,14 +118,14 @@ void print_snippet(Location location)
     COLOR(RESET);
 }
 
-#define THROW(index, error, ...)                           \
-    Location loc = get_location(index);                    \
-    printf("%s:%i:%i: ", file_name, loc.line, loc.column); \
-    COLOR(RED);                                            \
-    printf("error: ");                                     \
-    COLOR(RESET);                                          \
-    fprintf(stderr, error "\n", __VA_ARGS__);              \
-    print_snippet(loc);                                    \
+#define THROW(index, error, ...)                                   \
+    Location loc = get_location(index);                            \
+    printf("%s:%i:%i: ", current_file_name, loc.line, loc.column); \
+    COLOR(RED);                                                    \
+    printf("error: ");                                             \
+    COLOR(RESET);                                                  \
+    fprintf(stderr, error "\n", __VA_ARGS__);                      \
+    print_snippet(loc);                                            \
     exit(1);
 
 typedef enum
@@ -307,7 +312,7 @@ void print_token_vector(TokenVector tokens)
             [RIGHT_SHIFT] = "RIGHT_SHIFT",
             [RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIGN"};
 
-    puts("Tokens:");
+    printf("Tokens:\n");
     for (int i = 0; i < tokens.size; ++i)
     {
         printf("  %s", token_names[tokens.array[i].kind]);
@@ -893,14 +898,14 @@ TokenVector lex(String input)
 
 /*
 
+    literal = string_lit + arr_lit + num_lit + bool_lit + char_lit + null_lit + self_lit
     value = op + fn_call + var_use + literal
-    global = use + mod + struct + enum + union + trait + impl + fn_def + var_def
     local = for + do + if + elif + else + while + match + fall + break + next + goto + return + deref + local_var_def + value
-    literal = string_lit + arr_lit + num_lit + bool_lit + null_lit + self_lit
+    global = use + mod + struct + enum + union + trait + impl + fn_def + var_def
 
     attr:
         - name: string
-        - data: string
+        - data: arr<literal>
 
     type:
         - const: bool
@@ -911,18 +916,15 @@ TokenVector lex(String input)
         - name: string
         - constr: arr<type>
 
-    (attr) (pub) mod:
-        - attr: arr<attr>
+    (pub) mod:
         - pub: bool 
         - name: string
         - body: arr<global>
 
-    (attr) use:
-        - attr: arr<attr>
+    use:
         - name: string
 
-    (attr) (pub) (generic) struct:
-        - attr: arr<attr>
+    (pub) (generic) struct:
         - pub: bool 
         - name: string
         - gen: arr<constr_type>
@@ -933,8 +935,7 @@ TokenVector lex(String input)
         - name: string
         - type: type
 
-    (attr) (pub) (generic) enum:
-        - attr: arr<attr>
+    (pub) (generic) enum:
         - pub: bool 
         - name: string
         - gen: arr<constr_type>
@@ -945,30 +946,26 @@ TokenVector lex(String input)
         - name: string
         - body: arr<field>
 
-    (attr) (pub) (generic) union:
-        - attr: arr<attr>
+    (pub) (generic) union:
         - pub: bool 
         - name: string
         - gen: arr<constr_type>
         - body: arr<field>
 
-    (attr) (pub) (generic) trait:
-        - attr: arr<attr>
+    (pub) (generic) trait:
         - pub: bool
         - name: string
         - gen: arr<constr_type>
         - body: arr<fn_def>
 
-    (attr) (pub) (generic) impl:
-        - attr: arr<attr>
+    (pub) (generic) impl:
         - pub: bool
         - gen: arr<constr_type>
         - trait: type
         - target: type
         - body: arr<fn_def>
 
-    (attr) (pub) (inl) (macro) (generic) fn_def:
-        - attr: arr<attr>
+    (pub) (inl) (macro) (generic) fn_def:
         - pub: bool
         - inl: bool
         - macro: bool
@@ -983,8 +980,7 @@ TokenVector lex(String input)
         name: string
         type: type
 
-    (attr) (pub) (inl) (combo) var_def:
-        - attr: arr<attr>
+    (pub) (inl) (combo) var_def:
         - pub: bool
         - inl: bool
         - name: string
@@ -1023,6 +1019,9 @@ TokenVector lex(String input)
 
     bool_lit:
         - value: bool
+
+    char_lit:
+        - value: char
 
     null_lit:
     self_lit:
@@ -1138,6 +1137,7 @@ typedef enum
     E_ARR_LIT,
     E_NUM_LIT,
     E_BOOL_LIT,
+    E_CHAR_LIT,
     E_NULL_LIT,
     E_SELF_LIT,
     E_IF,
@@ -1209,7 +1209,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char *name;
     ExprVector body;
@@ -1217,13 +1216,11 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char *name;
 } Use;
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char *name;
     ExprVector gen;
@@ -1239,7 +1236,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char *name;
     ExprVector gen;
@@ -1255,7 +1251,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char *name;
     ExprVector gen;
@@ -1264,7 +1259,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char *name;
     ExprVector gen;
@@ -1273,7 +1267,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     ExprVector gen;
     Expr *trait;
@@ -1283,7 +1276,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char inl;
     char macro;
@@ -1303,7 +1295,6 @@ typedef struct
 
 typedef struct
 {
-    ExprVector attr;
     char pub;
     char inl;
     char *name;
@@ -1369,6 +1360,11 @@ typedef struct
 {
     char value;
 } BoolLit;
+
+typedef struct
+{
+    char value;
+} CharLit;
 
 typedef struct
 {
@@ -1484,6 +1480,7 @@ typedef union
     ArrLit arr_lit;
     NumLit num_lit;
     BoolLit bool_lit;
+    CharLit char_lit;
     If _if;
     Elif elif;
     Else _else;
@@ -1505,6 +1502,7 @@ typedef struct Expr
 {
     ExprKind kind;
     ExprUnion u;
+    ExprVector attrs;
 } Expr;
 
 VECTOR_FUNC(ExprVector, expr_vector, Expr);
@@ -1519,20 +1517,31 @@ void indent(int depth)
 
 void print_expr_vector(ExprVector exprs, int depth);
 
+// TODO
 void print_expr(Expr expr, int depth)
 {
+    putchar('(');
+
+    char attrs = expr.attrs.size;
+    if (attrs)
+    {
+        printf("attrs = [");
+        print_expr_vector(expr.attrs, depth + 1);
+        indent(depth);
+        printf("], ");
+    }
+
     switch (expr.kind)
     {
     case E_ATTR:
-        printf("(name = %s", expr.u.attr.name);
+        printf("name = %s", expr.u.attr.name);
         if (expr.u.attr.data)
         {
             printf(", data = %s", expr.u.attr.data);
         }
-        putchar(')');
         break;
     case E_TYPE:
-        printf("(const = %i, name = %s", expr.u.type._const, expr.u.type.name);
+        printf("const = %i, name = %s", expr.u.type._const, expr.u.type.name);
         if (expr.u.type.children.size)
         {
             printf(", children = [");
@@ -1540,18 +1549,46 @@ void print_expr(Expr expr, int depth)
             indent(depth);
             putchar(']');
         }
-        putchar(')');
         break;
     case E_CONSTR_TYPE:
-        printf("");
+        printf("name = %s, constr = [", expr.u.constr_type.name);
+        print_expr_vector(expr.u.constr_type.constr, depth + 1);
+        indent(depth);
+        putchar(']');
         break;
     case E_MOD:
+        printf("pub = %i, name = %s", expr.u.mod.pub, expr.u.mod.name);
+        if (expr.u.mod.body.size)
+        {
+            printf(", body = [");
+            print_expr_vector(expr.u.mod.body, depth + 1);
+            indent(depth);
+            putchar(']');
+        }
         break;
     case E_USE:
+        printf("name = %s", expr.u.use.name);
         break;
     case E_STRUCT:
+        printf("pub = %i, name = %s", expr.u._struct.pub, expr.u._struct.name);
+        if (expr.u._struct.gen.size)
+        {
+            printf(", gen = [");
+            print_expr_vector(expr.u._struct.gen, depth + 1);
+            indent(depth);
+            putchar(']');
+        }
+        if (expr.u._struct.body.size)
+        {
+            printf(", body = [");
+            print_expr_vector(expr.u._struct.body, depth + 1);
+            indent(depth);
+            putchar(']');
+        }
         break;
     case E_FIELD:
+        printf("pub = %i, name = %s, type = ", expr.u.field.pub, expr.u.field.name);
+        print_expr(*expr.u.field.type, depth);
         break;
     case E_ENUM:
         break;
@@ -1590,6 +1627,8 @@ void print_expr(Expr expr, int depth)
     case E_NUM_LIT:
         break;
     case E_BOOL_LIT:
+        break;
+    case E_CHAR_LIT:
         break;
     case E_NULL_LIT:
         break;
@@ -1656,6 +1695,7 @@ void print_expr(Expr expr, int depth)
     case E_BIT_NOT_OP:
         break;
     }
+    putchar(')');
 }
 
 void print_expr_vector(ExprVector exprs, int depth)
@@ -1688,6 +1728,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_ARR_LIT] = "ARR_LIT",
             [E_NUM_LIT] = "NUM_LIT",
             [E_BOOL_LIT] = "BOOL_LIT",
+            [E_CHAR_LIT] = "CHAR_LIT",
             [E_NULL_LIT] = "NULL_LIT",
             [E_SELF_LIT] = "SELF_LIT",
             [E_IF] = "IF",
@@ -1756,9 +1797,105 @@ void print_expr_vector(ExprVector exprs, int depth)
     }
 }
 
-ExprVector parse(TokenVector tokens)
+Expr parse_local()
 {
-    ExprVector exprs = expr_vector_new(10);
+    Expr expr;
+
+    return expr;
+}
+
+ExprVector parse_local_block()
+{
+    ExprVector exprs = expr_vector_new(8);
+
+    return exprs;
+}
+
+Expr parse_literal(TokenVector tokens, int *index)
+{
+    Expr expr;
+
+    Token token = tokens.array[*index];
+
+    switch (token.kind)
+    {
+    case 0: //TODO
+        break;
+    }
+
+    // string_lit
+    // "ident"
+    // arr_lit
+    // [ value, value, value, ]
+    // num_lit
+    // 13123_3213343.1231_23213123_123
+    // bool_lit
+    // null_lit
+    // self_lit
+
+    return expr;
+}
+
+void parse_attr(TokenVector tokens, int *index)
+{
+main:
+    while (tokens.array[*index].kind == AT)
+    {
+        *index += 1;
+        Token token = tokens.array[*index];
+        if (token.kind == IDENT)
+        {
+            *index += 1;
+            token = tokens.array[*index];
+            if (token.kind == LEFT_PAREN)
+            {
+                // expect literals and commas
+            }
+            else
+            {
+                goto main;
+            }
+        }
+        else
+        {
+            THROW(token.index, "expected identifier after attribute declaration", 0);
+        }
+    }
+}
+
+Expr parse_global(TokenVector tokens)
+{
+    Expr expr;
+
+    // @tag("bar", 1, 1)
+    // hello(a: i32, b: ptr<f32>) -> void {
+    //     # something here
+    // }
+
+    // use
+    // mod
+    // struct
+    // enum
+    // option
+    // union
+    // impl
+    // fn_def
+    // arg
+    // var_def
+
+    return expr;
+}
+
+ExprVector parse_global_block(TokenVector tokens)
+{
+    ExprVector exprs = expr_vector_new(32);
+
+    for (int i = 0; i < tokens.size; ++i)
+    {
+        Token token = tokens.array[i];
+
+        parse_attr(tokens, &i);
+    }
 
     return exprs;
 }
@@ -1794,16 +1931,18 @@ ExprVector lex_parse_recursive(char *path, int length)
                 break;
             case DT_REG:
             {
+                current_file_name = new_path;
                 FILE *input;
                 fopen_s(&input, new_path, "rb");
                 fseek(input, 0L, SEEK_END);
-                String data = string_new(ftell(input));
+                current_file = string_new(ftell(input));
                 rewind(input);
-                fread(data.array, data.size = data.capacity, 1, input);
+                current_file.size = current_file.capacity;
+                fread(current_file.array, current_file.size, 1, input);
                 fclose(input);
-                TokenVector tokens = lex(data);
+                TokenVector tokens = lex(current_file);
                 print_token_vector(tokens);
-                ExprVector exprs = parse(tokens);
+                ExprVector exprs = parse_global_block(tokens);
                 print_expr_vector(exprs, 0);
                 break;
             }
