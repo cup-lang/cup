@@ -156,7 +156,8 @@ typedef enum
     WHILE,
     FOR,
     _IN,
-    MATCH,
+    SWITCH,
+    CASE,
     FALL,
     BREAK,
     NEXT,
@@ -165,12 +166,13 @@ typedef enum
     GOTO,
     AS,
 
+    APOSTROPHE,
+    QUOTATION_MARK,
     SEMICOLON,
     COLON,
     COMMA,
     DOT,
-    TYPE_ARROW,
-    MATCH_ARROW,
+    ARROW,
     QUESTION_MARK,
     BACKTICK,
     AT,
@@ -182,6 +184,7 @@ typedef enum
     RIGHT_SQUARE,
 
     RANGE,
+    RANGE_INCL,
     ASSIGN,
     EQUAL,
     NOT_EQUAL,
@@ -254,7 +257,8 @@ void print_token_vector(TokenVector tokens)
             [WHILE] = "WHILE",
             [FOR] = "FOR",
             [_IN] = "IN",
-            [MATCH] = "MATCH",
+            [SWITCH] = "SWITCH",
+            [CASE] = "CASE",
             [FALL] = "FALL",
             [BREAK] = "BREAK",
             [NEXT] = "NEXT",
@@ -263,12 +267,13 @@ void print_token_vector(TokenVector tokens)
             [GOTO] = "GOTO",
             [AS] = "AS",
 
+            [APOSTROPHE] = "APOSTROPHE",
+            [QUOTATION_MARK] = "QUOTATION_MARK",
             [SEMICOLON] = "SEMICOLON",
             [COLON] = "COLON",
             [COMMA] = "COMMA",
             [DOT] = "DOT",
-            [TYPE_ARROW] = "TYPE_ARROW",
-            [MATCH_ARROW] = "MATCH_ARROW",
+            [ARROW] = "ARROW",
             [QUESTION_MARK] = "QUESTION_MARK",
             [BACKTICK] = "BACKTICK",
             [AT] = "AT",
@@ -280,6 +285,7 @@ void print_token_vector(TokenVector tokens)
             [RIGHT_SQUARE] = "RIGHT_SQUARE",
 
             [RANGE] = "RANGE",
+            [RANGE_INCL] = "RANGE_INCL",
             [ASSIGN] = "ASSIGN",
             [EQUAL] = "EQUAL",
             [NOT_EQUAL] = "NOT_EQUAL",
@@ -353,7 +359,8 @@ const int const token_lengths[] =
         [WHILE] = 5,
         [FOR] = 3,
         [_IN] = 2,
-        [MATCH] = 5,
+        [SWITCH] = 6,
+        [CASE] = 4,
         [FALL] = 4,
         [BREAK] = 5,
         [NEXT] = 4,
@@ -362,12 +369,13 @@ const int const token_lengths[] =
         [GOTO] = 4,
         [AS] = 2,
 
+        [APOSTROPHE] = 1,
+        [QUOTATION_MARK] = 1,
         [SEMICOLON] = 1,
         [COLON] = 1,
         [COMMA] = 1,
         [DOT] = 1,
-        [TYPE_ARROW] = 2,
-        [MATCH_ARROW] = 2,
+        [ARROW] = 2,
         [QUESTION_MARK] = 1,
         [BACKTICK] = 1,
         [AT] = 1,
@@ -379,6 +387,7 @@ const int const token_lengths[] =
         [RIGHT_SQUARE] = 1,
 
         [RANGE] = 2,
+        [RANGE_INCL] = 3,
         [ASSIGN] = 1,
         [EQUAL] = 2,
         [NOT_EQUAL] = 2,
@@ -444,6 +453,12 @@ TokenVector lex(String input)
                 is_comment = 1;
                 kind = 0;
                 break;
+            case '\'':
+                kind = APOSTROPHE;
+                break;
+            case '"':
+                kind = QUOTATION_MARK;
+                break;
             case ';':
                 kind = SEMICOLON;
                 break;
@@ -483,8 +498,16 @@ TokenVector lex(String input)
             case '.':
                 if (i + 1 < input.size && input.array[i + 1] == '.')
                 {
-                    kind = RANGE;
-                    ++i;
+                    if (i + 2 < input.size && input.array[i + 2] == '.')
+                    {
+                        kind = RANGE_INCL;
+                        i += 2;
+                    }
+                    else
+                    {
+                        kind = RANGE;
+                        ++i;
+                    }
                 }
                 else
                 {
@@ -494,17 +517,13 @@ TokenVector lex(String input)
             case '=':
                 if (i + 1 < input.size)
                 {
-                    switch (input.array[i + 1])
+                    if (input.array[i + 1] == '=')
                     {
-                    case '>':
-                        kind = MATCH_ARROW;
-                        ++i;
-                        break;
-                    case '=':
                         kind = EQUAL;
                         ++i;
-                        break;
-                    default:
+                    }
+                    else
+                    {
                         kind = ASSIGN;
                     }
                 }
@@ -541,7 +560,7 @@ TokenVector lex(String input)
                     switch (input.array[i + 1])
                     {
                     case '>':
-                        kind = TYPE_ARROW;
+                        kind = ARROW;
                         ++i;
                         break;
                     case '=':
@@ -827,9 +846,13 @@ TokenVector lex(String input)
                 {
                     value_kind = _IN;
                 }
-                else if (strcmp(value.array, "match") == 0)
+                else if (strcmp(value.array, "switch") == 0)
                 {
-                    value_kind = MATCH;
+                    value_kind = SWITCH;
+                }
+                else if (strcmp(value.array, "case") == 0)
+                {
+                    value_kind = CASE;
                 }
                 else if (strcmp(value.array, "fall") == 0)
                 {
@@ -900,7 +923,7 @@ TokenVector lex(String input)
 
     literal = string_lit + arr_lit + num_lit + bool_lit + char_lit + null_lit + self_lit
     value = op + fn_call + var_use + literal
-    local = for + do + if + elif + else + while + match + fall + break + next + goto + return + deref + local_var_def + value
+    local = for + do + if + elif + else + while + switch + fall + break + next + goto + return + deref + local_var_def + value
     global = use + mod + struct + enum + union + trait + impl + fn_def + var_def
 
     attr:
@@ -972,7 +995,7 @@ TokenVector lex(String input)
         - name: string
         - gen: arr<constr_type>
         - args: arr<arg>
-        - ret: type
+        - ret_type: type
         - body: arr<local>
 
     (rest) arg:
@@ -985,6 +1008,7 @@ TokenVector lex(String input)
         - inl: bool
         - name: string
         - type: type 
+        - value: value
 
     (combo) local_var_def:
         - name: string
@@ -1037,7 +1061,7 @@ TokenVector lex(String input)
         - loop_var: string
         - range: value
 
-    match:
+    switch:
         - value: value
         - body: arr<case>
 
@@ -1085,9 +1109,11 @@ TokenVector lex(String input)
         - lhs: value
         - rhs: value
 
+    deref_op:
+    address_op:
     not_op:
     bit_not:
-        - rhs: value
+        - val: value
 
     assign_op:
     add_assign_op:
@@ -1145,7 +1171,7 @@ typedef enum
     E_ELSE,
     E_WHILE,
     E_FOR,
-    E_MATCH,
+    E_SWITCH,
     E_CASE,
     E_FALL,
     E_BREAK,
@@ -1155,6 +1181,7 @@ typedef enum
     E_DEFER,
     E_COND_OP,
     E_RANGE_OP,
+    E_RANGE_INCL_OP,
     E_EQUAL_OP,
     E_NOT_EQUAL_OP,
     E_AND_OP,
@@ -1173,6 +1200,9 @@ typedef enum
     E_BIT_XOR,
     E_LEFT_SHIFT,
     E_RIGHT_SHIFT,
+    E_DEREF_OP,
+    E_ADDRESS_OP,
+    E_NEGATION_OP,
     E_NOT_OP,
     E_BIT_NOT_OP,
     E_ASSIGN_OP,
@@ -1282,7 +1312,7 @@ typedef struct
     char *name;
     ExprVector gen;
     ExprVector args;
-    Expr *ret;
+    Expr *ret_type;
     ExprVector body;
 } FnDef;
 
@@ -1299,6 +1329,7 @@ typedef struct
     char inl;
     char *name;
     Expr *type;
+    Expr *value;
 } VarDef;
 
 typedef struct
@@ -1400,7 +1431,7 @@ typedef struct
 {
     Expr *value;
     ExprVector body;
-} Match;
+} Switch;
 
 typedef struct
 {
@@ -1435,7 +1466,7 @@ typedef struct
 
 typedef struct
 {
-    Expr *cond;
+    Expr *con;
     Expr *lhs;
     Expr *rhs;
 } CondOp;
@@ -1448,8 +1479,7 @@ typedef struct
 
 typedef struct
 {
-    Expr *lhs;
-    Expr *rhs;
+    Expr *val;
 } UnaryOp;
 
 typedef union
@@ -1486,7 +1516,7 @@ typedef union
     Else _else;
     While _while;
     For _for;
-    Match match;
+    Switch _switch;
     Case _case;
     Break _break;
     Next next;
@@ -1517,19 +1547,20 @@ void indent(int depth)
 
 void print_expr_vector(ExprVector exprs, int depth);
 
-// TODO
+#define PRINT_OPT_EXPR_VECTOR(vector, name)   \
+    if (vector.size)                          \
+    {                                         \
+        printf(", " name " = [");             \
+        print_expr_vector(vector, depth + 1); \
+        indent(depth);                        \
+        putchar(']');                         \
+    }
+
 void print_expr(Expr expr, int depth)
 {
     putchar('(');
 
-    char attrs = expr.attrs.size;
-    if (attrs)
-    {
-        printf("attrs = [");
-        print_expr_vector(expr.attrs, depth + 1);
-        indent(depth);
-        printf("], ");
-    }
+    PRINT_OPT_EXPR_VECTOR(expr.attrs, "attrs")
 
     switch (expr.kind)
     {
@@ -1558,109 +1589,177 @@ void print_expr(Expr expr, int depth)
         break;
     case E_MOD:
         printf("pub = %i, name = %s", expr.u.mod.pub, expr.u.mod.name);
-        if (expr.u.mod.body.size)
-        {
-            printf(", body = [");
-            print_expr_vector(expr.u.mod.body, depth + 1);
-            indent(depth);
-            putchar(']');
-        }
+        PRINT_OPT_EXPR_VECTOR(expr.u.mod.body, "body")
         break;
     case E_USE:
         printf("name = %s", expr.u.use.name);
         break;
     case E_STRUCT:
         printf("pub = %i, name = %s", expr.u._struct.pub, expr.u._struct.name);
-        if (expr.u._struct.gen.size)
-        {
-            printf(", gen = [");
-            print_expr_vector(expr.u._struct.gen, depth + 1);
-            indent(depth);
-            putchar(']');
-        }
-        if (expr.u._struct.body.size)
-        {
-            printf(", body = [");
-            print_expr_vector(expr.u._struct.body, depth + 1);
-            indent(depth);
-            putchar(']');
-        }
+        PRINT_OPT_EXPR_VECTOR(expr.u._struct.gen, "gen")
+        PRINT_OPT_EXPR_VECTOR(expr.u._struct.body, "body")
         break;
     case E_FIELD:
         printf("pub = %i, name = %s, type = ", expr.u.field.pub, expr.u.field.name);
         print_expr(*expr.u.field.type, depth);
         break;
     case E_ENUM:
+        printf("pub = %i, name = %s", expr.u._enum.pub, expr.u._enum.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u._enum.gen, "gen")
+        PRINT_OPT_EXPR_VECTOR(expr.u._enum.body, "body")
         break;
     case E_OPTION:
+        printf("pub = %i, name = %s", expr.u.option.pub, expr.u.option.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u.option.body, "body")
         break;
     case E_UNION:
+        printf("pub = %i, name = %s", expr.u._union.pub, expr.u._union.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u._union.gen, "gen")
+        PRINT_OPT_EXPR_VECTOR(expr.u._union.body, "body")
         break;
     case E_TRAIT:
+        printf("pub = %i, name = %s", expr.u.trait.pub, expr.u.trait.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u.trait.gen, "gen")
+        PRINT_OPT_EXPR_VECTOR(expr.u.trait.body, "body")
         break;
     case E_IMPL:
+        printf("pub = %i", expr.u.impl.pub);
+        PRINT_OPT_EXPR_VECTOR(expr.u.impl.gen, "gen")
+        printf(", type = ");
+        print_expr(*expr.u.impl.trait, depth);
+        printf(", target = ");
+        print_expr(*expr.u.impl.target, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.impl.body, "body")
         break;
     case E_FN_DEF:
+        printf("pub = %i, inl = %i, macro = %i, name = %s", expr.u.fn_def.pub, expr.u.fn_def.inl, expr.u.fn_def.macro, expr.u.fn_def.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.gen, "gen")
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.args, "args")
+        printf(", ret_type = ");
+        print_expr(*expr.u.fn_def.ret_type, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.body, "body")
         break;
     case E_ARG:
+        printf("rest = %i, name = %s, type = ", expr.u.arg.rest, expr.u.arg.name);
+        print_expr(*expr.u.arg.type, depth);
         break;
     case E_VAR_DEF:
+        printf("pub = %i, inl = %i, name = %s", expr.u.var_def.pub, expr.u.var_def.inl, expr.u.var_def.name);
+        if (expr.u.var_def.type)
+        {
+            printf(", type = ");
+            print_expr(*expr.u.var_def.type, depth);
+        }
+        if (expr.u.var_def.value)
+        {
+            printf(", value = ");
+            print_expr(*expr.u.var_def.value, depth);
+        }
         break;
     case E_LOCAL_VAR_DEF:
+        printf("name = %s", expr.u.local_var_def.name);
+        if (expr.u.local_var_def.type)
+        {
+            printf(", type = ");
+            print_expr(*expr.u.var_def.type, depth);
+        }
+        if (expr.u.local_var_def.value)
+        {
+            printf(", value = ");
+            print_expr(*expr.u.local_var_def.value, depth);
+        }
         break;
     case E_FN_CALL:
+        printf("type = ");
+        print_expr(*expr.u.fn_call.type, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args")
         break;
     case E_VAR_USE:
+        printf("name = %s", expr.u.var_use.name);
         break;
     case E_STRUCT_INST:
+        printf("type = ");
+        print_expr(*expr.u.struct_inst.type, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args")
         break;
     case E_FIELD_VAL:
+        printf("name = %s, value = ", expr.u.field_val.name);
+        print_expr(*expr.u.field_val.value, depth);
         break;
     case E_DO:
-        break;
     case E_BLOCK:
+        PRINT_OPT_EXPR_VECTOR(expr.u._do.body, "body")
         break;
     case E_STRING_LIT:
-        break;
     case E_ARR_LIT:
+        PRINT_OPT_EXPR_VECTOR(expr.u.string_lit.value, "value")
         break;
     case E_NUM_LIT:
+        printf("value = %s", expr.u.string_lit.value);
         break;
     case E_BOOL_LIT:
+        printf("value = %i", expr.u.bool_lit.value);
         break;
     case E_CHAR_LIT:
-        break;
-    case E_NULL_LIT:
-        break;
-    case E_SELF_LIT:
+        printf("value = %c", expr.u.char_lit.value);
         break;
     case E_IF:
-        break;
     case E_ELIF:
-        break;
     case E_ELSE:
-        break;
     case E_WHILE:
+        printf("con = ");
+        print_expr(*expr.u._if.con, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u._if.body, "body")
         break;
     case E_FOR:
+        if (expr.u._for.loop_var)
+        {
+            printf("loop_var = %s, ");
+        }
+        printf("range = ");
+        print_expr(*expr.u._for.range, depth);
         break;
-    case E_MATCH:
+    case E_SWITCH:
+        printf("value = ");
+        print_expr(*expr.u._switch.value, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u._switch.body, "body")
         break;
     case E_CASE:
-        break;
-    case E_FALL:
+        printf("value = ");
+        print_expr(*expr.u._case.value, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u._case.body, "body")
         break;
     case E_BREAK:
-        break;
     case E_NEXT:
-        break;
     case E_GOTO:
+        if (expr.u._break.label)
+        {
+            printf("label = %s", expr.u._break.label);
+        }
         break;
     case E_RETURN:
+        if (expr.u._return.value)
+        {
+            printf("value = ");
+            print_expr(*expr.u._return.value, depth);
+        }
         break;
     case E_DEFER:
+        PRINT_OPT_EXPR_VECTOR(expr.u.defer.body, "body")
+        break;
+    case E_COND_OP:
+        printf("con = ");
+        print_expr(*expr.u.cond_op.con, depth);
+        printf(", lhs = ");
+        print_expr(*expr.u.cond_op.lhs, depth);
+        if (expr.u.cond_op.rhs)
+        {
+            printf(", rhs = ");
+            print_expr(*expr.u.cond_op.rhs, depth);
+        }
         break;
     case E_RANGE_OP:
+    case E_RANGE_INCL_OP:
     case E_EQUAL_OP:
     case E_NOT_EQUAL_OP:
     case E_AND_OP:
@@ -1690,9 +1789,18 @@ void print_expr(Expr expr, int depth)
     case E_BIT_XOR_ASSIGN:
     case E_LEFT_SHIFT_ASSIGN:
     case E_RIGHT_SHIFT_ASSIGN:
+        printf("lhs = ");
+        print_expr(*expr.u.binary_op.lhs, depth);
+        printf(", rhs = ");
+        print_expr(*expr.u.binary_op.rhs, depth);
         break;
+    case E_DEREF_OP:
+    case E_ADDRESS_OP:
+    case E_NEGATION_OP:
     case E_NOT_OP:
     case E_BIT_NOT_OP:
+        printf("val = ");
+        print_expr(*expr.u.unary_op.val, depth);
         break;
     }
     putchar(')');
@@ -1736,7 +1844,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_ELSE] = "ELSE",
             [E_WHILE] = "WHILE",
             [E_FOR] = "FOR",
-            [E_MATCH] = "MATCH",
+            [E_SWITCH] = "SWITCH",
             [E_CASE] = "CASE",
             [E_FALL] = "FALL",
             [E_BREAK] = "BREAK",
@@ -1746,6 +1854,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_DEFER] = "DEFER",
             [E_COND_OP] = "COND_OP",
             [E_RANGE_OP] = "RANGE_OP",
+            [E_RANGE_INCL_OP] = "RANGE_INCL_OP",
             [E_EQUAL_OP] = "EQUAL_OP",
             [E_NOT_EQUAL_OP] = "NOT_EQUAL_OP",
             [E_AND_OP] = "AND_OP",
@@ -1764,6 +1873,9 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_BIT_XOR] = "BIT_XOR",
             [E_LEFT_SHIFT] = "LEFT_SHIFT",
             [E_RIGHT_SHIFT] = "RIGHT_SHIFT",
+            [E_DEREF_OP] = "DEREF_OP",
+            [E_ADDRESS_OP] = "ADDRESS_OP",
+            [E_NEGATION_OP] = "NEGATION_OP",
             [E_NOT_OP] = "NOT_OP",
             [E_BIT_NOT_OP] = "BIT_NOT_OP",
             [E_ASSIGN_OP] = "ASSIGN_OP",
@@ -1980,7 +2092,7 @@ int main()
 // generic enums
 // generic traits
 // generic variables
-// match on enums (exhaustive)
+// switch on enums (exhaustive)
 // if elif else
 // do while do-while
 // break return next
