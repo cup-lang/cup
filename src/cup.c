@@ -170,6 +170,7 @@ typedef enum
     QUOTATION_MARK,
     SEMICOLON,
     COLON,
+    DOUBLE_COLON,
     COMMA,
     DOT,
     ARROW,
@@ -271,6 +272,7 @@ void print_token_vector(TokenVector tokens)
             [QUOTATION_MARK] = "QUOTATION_MARK",
             [SEMICOLON] = "SEMICOLON",
             [COLON] = "COLON",
+            [DOUBLE_COLON] = "DOUBLE_COLON",
             [COMMA] = "COMMA",
             [DOT] = "DOT",
             [ARROW] = "ARROW",
@@ -326,7 +328,6 @@ void print_token_vector(TokenVector tokens)
         {
             printf("(\"%s\")", tokens.array[i].value);
         }
-        printf(" %i", tokens.array[i].index);
         putchar('\n');
     }
     putchar('\n');
@@ -373,6 +374,7 @@ const int const token_lengths[] =
         [QUOTATION_MARK] = 1,
         [SEMICOLON] = 1,
         [COLON] = 1,
+        [DOUBLE_COLON] = 2,
         [COMMA] = 1,
         [DOT] = 1,
         [ARROW] = 2,
@@ -463,7 +465,15 @@ TokenVector lex(String input)
                 kind = SEMICOLON;
                 break;
             case ':':
-                kind = COLON;
+                if (i + 1 < input.size && input.array[i + 1] == ':')
+                {
+                    kind = DOUBLE_COLON;
+                    ++i;
+                }
+                else
+                {
+                    kind = COLON;
+                }
                 break;
             case ',':
                 kind = COLON;
@@ -1547,6 +1557,8 @@ void indent(int depth)
 
 void print_expr_vector(ExprVector exprs, int depth);
 
+void print_expr(Expr expr, int depth)
+{
 #define PRINT_OPT_EXPR_VECTOR(vector, name)   \
     if (vector.size)                          \
     {                                         \
@@ -1556,8 +1568,6 @@ void print_expr_vector(ExprVector exprs, int depth);
         putchar(']');                         \
     }
 
-void print_expr(Expr expr, int depth)
-{
     putchar('(');
 
     PRINT_OPT_EXPR_VECTOR(expr.attrs, "attrs")
