@@ -131,6 +131,9 @@ void print_snippet(Location location)
 typedef enum
 {
     IDENT,
+    STRING_LIT,
+    CHAR_LIT,
+    NUM_LIT,
     PUB,
     MOD,
     USE,
@@ -166,8 +169,6 @@ typedef enum
     GOTO,
     AS,
 
-    APOSTROPHE,
-    QUOTATION_MARK,
     SEMICOLON,
     COLON,
     DOUBLE_COLON,
@@ -233,6 +234,9 @@ void print_token_vector(TokenVector tokens)
     const char *const token_names[] =
         {
             [IDENT] = "IDENT",
+            [STRING_LIT] = "STRING_LIT",
+            [CHAR_LIT] = "CHAR_LIT",
+            [NUM_LIT] = "NUM_LIT",
             [PUB] = "PUB",
             [MOD] = "MOD",
             [USE] = "USE",
@@ -268,8 +272,6 @@ void print_token_vector(TokenVector tokens)
             [GOTO] = "GOTO",
             [AS] = "AS",
 
-            [APOSTROPHE] = "APOSTROPHE",
-            [QUOTATION_MARK] = "QUOTATION_MARK",
             [SEMICOLON] = "SEMICOLON",
             [COLON] = "COLON",
             [DOUBLE_COLON] = "DOUBLE_COLON",
@@ -323,10 +325,11 @@ void print_token_vector(TokenVector tokens)
     printf("Tokens:\n");
     for (int i = 0; i < tokens.size; ++i)
     {
-        printf("  %s", token_names[tokens.array[i].kind]);
-        if (tokens.array[i].kind == IDENT)
+        TokenKind kind = tokens.array[i].kind;
+        printf("  %s", token_names[kind]);
+        if (kind == IDENT || kind == STRING_LIT || kind == CHAR_LIT || kind == NUM_LIT)
         {
-            printf("(\"%s\")", tokens.array[i].value);
+            printf("(%s)", tokens.array[i].value);
         }
         putchar('\n');
     }
@@ -370,8 +373,6 @@ const int const token_lengths[] =
         [GOTO] = 4,
         [AS] = 2,
 
-        [APOSTROPHE] = 1,
-        [QUOTATION_MARK] = 1,
         [SEMICOLON] = 1,
         [COLON] = 1,
         [DOUBLE_COLON] = 2,
@@ -426,6 +427,7 @@ TokenVector lex(String input)
 {
     TokenVector tokens = token_vector_new(input.size / 4);
     char is_comment = 0;
+    char is_literal = 0;
     String value = string_new(32);
 
     for (int i = 0; i < input.size + 1; ++i)
@@ -451,15 +453,33 @@ TokenVector lex(String input)
         {
             switch (c)
             {
+            case '"':
+                kind = 0;
+                if (is_literal == 1)
+                {
+                    kind = STRING_LIT;
+                    is_literal = 0;
+                }
+                else
+                {
+                    is_literal = 1;
+                }
+                break;
+            case '\'':
+                kind = 0;
+                if (is_literal == 2)
+                {
+                    kind = CHAR_LIT;
+                    is_literal = 0;
+                }
+                else
+                {
+                    is_literal = 2;
+                }
+                break;
             case '#':
                 is_comment = 1;
                 kind = 0;
-                break;
-            case '\'':
-                kind = APOSTROPHE;
-                break;
-            case '"':
-                kind = QUOTATION_MARK;
                 break;
             case ';':
                 kind = SEMICOLON;
@@ -745,9 +765,9 @@ TokenVector lex(String input)
             }
         }
 
-        if (kind == -1)
+        if (kind == -1 || is_literal)
         {
-            if (c == '_' || isalnum(c))
+            if (is_literal || c == '_' || isalnum(c))
             {
                 string_push(&value, c);
             }
@@ -1936,12 +1956,49 @@ ExprVector parse_local_block()
 Expr parse_literal(TokenVector tokens, int *index)
 {
     Expr expr;
+    expr.kind = -1;
 
     Token token = tokens.array[*index];
 
     switch (token.kind)
     {
-    case 0: //TODO
+    case IDENT:
+        // string
+        // or number
+        // or nothing
+        // expr.kind = E_STRING_LIT;
+        // ++*index;
+        // Token token = tokens.array[*index];
+        // if (token.kind == IDENT)
+        // {
+
+        // }
+        // else if (token.kind == QUOTATION_MARK)
+        // {
+        //     ++*index;
+        //     break;
+        // }
+        // else
+        // {
+        //     THROW(token.index, "nah", 0);
+        // }
+        break;
+    case LEFT_SQUARE:
+        expr.kind = E_ARR_LIT;
+        break;
+    case _TRUE:
+    case _FALSE:
+        expr.kind = E_BOOL_LIT;
+        expr.u.bool_lit.value = token.kind == _TRUE;
+        ++*index;
+        break;
+    case _NULL:
+        expr.kind = E_NULL_LIT;
+        ++*index;
+        break;
+    case SELF:
+        expr.kind = E_SELF_LIT;
+        ++*index;
         break;
     }
 
@@ -1971,6 +2028,28 @@ main:
             token = tokens.array[*index];
             if (token.kind == LEFT_PAREN)
             {
+                while (1)
+                {
+                    if (tokens.array[++*index].kind == RIGHT_PAREN)
+                    {
+                        break;
+                    }
+                    Expr lit = parse_literal(tokens, index);
+                    token = tokens.array[*index];
+                    if (lit.kind != -1 && token.kind == COMMA)
+                    {
+                        ++*index;
+                        continue;
+                    }
+                    else if (token.kind == RIGHT_PAREN)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        THROW(token.index, "wow", 0);
+                    }
+                }
                 // expect literals and commas
             }
             else
@@ -1985,11 +2064,10 @@ main:
     }
 }
 
-Expr parse_global(TokenVector tokens)
+Expr parse_global(TokenVector tokens, int *index)
 {
     Expr expr;
 
-    // @tag("bar", 1, 1)
     // hello(a: i32, b: ptr<f32>) -> void {
     //     # something here
     // }
@@ -2016,7 +2094,10 @@ ExprVector parse_global_block(TokenVector tokens)
     {
         Token token = tokens.array[i];
 
+        // @tag("bar", 1, false,)
         parse_attr(tokens, &i);
+
+        parse_global(tokens, &i);
     }
 
     return exprs;
