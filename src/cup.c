@@ -182,8 +182,8 @@ typedef enum
     RIGHT_PAREN,
     LEFT_BRACE,
     RIGHT_BRACE,
-    LEFT_SQUARE,
-    RIGHT_SQUARE,
+    LEFT_BRACKET,
+    RIGHT_BRACKET,
 
     RANGE,
     RANGE_INCL,
@@ -285,8 +285,8 @@ void print_token_vector(TokenVector tokens)
             [RIGHT_PAREN] = "RIGHT_PAREN",
             [LEFT_BRACE] = "LEFT_BRACE",
             [RIGHT_BRACE] = "RIGHT_BRACE",
-            [LEFT_SQUARE] = "LEFT_SQUARE",
-            [RIGHT_SQUARE] = "RIGHT_SQUARE",
+            [LEFT_BRACKET] = "LEFT_BRACKET",
+            [RIGHT_BRACKET] = "RIGHT_BRACKET",
 
             [RANGE] = "RANGE",
             [RANGE_INCL] = "RANGE_INCL",
@@ -386,8 +386,8 @@ const int const token_lengths[] =
         [RIGHT_PAREN] = 1,
         [LEFT_BRACE] = 1,
         [RIGHT_BRACE] = 1,
-        [LEFT_SQUARE] = 1,
-        [RIGHT_SQUARE] = 1,
+        [LEFT_BRACKET] = 1,
+        [RIGHT_BRACKET] = 1,
 
         [RANGE] = 2,
         [RANGE_INCL] = 3,
@@ -423,6 +423,16 @@ const int const token_lengths[] =
         [RIGHT_SHIFT] = 2,
         [RIGHT_SHIFT_ASSIGN] = 3};
 
+Token value_token(String value, int index)
+{
+    Token token;
+    token.value = malloc(value.size);
+    memcpy(token.value, value.array, value.size);
+    token.value[value.size] = '\0';
+    token.index = index - value.size;
+    return token;
+}
+
 TokenVector lex(String input)
 {
     TokenVector tokens = token_vector_new(input.size / 4);
@@ -445,6 +455,27 @@ TokenVector lex(String input)
 
         TokenKind kind = -1;
 
+        if (is_literal > 2)
+        {
+            is_literal -= 2;
+        }
+
+        if (is_literal == 1 || is_literal == 2)
+        {
+            if (is_literal == 1 && c == '"')
+            {
+                goto end_string;
+            }
+            else if (is_literal == 2 && c == '\'')
+            {
+                goto end_char;
+            }
+            else
+            {
+                goto push;
+            }
+        }
+
         if (isspace(c) || c == '\0')
         {
             kind = 0;
@@ -454,6 +485,7 @@ TokenVector lex(String input)
             switch (c)
             {
             case '"':
+            end_string:
                 kind = 0;
                 if (is_literal == 1)
                 {
@@ -462,10 +494,11 @@ TokenVector lex(String input)
                 }
                 else
                 {
-                    is_literal = 1;
+                    is_literal = 3;
                 }
                 break;
             case '\'':
+            end_char:
                 kind = 0;
                 if (is_literal == 2)
                 {
@@ -474,7 +507,7 @@ TokenVector lex(String input)
                 }
                 else
                 {
-                    is_literal = 2;
+                    is_literal = 4;
                 }
                 break;
             case '#':
@@ -520,10 +553,10 @@ TokenVector lex(String input)
                 kind = RIGHT_BRACE;
                 break;
             case '[':
-                kind = LEFT_SQUARE;
+                kind = LEFT_BRACKET;
                 break;
             case ']':
-                kind = RIGHT_SQUARE;
+                kind = RIGHT_BRACKET;
                 break;
             case '.':
                 if (i + 1 < input.size && input.array[i + 1] == '.')
@@ -765,10 +798,11 @@ TokenVector lex(String input)
             }
         }
 
-        if (kind == -1 || is_literal)
+        if (kind == -1)
         {
-            if (is_literal || c == '_' || isalnum(c))
+            if (c == '_' || isalnum(c))
             {
+            push:
                 string_push(&value, c);
             }
             else
@@ -778,7 +812,7 @@ TokenVector lex(String input)
         }
         else
         {
-            if (value.size)
+            if (value.size && kind != STRING_LIT && kind != CHAR_LIT)
             {
                 TokenKind value_kind = -1;
 
@@ -915,12 +949,8 @@ TokenVector lex(String input)
 
                 if (value_kind == -1)
                 {
-                    Token token;
+                    Token token = value_token(value, i);
                     token.kind = IDENT;
-                    token.value = malloc(value.size);
-                    memcpy(token.value, value.array, value.size);
-                    token.value[value.size] = '\0';
-                    token.index = i - value.size;
                     token_vector_push(&tokens, token);
                 }
                 else
@@ -937,8 +967,16 @@ TokenVector lex(String input)
             if (kind)
             {
                 Token token;
+                if (kind == STRING_LIT || kind == CHAR_LIT)
+                {
+                    token = value_token(value, i);
+                    value.size = 0;
+                }
+                else
+                {
+                    token.index = i - token_lengths[kind] + 1;
+                }
                 token.kind = kind;
-                token.index = i - token_lengths[kind] + 1;
                 token_vector_push(&tokens, token);
             }
         }
@@ -1983,7 +2021,7 @@ Expr parse_literal(TokenVector tokens, int *index)
         //     THROW(token.index, "nah", 0);
         // }
         break;
-    case LEFT_SQUARE:
+    case LEFT_BRACKET:
         expr.kind = E_ARR_LIT;
         break;
     case _TRUE:
