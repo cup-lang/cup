@@ -177,7 +177,7 @@ typedef enum
     ARROW,
     QUESTION_MARK,
     BACKTICK,
-    AT,
+    HASH,
     LEFT_PAREN,
     RIGHT_PAREN,
     LEFT_BRACE,
@@ -185,6 +185,8 @@ typedef enum
     LEFT_BRACKET,
     RIGHT_BRACKET,
 
+    DEREF,
+    ADDRESS,
     RANGE,
     RANGE_INCL,
     ASSIGN,
@@ -280,7 +282,7 @@ void print_token_vector(TokenVector tokens)
             [ARROW] = "ARROW",
             [QUESTION_MARK] = "QUESTION_MARK",
             [BACKTICK] = "BACKTICK",
-            [AT] = "AT",
+            [HASH] = "HASH",
             [LEFT_PAREN] = "LEFT_PAREN",
             [RIGHT_PAREN] = "RIGHT_PAREN",
             [LEFT_BRACE] = "LEFT_BRACE",
@@ -288,6 +290,8 @@ void print_token_vector(TokenVector tokens)
             [LEFT_BRACKET] = "LEFT_BRACKET",
             [RIGHT_BRACKET] = "RIGHT_BRACKET",
 
+            [DEREF] = "DEREF",
+            [ADDRESS] = "ADDRESS",
             [RANGE] = "RANGE",
             [RANGE_INCL] = "RANGE_INCL",
             [ASSIGN] = "ASSIGN",
@@ -381,7 +385,7 @@ const int const token_lengths[] =
         [ARROW] = 2,
         [QUESTION_MARK] = 1,
         [BACKTICK] = 1,
-        [AT] = 1,
+        [HASH] = 1,
         [LEFT_PAREN] = 1,
         [RIGHT_PAREN] = 1,
         [LEFT_BRACE] = 1,
@@ -389,6 +393,8 @@ const int const token_lengths[] =
         [LEFT_BRACKET] = 1,
         [RIGHT_BRACKET] = 1,
 
+        [DEREF] = 1,
+        [ADDRESS] = 1,
         [RANGE] = 2,
         [RANGE_INCL] = 3,
         [ASSIGN] = 1,
@@ -436,7 +442,7 @@ Token value_token(String value, int index)
 TokenVector lex(String input)
 {
     TokenVector tokens = token_vector_new(input.size / 4);
-    char is_comment = 0;
+    char is_comment = -1;
     char is_literal = 0;
     String value = string_new(32);
 
@@ -444,11 +450,30 @@ TokenVector lex(String input)
     {
         char c = input.array[i];
 
-        if (is_comment)
+        if (is_comment != -1)
         {
-            if (c == '\n')
+            if (is_comment == 0)
             {
-                is_comment = 0;
+                if (c == '\n')
+                {
+                    is_comment = -1;
+                }
+            }
+            else
+            {
+                if (c == '/' && i + 1 < input.size && input.array[i + 1] == '*')
+                {
+                    ++is_comment;
+                    ++i;
+                }
+                else if (c == '*' && i + 1 < input.size && input.array[i + 1] == '/')
+                {
+                    if (--is_comment == 0)
+                    {
+                        is_comment = -1;
+                    }
+                    ++i;
+                }
             }
             continue;
         }
@@ -485,10 +510,10 @@ TokenVector lex(String input)
             switch (c)
             {
             case '"':
-            end_string:
                 kind = 0;
                 if (is_literal == 1)
                 {
+                end_string:
                     kind = STRING_LIT;
                     is_literal = 0;
                 }
@@ -498,10 +523,10 @@ TokenVector lex(String input)
                 }
                 break;
             case '\'':
-            end_char:
                 kind = 0;
                 if (is_literal == 2)
                 {
+                end_char:
                     kind = CHAR_LIT;
                     is_literal = 0;
                 }
@@ -509,10 +534,6 @@ TokenVector lex(String input)
                 {
                     is_literal = 4;
                 }
-                break;
-            case '#':
-                is_comment = 1;
-                kind = 0;
                 break;
             case ';':
                 kind = SEMICOLON;
@@ -529,7 +550,7 @@ TokenVector lex(String input)
                 }
                 break;
             case ',':
-                kind = COLON;
+                kind = COMMA;
                 break;
             case '?':
                 kind = QUESTION_MARK;
@@ -537,8 +558,8 @@ TokenVector lex(String input)
             case '`':
                 kind = BACKTICK;
                 break;
-            case '@':
-                kind = AT;
+            case '#':
+                kind = HASH;
                 break;
             case '(':
                 kind = LEFT_PAREN;
@@ -594,6 +615,12 @@ TokenVector lex(String input)
                 {
                     kind = ASSIGN;
                 }
+                break;
+            case '@':
+                kind = DEREF;
+                break;
+            case '$':
+                kind = ADDRESS;
                 break;
             case '!':
                 if (i + 1 < input.size && input.array[i + 1] == '=')
@@ -651,10 +678,28 @@ TokenVector lex(String input)
                 }
                 break;
             case '/':
-                if (i + 1 < input.size && input.array[i + 1] == '=')
+                if (i + 1 < input.size)
                 {
-                    kind = DIV_ASSIGN;
-                    ++i;
+                    switch (input.array[i + 1])
+                    {
+                    case '=':
+                        kind = DIV_ASSIGN;
+                        ++i;
+                        break;
+                    case '/':
+                        is_comment = 0;
+                        kind = 0;
+                        ++i;
+                        break;
+                    case '*':
+                        is_comment = 1;
+                        kind = 0;
+                        ++i;
+                        break;
+                    default:
+                        kind = DIV;
+                        break;
+                    }
                 }
                 else
                 {
@@ -994,7 +1039,7 @@ TokenVector lex(String input)
     local = for + do + if + elif + else + while + switch + fall + break + next + goto + return + deref + local_var_def + value
     global = use + mod + struct + enum + union + trait + impl + fn_def + var_def
 
-    attr:
+    tag:
         - name: string
         - data: arr<literal>
 
@@ -1205,7 +1250,7 @@ VECTOR_STRUCT(ExprVector, Expr);
 
 typedef enum
 {
-    E_ATTR,
+    E_TAG,
     E_TYPE,
     E_CONSTR_TYPE,
     E_MOD,
@@ -1290,7 +1335,7 @@ typedef struct
 {
     char *name;
     char *data;
-} Attr;
+} Tag;
 
 typedef struct
 {
@@ -1552,7 +1597,7 @@ typedef struct
 
 typedef union
 {
-    Attr attr;
+    Tag tag;
     Type type;
     ConstrType constr_type;
     Mod mod;
@@ -1600,7 +1645,7 @@ typedef struct Expr
 {
     ExprKind kind;
     ExprUnion u;
-    ExprVector attrs;
+    ExprVector tags;
 } Expr;
 
 VECTOR_FUNC(ExprVector, expr_vector, Expr);
@@ -1628,15 +1673,15 @@ void print_expr(Expr expr, int depth)
 
     putchar('(');
 
-    PRINT_OPT_EXPR_VECTOR(expr.attrs, "attrs")
+    PRINT_OPT_EXPR_VECTOR(expr.tags, "tags")
 
     switch (expr.kind)
     {
-    case E_ATTR:
-        printf("name = %s", expr.u.attr.name);
-        if (expr.u.attr.data)
+    case E_TAG:
+        printf("name = %s", expr.u.tag.name);
+        if (expr.u.tag.data)
         {
-            printf(", data = %s", expr.u.attr.data);
+            printf(", data = %s", expr.u.tag.data);
         }
         break;
     case E_TYPE:
@@ -1878,7 +1923,7 @@ void print_expr_vector(ExprVector exprs, int depth)
 {
     const char *const expr_names[] =
         {
-            [E_ATTR] = "ATTR",
+            [E_TAG] = "TAG",
             [E_TYPE] = "TYPE",
             [E_CONSTR_TYPE] = "CONSTR_TYPE",
             [E_MOD] = "MOD",
@@ -2053,10 +2098,10 @@ Expr parse_literal(TokenVector tokens, int *index)
     return expr;
 }
 
-void parse_attr(TokenVector tokens, int *index)
+void parse_tags(TokenVector tokens, int *index)
 {
 main:
-    while (tokens.array[*index].kind == AT)
+    while (tokens.array[*index].kind == HASH)
     {
         *index += 1;
         Token token = tokens.array[*index];
@@ -2097,7 +2142,7 @@ main:
         }
         else
         {
-            THROW(token.index, "expected identifier after attribute declaration", 0);
+            THROW(token.index, "expected identifier after tag declaration", 0);
         }
     }
 }
@@ -2133,7 +2178,7 @@ ExprVector parse_global_block(TokenVector tokens)
         Token token = tokens.array[i];
 
         // @tag("bar", 1, false,)
-        parse_attr(tokens, &i);
+        parse_tags(tokens, &i);
 
         parse_global(tokens, &i);
     }
