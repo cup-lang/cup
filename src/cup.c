@@ -20,7 +20,7 @@
     name lower##_new(int c)                                 \
     {                                                       \
         name v;                                             \
-        v.array = calloc(c, sizeof(type));                  \
+        v.array = malloc(c * sizeof(type));                 \
         v.size = 0;                                         \
         v.capacity = c;                                     \
         return v;                                           \
@@ -33,6 +33,7 @@
             int c = v->capacity *= 2;                       \
             v->array = realloc(v->array, sizeof(type) * c); \
         }                                                   \
+        memset(v->array + v->size, 0, sizeof(type));        \
     }
 
 VECTOR(String, string, char);
@@ -73,8 +74,8 @@ Location get_location(int index)
 #define RED 12
 #else
 #define COLOR(c) printf(c)
-#define RESET "\033[0m;"
-#define RED “\033[0;31m”
+#define RESET "\033[0m"
+#define RED "\033[31m"
 #endif
 
 void print_snippet(Location location)
@@ -116,6 +117,7 @@ void print_snippet(Location location)
     COLOR(RED);
     putchar('^');
     COLOR(RESET);
+    putchar('\n');
 }
 
 #define THROW(index, error, ...)                                   \
@@ -124,7 +126,7 @@ void print_snippet(Location location)
     COLOR(RED);                                                    \
     printf("error: ");                                             \
     COLOR(RESET);                                                  \
-    fprintf(stderr, error "\n", __VA_ARGS__);                      \
+    printf(error "\n", __VA_ARGS__);                               \
     print_snippet(loc);                                            \
     exit(1);
 
@@ -432,7 +434,7 @@ const int const token_lengths[] =
 Token value_token(String value, int index)
 {
     Token token;
-    token.value = malloc(value.size);
+    token.value = malloc(value.size + 1);
     memcpy(token.value, value.array, value.size);
     token.value[value.size] = '\0';
     token.index = index - value.size;
@@ -446,7 +448,7 @@ TokenVector lex(String input)
     char is_literal = 0;
     String value = string_new(32);
 
-    for (int i = 0; i < input.size + 1; ++i)
+    for (int i = 0; i <= input.size; ++i)
     {
         char c = input.array[i];
 
@@ -487,7 +489,11 @@ TokenVector lex(String input)
 
         if (is_literal == 1 || is_literal == 2)
         {
-            if (is_literal == 1 && c == '"')
+            if (c == '\0')
+            {
+                THROW(i - 1, "expected end of %s literal", is_literal == 1 ? "string" : "char");
+            }
+            else if (is_literal == 1 && c == '"')
             {
                 goto end_string;
             }
@@ -1487,7 +1493,7 @@ typedef struct
 
 typedef struct
 {
-    ExprVector value;
+    char *value;
 } StringLit;
 
 typedef struct
@@ -1803,10 +1809,10 @@ void print_expr(Expr expr, int depth)
     case E_BLOCK:
         PRINT_OPT_EXPR_VECTOR(expr.u._do.body, "body")
         break;
-    case E_STRING_LIT:
     case E_ARR_LIT:
-        PRINT_OPT_EXPR_VECTOR(expr.u.string_lit.value, "value")
+        PRINT_OPT_EXPR_VECTOR(expr.u.arr_lit.value, "value")
         break;
+    case E_STRING_LIT:
     case E_NUM_LIT:
         printf("value = %s", expr.u.string_lit.value);
         break;
@@ -1827,7 +1833,7 @@ void print_expr(Expr expr, int depth)
     case E_FOR:
         if (expr.u._for.loop_var)
         {
-            printf("loop_var = %s, ");
+            printf("loop_var = %s, ", expr.u._for.loop_var);
         }
         printf("range = ");
         print_expr(*expr.u._for.range, depth);
@@ -2192,7 +2198,8 @@ ExprVector lex_parse_recursive(char *path, int length)
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL)
     {
-        switch (ent->d_namlen)
+        int new_length = strlen(ent->d_name);
+        switch (new_length)
         {
         case 1:
             if (ent->d_name[0] == '.')
@@ -2206,25 +2213,27 @@ ExprVector lex_parse_recursive(char *path, int length)
             }
         default:
         {
-            int new_length = ent->d_namlen;
-            char *new_path = malloc(length + new_length + 1);
+            char *new_path = malloc(length + 1 + new_length + 1);
             memcpy(new_path, path, length);
-            strcpy(new_path + length, ent->d_name);
+            new_path[length] = '/';
+            memcpy(new_path + length + 1, ent->d_name, new_length);
+            new_path[length + new_length + 1] = '\0';
             switch (ent->d_type)
             {
             case DT_DIR:
-                lex_parse_recursive(new_path, length + new_length);
+                lex_parse_recursive(new_path, length + 1 + new_length);
                 break;
             case DT_REG:
             {
                 current_file_name = new_path;
                 FILE *input;
-                fopen_s(&input, new_path, "rb");
+                input = fopen(new_path, "rb");
                 fseek(input, 0L, SEEK_END);
-                current_file = string_new(ftell(input));
+                current_file = string_new(ftell(input) + 1);
                 rewind(input);
-                current_file.size = current_file.capacity;
+                current_file.size = current_file.capacity - 1;
                 fread(current_file.array, current_file.size, 1, input);
+                current_file.array[current_file.size] = '\0';
                 fclose(input);
                 TokenVector tokens = lex(current_file);
                 print_token_vector(tokens);
@@ -2247,10 +2256,10 @@ void gen(FILE *output, ExprVector exprs)
 
 int main()
 {
-    ExprVector ast = lex_parse_recursive("./src/", 6);
+    ExprVector ast = lex_parse_recursive("./src", 5);
 
     FILE *output;
-    fopen_s(&output, "./bin/main.c", "w");
+    output = fopen("./bin/main.c", "w");
     gen(output, ast);
     fclose(output);
 }
