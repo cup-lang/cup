@@ -2239,6 +2239,9 @@ ExprVector lex_parse_recursive(char *path, int length)
                 print_token_vector(tokens);
                 ExprVector exprs = parse_global_block(tokens);
                 print_expr_vector(exprs, 0);
+                free(tokens.array);
+                free(exprs.array);
+                free(current_file.array);
                 break;
             }
             }
