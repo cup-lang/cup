@@ -482,7 +482,7 @@ TokenVector lex(String input)
 
         TokenKind kind = -1;
 
-        if (is_literal > 2)
+        if (is_literal == 3 || is_literal == 4)
         {
             is_literal -= 2;
         }
@@ -853,6 +853,15 @@ TokenVector lex(String input)
         {
             if (c == '_' || isalnum(c))
             {
+                if (value.size == 0 && isdigit(c))
+                {
+                    is_literal = 5;
+                }
+                else if (is_literal == 5 && !isdigit(c))
+                {
+                    THROW(i, "Unexpected blabla", 0);
+                }
+
             push:
                 string_push(&value, c);
             }
@@ -863,7 +872,7 @@ TokenVector lex(String input)
         }
         else
         {
-            if (value.size && kind != STRING_LIT && kind != CHAR_LIT)
+            if (value.size && kind != STRING_LIT && kind != CHAR_LIT && is_literal != 5)
             {
                 TokenKind value_kind = -1;
 
@@ -1018,7 +1027,7 @@ TokenVector lex(String input)
             if (kind)
             {
                 Token token;
-                if (kind == STRING_LIT || kind == CHAR_LIT)
+                if (kind == STRING_LIT || kind == CHAR_LIT || is_literal == 5)
                 {
                     token = value_token(value, i);
                     value.size = 0;
@@ -1027,7 +1036,7 @@ TokenVector lex(String input)
                 {
                     token.index = i - token_lengths[kind] + 1;
                 }
-                token.kind = kind;
+                token.kind = is_literal == 5 ? NUM_LIT : kind;
                 token_vector_push(&tokens, token);
             }
         }
