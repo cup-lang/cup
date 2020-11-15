@@ -135,7 +135,8 @@ typedef enum
     IDENT,
     STRING_LIT,
     CHAR_LIT,
-    NUM_LIT,
+    INT_LIT,
+    FLOAT_LIT,
     PUB,
     MOD,
     USE,
@@ -169,7 +170,6 @@ typedef enum
     RETURN,
     DEFER,
     GOTO,
-    AS,
 
     SEMICOLON,
     COLON,
@@ -240,7 +240,8 @@ void print_token_vector(TokenVector tokens)
             [IDENT] = "IDENT",
             [STRING_LIT] = "STRING_LIT",
             [CHAR_LIT] = "CHAR_LIT",
-            [NUM_LIT] = "NUM_LIT",
+            [INT_LIT] = "INT_LIT",
+            [FLOAT_LIT] = "FLOAT_LIT",
             [PUB] = "PUB",
             [MOD] = "MOD",
             [USE] = "USE",
@@ -274,7 +275,6 @@ void print_token_vector(TokenVector tokens)
             [RETURN] = "RETURN",
             [DEFER] = "DEFER",
             [GOTO] = "GOTO",
-            [AS] = "AS",
 
             [SEMICOLON] = "SEMICOLON",
             [COLON] = "COLON",
@@ -333,7 +333,7 @@ void print_token_vector(TokenVector tokens)
     {
         TokenKind kind = tokens.array[i].kind;
         printf("  %s", token_names[kind]);
-        if (kind == IDENT || kind == STRING_LIT || kind == CHAR_LIT || kind == NUM_LIT)
+        if (kind == IDENT || kind == STRING_LIT || kind == CHAR_LIT || kind == INT_LIT || kind == FLOAT_LIT)
         {
             printf("(%s)", tokens.array[i].value);
         }
@@ -377,7 +377,6 @@ const int const token_lengths[] =
         [RETURN] = 6,
         [DEFER] = 5,
         [GOTO] = 4,
-        [AS] = 2,
 
         [SEMICOLON] = 1,
         [COLON] = 1,
@@ -586,22 +585,25 @@ TokenVector lex(String input)
                 kind = RIGHT_BRACKET;
                 break;
             case '.':
-                if (i + 1 < input.size && input.array[i + 1] == '.')
+                if (is_literal != 5 && is_literal != 6)
                 {
-                    if (i + 2 < input.size && input.array[i + 2] == '.')
+                    if (i + 1 < input.size && input.array[i + 1] == '.')
                     {
-                        kind = RANGE_INCL;
-                        i += 2;
+                        if (i + 2 < input.size && input.array[i + 2] == '.')
+                        {
+                            kind = RANGE_INCL;
+                            i += 2;
+                        }
+                        else
+                        {
+                            kind = RANGE;
+                            ++i;
+                        }
                     }
                     else
                     {
-                        kind = RANGE;
-                        ++i;
+                        kind = DOT;
                     }
-                }
-                else
-                {
-                    kind = DOT;
                 }
                 break;
             case '=':
@@ -851,19 +853,33 @@ TokenVector lex(String input)
 
         if (kind == -1)
         {
-            if (c == '_' || isalnum(c))
+            if (c == '_' || c == '.' || isalnum(c))
             {
                 if (value.size == 0 && isdigit(c))
                 {
                     is_literal = 5;
                 }
-                else if (is_literal == 5 && !isdigit(c))
+                else if (is_literal == 5 || is_literal == 6)
                 {
-                    THROW(i, "Unexpected blabla", 0);
+                    if (is_literal == 5 && c == '.')
+                    {
+                        is_literal = 6;
+                        goto check;
+                    }
+                    else if (c == '_' || isdigit(c))
+                    {
+                        goto check;
+                    }
+
+                    THROW(i - value.size, "invalid identifier name starting with a number", 0);
                 }
 
-            push:
-                string_push(&value, c);
+            check:
+                if ((is_literal != 5 && is_literal != 6) || c != '_')
+                {
+                push:
+                    string_push(&value, c);
+                }
             }
             else
             {
@@ -872,13 +888,16 @@ TokenVector lex(String input)
         }
         else
         {
-            if (value.size && kind != STRING_LIT && kind != CHAR_LIT && is_literal != 5)
+            if (value.size && kind != STRING_LIT && kind != CHAR_LIT)
             {
                 TokenKind value_kind = -1;
 
                 value.array[value.size] = '\0';
 
-                if (strcmp(value.array, "pub") == 0)
+                if (is_literal == 5 || is_literal == 6)
+                {
+                }
+                else if (strcmp(value.array, "pub") == 0)
                 {
                     value_kind = PUB;
                 }
@@ -1002,15 +1021,25 @@ TokenVector lex(String input)
                 {
                     value_kind = GOTO;
                 }
-                else if (strcmp(value.array, "as") == 0)
-                {
-                    value_kind = AS;
-                }
 
                 if (value_kind == -1)
                 {
                     Token token = value_token(value, i);
-                    token.kind = IDENT;
+                    switch (is_literal)
+                    {
+                    case 5:
+                        token.kind = INT_LIT;
+                        break;
+                    case 6:
+                        token.kind = FLOAT_LIT;
+                        if (value.array[value.size - 1] == '.') {
+                            THROW(i, "siema kurwy", 0);
+                        }
+                        break;
+                    default:
+                        token.kind = IDENT;
+                        break;
+                    }
                     token_vector_push(&tokens, token);
                 }
                 else
@@ -1027,7 +1056,7 @@ TokenVector lex(String input)
             if (kind)
             {
                 Token token;
-                if (kind == STRING_LIT || kind == CHAR_LIT || is_literal == 5)
+                if (kind == STRING_LIT || kind == CHAR_LIT)
                 {
                     token = value_token(value, i);
                     value.size = 0;
@@ -1036,7 +1065,7 @@ TokenVector lex(String input)
                 {
                     token.index = i - token_lengths[kind] + 1;
                 }
-                token.kind = is_literal == 5 ? NUM_LIT : kind;
+                token.kind = kind;
                 token_vector_push(&tokens, token);
             }
         }
