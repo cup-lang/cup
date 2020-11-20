@@ -585,25 +585,22 @@ TokenVector lex(String input)
                 kind = RIGHT_BRACKET;
                 break;
             case '.':
-                if (is_literal != 5 && is_literal != 6)
+                if (i + 1 < input.size && input.array[i + 1] == '.')
                 {
-                    if (i + 1 < input.size && input.array[i + 1] == '.')
+                    if (i + 2 < input.size && input.array[i + 2] == '.')
                     {
-                        if (i + 2 < input.size && input.array[i + 2] == '.')
-                        {
-                            kind = RANGE_INCL;
-                            i += 2;
-                        }
-                        else
-                        {
-                            kind = RANGE;
-                            ++i;
-                        }
+                        kind = RANGE_INCL;
+                        i += 2;
                     }
                     else
                     {
-                        kind = DOT;
+                        kind = RANGE;
+                        ++i;
                     }
+                }
+                else if (is_literal != 5 || (i + 1 < input.size && (input.array[i + 1] == '_' || isalpha(input.array[i + 1]))))
+                {
+                    kind = DOT;
                 }
                 break;
             case '=':
@@ -861,7 +858,7 @@ TokenVector lex(String input)
                 }
                 else if (is_literal == 5 || is_literal == 6)
                 {
-                    if (is_literal == 5 && c == '.')
+                    if (c == '.' && is_literal == 5)
                     {
                         is_literal = 6;
                         goto check;
@@ -871,7 +868,7 @@ TokenVector lex(String input)
                         goto check;
                     }
 
-                    THROW(i - value.size, "invalid identifier name starting with a number", 0);
+                    THROW(i - value.size, "invalid identifier name starting with a digit", 0);
                 }
 
             check:
@@ -1032,8 +1029,9 @@ TokenVector lex(String input)
                         break;
                     case 6:
                         token.kind = FLOAT_LIT;
-                        if (value.array[value.size - 1] == '.') {
-                            THROW(i, "siema kurwy", 0);
+                        if (value.array[value.size - 1] == '.')
+                        {
+                            THROW(i - 1, "expected a value after the decimal point", 0);
                         }
                         break;
                     default:
@@ -1051,6 +1049,7 @@ TokenVector lex(String input)
                 }
 
                 value.size = 0;
+                is_literal = 0;
             }
 
             if (kind)
