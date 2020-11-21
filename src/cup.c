@@ -173,7 +173,6 @@ typedef enum
 
     SEMICOLON,
     COLON,
-    DOUBLE_COLON,
     COMMA,
     DOT,
     ARROW,
@@ -278,7 +277,6 @@ void print_token_vector(TokenVector tokens)
 
             [SEMICOLON] = "SEMICOLON",
             [COLON] = "COLON",
-            [DOUBLE_COLON] = "DOUBLE_COLON",
             [COMMA] = "COMMA",
             [DOT] = "DOT",
             [ARROW] = "ARROW",
@@ -380,7 +378,6 @@ const int const token_lengths[] =
 
         [SEMICOLON] = 1,
         [COLON] = 1,
-        [DOUBLE_COLON] = 2,
         [COMMA] = 1,
         [DOT] = 1,
         [ARROW] = 2,
@@ -544,9 +541,8 @@ TokenVector lex(String input)
                 kind = SEMICOLON;
                 break;
             case ':':
-                if (i + 1 < input.size && input.array[i + 1] == ':')
+                if (value.size && i + 1 < input.size && input.array[i + 1] == ':' && i + 2 < input.size && (input.array[i + 2] == '_' || isalpha(input.array[i + 2])))
                 {
-                    kind = DOUBLE_COLON;
                     ++i;
                 }
                 else
@@ -798,7 +794,7 @@ TokenVector lex(String input)
                         else
                         {
                             kind = LEFT_SHIFT;
-                            i += 2;
+                            ++i;
                         }
                         break;
                     default:
@@ -832,7 +828,8 @@ TokenVector lex(String input)
                             else if (next == '_' || isalnum(next))
                             {
                                 kind = RIGHT_SHIFT;
-                                i += 2;
+                                ++i;
+                                ;
                                 break;
                             }
                         }
@@ -850,7 +847,7 @@ TokenVector lex(String input)
 
         if (kind == -1)
         {
-            if (c == '_' || c == '.' || isalnum(c))
+            if (c == '_' || c == '.' || c == ':' || isalnum(c))
             {
                 if (value.size == 0 && isdigit(c))
                 {
@@ -875,6 +872,10 @@ TokenVector lex(String input)
                 if ((is_literal != 5 && is_literal != 6) || c != '_')
                 {
                 push:
+                    if (is_literal == 2 && value.size == 4)
+                    {
+                        THROW(i, "too many characters in character literal", 0);
+                    }
                     string_push(&value, c);
                 }
             }
@@ -2317,7 +2318,7 @@ int main()
 // generic variables
 // switch on enums (exhaustive)
 // if elif else
-// do while do-while
+// do while
 // break return next
 // all ops
 // mod support
