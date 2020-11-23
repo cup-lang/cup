@@ -120,15 +120,17 @@ void print_snippet(Location location)
     putchar('\n');
 }
 
-#define THROW(index, error, ...)                                   \
-    Location loc = get_location(index);                            \
-    printf("%s:%i:%i: ", current_file_name, loc.line, loc.column); \
-    COLOR(RED);                                                    \
-    printf("error: ");                                             \
-    COLOR(RESET);                                                  \
-    printf(error "\n", __VA_ARGS__);                               \
-    print_snippet(loc);                                            \
-    exit(1);
+#define THROW(index, error, ...)                                       \
+    {                                                                  \
+        Location loc = get_location(index);                            \
+        printf("%s:%i:%i: ", current_file_name, loc.line, loc.column); \
+        COLOR(RED);                                                    \
+        printf("error: ");                                             \
+        COLOR(RESET);                                                  \
+        printf(error "\n", __VA_ARGS__);                               \
+        print_snippet(loc);                                            \
+        exit(1);                                                       \
+    }
 
 typedef enum
 {
@@ -1105,11 +1107,11 @@ TokenVector lex(String input)
         - name: string
 
     (pub) (generic) struct:
-        - pub: bool 
+        - pub: bool
         - name: string
         - gen: arr<constr_type>
         - body: arr<field>
-
+    
     (pub) field:
         - pub: bool 
         - name: string
@@ -1317,10 +1319,11 @@ typedef enum
     E_DO,
     E_BLOCK,
     E_STRING_LIT,
-    E_ARR_LIT,
-    E_NUM_LIT,
-    E_BOOL_LIT,
     E_CHAR_LIT,
+    E_ARR_LIT,
+    E_INT_LIT,
+    E_FLOAT_LIT,
+    E_BOOL_LIT,
     E_NULL_LIT,
     E_SELF_LIT,
     E_IF,
@@ -1378,7 +1381,7 @@ typedef enum
 typedef struct
 {
     char *name;
-    char *data;
+    ExprVector args;
 } Tag;
 
 typedef struct
@@ -1541,18 +1544,8 @@ typedef struct
 
 typedef struct
 {
-    char *value;
-} NumLit;
-
-typedef struct
-{
     char value;
 } BoolLit;
-
-typedef struct
-{
-    char value;
-} CharLit;
 
 typedef struct
 {
@@ -1664,10 +1657,11 @@ typedef union
     Do _do;
     Block block;
     StringLit string_lit;
+    StringLit char_lit;
+    StringLit int_lit;
+    StringLit float_lit;
     ArrLit arr_lit;
-    NumLit num_lit;
     BoolLit bool_lit;
-    CharLit char_lit;
     If _if;
     Elif elif;
     Else _else;
@@ -1706,27 +1700,32 @@ void print_expr_vector(ExprVector exprs, int depth);
 
 void print_expr(Expr expr, int depth)
 {
-#define PRINT_OPT_EXPR_VECTOR(vector, name)   \
-    if (vector.size)                          \
-    {                                         \
-        printf(", " name " = [");             \
-        print_expr_vector(vector, depth + 1); \
-        indent(depth);                        \
-        putchar(']');                         \
+#define PRINT_OPT_EXPR_VECTOR(vector, name, next) \
+    if (vector.size)                              \
+    {                                             \
+        if (next)                                 \
+        {                                         \
+            printf(", ");                         \
+        }                                         \
+        printf(name " = [");                      \
+        print_expr_vector(vector, depth + 1);     \
+        indent(depth);                            \
+        putchar(']');                             \
     }
 
     putchar('(');
 
-    PRINT_OPT_EXPR_VECTOR(expr.tags, "tags")
+    PRINT_OPT_EXPR_VECTOR(expr.tags, "tags", 0)
+    if (expr.tags.size)
+    {
+        printf(", ");
+    }
 
     switch (expr.kind)
     {
     case E_TAG:
         printf("name = %s", expr.u.tag.name);
-        if (expr.u.tag.data)
-        {
-            printf(", data = %s", expr.u.tag.data);
-        }
+        PRINT_OPT_EXPR_VECTOR(expr.u.tag.args, "args", 1)
         break;
     case E_TYPE:
         printf("const = %i, name = %s", expr.u.type._const, expr.u.type.name);
@@ -1746,15 +1745,15 @@ void print_expr(Expr expr, int depth)
         break;
     case E_MOD:
         printf("pub = %i, name = %s", expr.u.mod.pub, expr.u.mod.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u.mod.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u.mod.body, "body", 1)
         break;
     case E_USE:
         printf("name = %s", expr.u.use.name);
         break;
     case E_STRUCT:
         printf("pub = %i, name = %s", expr.u._struct.pub, expr.u._struct.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u._struct.gen, "gen")
-        PRINT_OPT_EXPR_VECTOR(expr.u._struct.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._struct.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u._struct.body, "body", 1)
         break;
     case E_FIELD:
         printf("pub = %i, name = %s, type = ", expr.u.field.pub, expr.u.field.name);
@@ -1762,39 +1761,39 @@ void print_expr(Expr expr, int depth)
         break;
     case E_ENUM:
         printf("pub = %i, name = %s", expr.u._enum.pub, expr.u._enum.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u._enum.gen, "gen")
-        PRINT_OPT_EXPR_VECTOR(expr.u._enum.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._enum.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u._enum.body, "body", 1)
         break;
     case E_OPTION:
         printf("pub = %i, name = %s", expr.u.option.pub, expr.u.option.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u.option.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u.option.body, "body", 1)
         break;
     case E_UNION:
         printf("pub = %i, name = %s", expr.u._union.pub, expr.u._union.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u._union.gen, "gen")
-        PRINT_OPT_EXPR_VECTOR(expr.u._union.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._union.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u._union.body, "body", 1)
         break;
     case E_TRAIT:
         printf("pub = %i, name = %s", expr.u.trait.pub, expr.u.trait.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u.trait.gen, "gen")
-        PRINT_OPT_EXPR_VECTOR(expr.u.trait.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u.trait.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u.trait.body, "body", 1)
         break;
     case E_IMPL:
         printf("pub = %i", expr.u.impl.pub);
-        PRINT_OPT_EXPR_VECTOR(expr.u.impl.gen, "gen")
+        PRINT_OPT_EXPR_VECTOR(expr.u.impl.gen, "gen", 1)
         printf(", type = ");
         print_expr(*expr.u.impl.trait, depth);
         printf(", target = ");
         print_expr(*expr.u.impl.target, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.impl.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u.impl.body, "body", 1)
         break;
     case E_FN_DEF:
         printf("pub = %i, inl = %i, macro = %i, name = %s", expr.u.fn_def.pub, expr.u.fn_def.inl, expr.u.fn_def.macro, expr.u.fn_def.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.gen, "gen")
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.args, "args")
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.args, "args", 1)
         printf(", ret_type = ");
         print_expr(*expr.u.fn_def.ret_type, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.body, "body", 1)
         break;
     case E_ARG:
         printf("rest = %i, name = %s, type = ", expr.u.arg.rest, expr.u.arg.name);
@@ -1829,7 +1828,7 @@ void print_expr(Expr expr, int depth)
     case E_FN_CALL:
         printf("type = ");
         print_expr(*expr.u.fn_call.type, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args")
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args", 1)
         break;
     case E_VAR_USE:
         printf("name = %s", expr.u.var_use.name);
@@ -1837,7 +1836,7 @@ void print_expr(Expr expr, int depth)
     case E_STRUCT_INST:
         printf("type = ");
         print_expr(*expr.u.struct_inst.type, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args")
+        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args", 1)
         break;
     case E_FIELD_VAL:
         printf("name = %s, value = ", expr.u.field_val.name);
@@ -1845,20 +1844,19 @@ void print_expr(Expr expr, int depth)
         break;
     case E_DO:
     case E_BLOCK:
-        PRINT_OPT_EXPR_VECTOR(expr.u._do.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._do.body, "body", expr.tags.size)
         break;
     case E_ARR_LIT:
-        PRINT_OPT_EXPR_VECTOR(expr.u.arr_lit.value, "value")
+        PRINT_OPT_EXPR_VECTOR(expr.u.arr_lit.value, "value", expr.tags.size)
         break;
     case E_STRING_LIT:
-    case E_NUM_LIT:
+    case E_CHAR_LIT:
+    case E_INT_LIT:
+    case E_FLOAT_LIT:
         printf("value = %s", expr.u.string_lit.value);
         break;
     case E_BOOL_LIT:
         printf("value = %i", expr.u.bool_lit.value);
-        break;
-    case E_CHAR_LIT:
-        printf("value = %c", expr.u.char_lit.value);
         break;
     case E_IF:
     case E_ELIF:
@@ -1866,7 +1864,7 @@ void print_expr(Expr expr, int depth)
     case E_WHILE:
         printf("con = ");
         print_expr(*expr.u._if.con, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u._if.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._if.body, "body", 1)
         break;
     case E_FOR:
         if (expr.u._for.loop_var)
@@ -1879,12 +1877,12 @@ void print_expr(Expr expr, int depth)
     case E_SWITCH:
         printf("value = ");
         print_expr(*expr.u._switch.value, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u._switch.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._switch.body, "body", 1)
         break;
     case E_CASE:
         printf("value = ");
         print_expr(*expr.u._case.value, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u._case.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u._case.body, "body", 1)
         break;
     case E_BREAK:
     case E_NEXT:
@@ -1902,7 +1900,7 @@ void print_expr(Expr expr, int depth)
         }
         break;
     case E_DEFER:
-        PRINT_OPT_EXPR_VECTOR(expr.u.defer.body, "body")
+        PRINT_OPT_EXPR_VECTOR(expr.u.defer.body, "body", expr.tags.size)
         break;
     case E_COND_OP:
         printf("con = ");
@@ -1990,8 +1988,10 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_DO] = "DO",
             [E_BLOCK] = "BLOCK",
             [E_STRING_LIT] = "STRING_LIT",
+            [E_CHAR_LIT] = "CHAR_LIT",
             [E_ARR_LIT] = "ARR_LIT",
-            [E_NUM_LIT] = "NUM_LIT",
+            [E_INT_LIT] = "INT_LIT",
+            [E_FLOAT_LIT] = "FLOAT_LIT",
             [E_BOOL_LIT] = "BOOL_LIT",
             [E_CHAR_LIT] = "CHAR_LIT",
             [E_NULL_LIT] = "NULL_LIT",
@@ -2080,135 +2080,150 @@ ExprVector parse_local_block()
     return exprs;
 }
 
-Expr parse_literal(TokenVector tokens, int *index)
+ExprVector parse_tags(TokenVector tokens, int *index)
 {
-    Expr expr;
-    expr.kind = -1;
+    ExprVector tags = expr_vector_new(2);
 
-    Token token = tokens.array[*index];
-
-    switch (token.kind)
-    {
-    case IDENT:
-        // string
-        // or number
-        // or nothing
-        // expr.kind = E_STRING_LIT;
-        // ++*index;
-        // Token token = tokens.array[*index];
-        // if (token.kind == IDENT)
-        // {
-
-        // }
-        // else if (token.kind == QUOTATION_MARK)
-        // {
-        //     ++*index;
-        //     break;
-        // }
-        // else
-        // {
-        //     THROW(token.index, "nah", 0);
-        // }
-        break;
-    case LEFT_BRACKET:
-        expr.kind = E_ARR_LIT;
-        break;
-    case _TRUE:
-    case _FALSE:
-        expr.kind = E_BOOL_LIT;
-        expr.u.bool_lit.value = token.kind == _TRUE;
-        ++*index;
-        break;
-    case _NULL:
-        expr.kind = E_NULL_LIT;
-        ++*index;
-        break;
-    case SELF:
-        expr.kind = E_SELF_LIT;
-        ++*index;
-        break;
-    }
-
-    // string_lit
-    // "ident"
-    // arr_lit
-    // [ value, value, value, ]
-    // num_lit
-    // 13123_3213343.1231_23213123_123
-    // bool_lit
-    // null_lit
-    // self_lit
-
-    return expr;
-}
-
-void parse_tags(TokenVector tokens, int *index)
-{
 main:
     while (tokens.array[*index].kind == HASH)
     {
-        *index += 1;
-        Token token = tokens.array[*index];
+        Token token = tokens.array[++*index];
         if (token.kind == IDENT)
         {
-            *index += 1;
-            token = tokens.array[*index];
+            Expr tag;
+            tag.kind = E_TAG;
+            tag.tags.size = 0;
+            tag.u.tag.name = token.value;
+            tag.u.tag.args = expr_vector_new(2);
+
+            token = tokens.array[++*index];
             if (token.kind == LEFT_PAREN)
             {
                 while (1)
                 {
-                    if (tokens.array[++*index].kind == RIGHT_PAREN)
+                    token = tokens.array[++*index];
+                    if (token.kind == RIGHT_PAREN)
                     {
                         break;
                     }
-                    Expr lit = parse_literal(tokens, index);
-                    token = tokens.array[*index];
-                    if (lit.kind != -1 && token.kind == COMMA)
+
+                    Expr lit;
+                    lit.kind = -1;
+
+                    switch (token.kind)
                     {
-                        ++*index;
-                        continue;
-                    }
-                    else if (token.kind == RIGHT_PAREN)
-                    {
+                    case STRING_LIT:
+                        lit.kind = E_STRING_LIT;
+                        lit.u.string_lit.value = token.value;
+                        break;
+                    case CHAR_LIT:
+                        lit.kind = E_CHAR_LIT;
+                        lit.u.char_lit.value = token.value;
+                        break;
+                    case INT_LIT:
+                        lit.kind = E_INT_LIT;
+                        lit.u.char_lit.value = token.value;
+                        break;
+                    case FLOAT_LIT:
+                        lit.kind = E_FLOAT_LIT;
+                        lit.u.char_lit.value = token.value;
+                        break;
+                    case LEFT_BRACKET:
+                        lit.kind = E_ARR_LIT;
+                        THROW(token.index, "unexpected array literal", 0);
+                        break;
+                    case _TRUE:
+                    case _FALSE:
+                        lit.kind = E_BOOL_LIT;
+                        lit.u.bool_lit.value = token.kind == _TRUE;
                         break;
                     }
-                    else
+
+                    if (lit.kind != -1)
                     {
-                        THROW(token.index, "wow", 0);
+                        expr_vector_push(&tag.u.tag.args, lit);
+
+                        token = tokens.array[++*index];
+                        if (token.kind == COMMA)
+                        {
+                            continue;
+                        }
+                        else if (token.kind == RIGHT_PAREN)
+                        {
+                            break;
+                        }
                     }
+                    THROW(token.index, "unexpected smth in 'tag' declaration", 0);
                 }
-                // expect literals and commas
+                expr_vector_push(&tags, tag);
+                ++*index;
             }
             else
             {
+                expr_vector_push(&tags, tag);
                 goto main;
             }
         }
         else
         {
-            THROW(token.index, "expected identifier after tag declaration", 0);
+            THROW(tokens.array[*index - 1].index, "expected identifier after tag declaration", 0);
         }
     }
+
+    return tags;
 }
 
 Expr parse_global(TokenVector tokens, int *index)
 {
     Expr expr;
 
-    // hello(a: i32, b: ptr<f32>) -> void {
-    //     # something here
-    // }
+    Token token = tokens.array[*index];
 
-    // use
-    // mod
-    // struct
-    // enum
-    // option
-    // union
-    // impl
-    // fn_def
-    // arg
-    // var_def
+    switch (token.kind)
+    {
+    case USE:
+        expr.kind = E_USE;
+        token = tokens.array[++*index];
+        if (token.kind == IDENT)
+        {
+            expr.u.use.name = token.value;
+            token = tokens.array[++*index];
+            if (token.kind == SEMICOLON)
+            {
+                break;
+            }
+            else
+            {
+                THROW(token.index, "expected ';' after 'use' path", 0);
+            }
+        }
+        else
+        {
+            THROW(token.index, "expected path after 'use' keyword", 0);
+        }
+        break;
+    case MOD:
+        expr.kind = E_MOD;
+        break;
+    case STRUCT:
+        expr.kind = E_STRUCT;
+        break;
+    case ENUM:
+        expr.kind = E_ENUM;
+        // option
+        break;
+    case UNION:
+        expr.kind = E_UNION;
+        break;
+    case IMPL:
+        expr.kind = E_IMPL;
+        break;
+        // fn_def, arg
+        // var_def
+    default:
+        THROW(token.index, "unexpected smth in global scope", 0);
+        break;
+    }
 
     return expr;
 }
@@ -2221,10 +2236,11 @@ ExprVector parse_global_block(TokenVector tokens)
     {
         Token token = tokens.array[i];
 
-        // @tag("bar", 1, false,)
-        parse_tags(tokens, &i);
+        ExprVector tags = parse_tags(tokens, &i);
 
-        parse_global(tokens, &i);
+        Expr expr = parse_global(tokens, &i);
+        expr.tags = tags;
+        expr_vector_push(&exprs, expr);
     }
 
     return exprs;
