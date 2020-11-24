@@ -1305,6 +1305,7 @@ typedef enum
     E_FIELD,
     E_ENUM,
     E_OPTION,
+    E_OPTION_FIELD,
     E_UNION,
     E_TRAIT,
     E_IMPL,
@@ -1434,10 +1435,15 @@ typedef struct
 
 typedef struct
 {
-    char pub;
     char *name;
     ExprVector body;
 } Option;
+
+typedef struct
+{
+    char *name;
+    Expr *type;
+} OptionField;
 
 typedef struct
 {
@@ -1643,6 +1649,7 @@ typedef union
     Field field;
     Enum _enum;
     Option option;
+    OptionField option_field;
     Union _union;
     Trait trait;
     Impl impl;
@@ -1765,8 +1772,12 @@ void print_expr(Expr expr, int depth)
         PRINT_OPT_EXPR_VECTOR(expr.u._enum.body, "body", 1)
         break;
     case E_OPTION:
-        printf("pub = %i, name = %s", expr.u.option.pub, expr.u.option.name);
+        printf("name = %s", expr.u.option.name);
         PRINT_OPT_EXPR_VECTOR(expr.u.option.body, "body", 1)
+        break;
+    case E_OPTION_FIELD:
+        printf("name = %s, type = ", expr.u.option_field.name);
+        print_expr(*expr.u.option_field.type, depth);
         break;
     case E_UNION:
         printf("pub = %i, name = %s", expr.u._union.pub, expr.u._union.name);
@@ -1974,6 +1985,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_FIELD] = "FIELD",
             [E_ENUM] = "ENUM",
             [E_OPTION] = "OPTION",
+            [E_OPTION_FIELD] = "OPTION_FIELD",
             [E_UNION] = "UNION",
             [E_TRAIT] = "TRAIT",
             [E_IMPL] = "IMPL",
@@ -2178,9 +2190,23 @@ Expr parse_global(TokenVector tokens, int *index)
     Expr expr;
 
     Token token = tokens.array[*index];
+    char is_pub = 0;
 
+check:
     switch (token.kind)
     {
+    case PUB:
+        if (is_pub == 0)
+        {
+            is_pub = 1;
+            token = tokens.array[++*index];
+            goto check;
+        }
+        else
+        {
+            THROW(token.index, "duplicate 'pub'", 0);
+        }
+        break;
     case USE:
         expr.kind = E_USE;
         token = tokens.array[++*index];
@@ -2199,18 +2225,168 @@ Expr parse_global(TokenVector tokens, int *index)
         }
         else
         {
-            THROW(token.index, "expected path after 'use' keyword", 0);
+            THROW(token.index, "expected identifier after 'use' keyword", 0);
         }
         break;
     case MOD:
         expr.kind = E_MOD;
+        expr.u.mod.pub = is_pub;
+        token = tokens.array[++*index];
+        if (token.kind == IDENT)
+        {
+            expr.u.mod.name = token.value;
+            *index += 2;
+        }
+        else
+        {
+            THROW(token.index, "expected identifier after 'mod' keyword", 0);
+        }
         break;
     case STRUCT:
         expr.kind = E_STRUCT;
+        expr.u._struct.pub = is_pub;
+        token = tokens.array[++*index];
+        if (token.kind == IDENT)
+        {
+            expr.u._struct.name = token.value;
+            expr.u._struct.body = expr_vector_new(2);
+            token = tokens.array[++*index];
+            if (token.kind == LEFT_BRACE)
+            {
+                token = tokens.array[++*index];
+                if (token.kind == RIGHT_BRACE)
+                {
+                    ++*index;
+                }
+                else
+                {
+                    THROW(0, "very bad", 0);
+                }
+            }
+            else
+            {
+                THROW(0, "bad", 0);
+            }
+        }
+        else
+        {
+            THROW(token.index, "expected identifier after 'struct' keyword", 0);
+        }
         break;
     case ENUM:
         expr.kind = E_ENUM;
-        // option
+        expr.u._enum.pub = is_pub;
+        token = tokens.array[++*index];
+        if (token.kind == IDENT)
+        {
+            expr.u._enum.name = token.value;
+            expr.u._enum.body = expr_vector_new(4);
+            token = tokens.array[++*index];
+            if (token.kind == LEFT_BRACE)
+            {
+                while (1)
+                {
+                    token = tokens.array[++*index];
+                    if (token.kind == IDENT)
+                    {
+                        Expr opt;
+                        opt.kind = E_OPTION;
+                        opt.u.option.name = token.value;
+                        opt.u.option.body = expr_vector_new(2);
+                        token = tokens.array[++*index];
+                        if (token.kind == LEFT_PAREN)
+                        {
+                        arg:
+                            token = tokens.array[++*index];
+                            if (token.kind == IDENT)
+                            {
+                                Expr arg;
+                                arg.kind = E_OPTION_FIELD;
+                                arg.u.option_field.name = token.value;
+                                token = tokens.array[++*index];
+                                if (token.kind == COLON)
+                                {
+                                    token = tokens.array[++*index];
+                                    if (token.kind == IDENT)
+                                    {
+                                        // arg.u.option_field.type = token.value;
+                                        token = tokens.array[++*index];
+                                        expr_vector_push(&opt.u.option.body, arg);
+                                        if (token.kind == COMMA)
+                                        {
+                                            goto arg;
+                                        }
+                                        else if (token.kind == RIGHT_PAREN)
+                                        {
+                                            expr_vector_push(&expr.u._enum.body, opt);
+                                            token = tokens.array[++*index];
+                                            if (token.kind == COMMA)
+                                            {
+                                                continue;
+                                            }
+                                            else if (token.kind == RIGHT_BRACE)
+                                            {
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                THROW(0, "nothing", 0);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            THROW(0, "bad", 0);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        THROW(0, "type where?", 0);
+                                    }
+                                }
+                                else
+                                {
+                                    THROW(0, "colon????", 0);
+                                }
+                            }
+                            else
+                            {
+                                THROW(0, "smth", 0);
+                            }
+                        }
+                        else if (token.kind == COMMA)
+                        {
+                            expr_vector_push(&expr.u._enum.body, opt);
+                            continue;
+                        }
+                        else if (token.kind == RIGHT_BRACE)
+                        {
+                            expr_vector_push(&expr.u._enum.body, opt);
+                            break;
+                        }
+                        else
+                        {
+                            THROW(0, "yeah", 0);
+                        }
+                    }
+                    else if (token.kind == RIGHT_BRACE)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        THROW(0, "wow", 0);
+                    }
+                }
+            }
+            else
+            {
+                THROW(token.index, "expected '{' after 'enum' name", 0);
+            }
+        }
+        else
+        {
+            THROW(token.index, "expected identifier after 'enum' keyword", 0);
+        }
         break;
     case UNION:
         expr.kind = E_UNION;
