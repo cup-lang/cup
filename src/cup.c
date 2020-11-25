@@ -2185,238 +2185,395 @@ main:
     return tags;
 }
 
+/// use
+// USE
+// IDENT
+// SEMICOLON
+
+/// mod
+// MOD
+// IDENT
+// LEFT_BRACE
+// [
+//   GLOBAL
+// ]
+// RIGHT_BRACE
+
+/// struct
+// STRUCT
+// IDENT
+// LEFT_BRACE
+// [
+//   RIGHT_BRACE? -> end
+//   IDENT
+//   COLON
+//   TYPE
+//   COMMA?
+// ]
+
+/// enum
+// ENUM
+// IDENT
+// LEFT_BRACE
+// [
+//   RIGHT_BRACE? -> end
+//   IDENT
+//   ???
+//     LEFT_PAREN
+//       [
+//         RIGHT_PAREN? -> end
+//         IDENT
+//         COLON
+//         TYPE
+//         COMMA?
+//       ]
+//     RIGHT_PAREN
+//   ???
+//   COMMA?
+// ]
+// RIGHT_BRACE
+
+// 1. check for kind
+// 2. if bad throw error
+// 3. run custom code
+// 4. static token increment
+// CHECK_TOKEN(kind, error, custom_code);
+
+Expr *parse_type(TokenVector tokens, int *index)
+{
+    Expr *expr = malloc(sizeof(Expr));
+    expr->kind = E_TYPE;
+    expr->tags = parse_tags(tokens, index);
+
+    // actually parse the type
+    expr->u.type._const = 0;
+    expr->u.type.name = tokens.array[*index].value;
+    expr->u.type.children = expr_vector_new(1);
+    *index += 1;
+
+    return expr;
+}
+
+#define NEXT_TOKEN token = tokens.array[++*index]
+
+#define EXPECT_TOKEN(_kind, error, code) \
+    if (token.kind != _kind)             \
+    {                                    \
+        THROW(token.index, error, 0);    \
+    }                                    \
+    code;                                \
+    NEXT_TOKEN
+
+#define OPTIONAL_TOKEN(_kind, code) \
+    if (token.kind == _kind)        \
+    {                               \
+        NEXT_TOKEN;                 \
+        code;                       \
+    }
+
+ExprVector parse_global_block(TokenVector tokens, int *index);
+
 Expr parse_global(TokenVector tokens, int *index)
 {
     Expr expr;
 
+    expr.tags = parse_tags(tokens, index);
     Token token = tokens.array[*index];
-    char is_pub = 0;
 
-check:
     switch (token.kind)
     {
-    case PUB:
-        if (is_pub == 0)
-        {
-            is_pub = 1;
-            token = tokens.array[++*index];
-            goto check;
-        }
-        else
-        {
-            THROW(token.index, "duplicate 'pub'", 0);
-        }
-        break;
     case USE:
         expr.kind = E_USE;
-        token = tokens.array[++*index];
-        if (token.kind == IDENT)
-        {
-            expr.u.use.name = token.value;
-            token = tokens.array[++*index];
-            if (token.kind == SEMICOLON)
-            {
-                break;
-            }
-            else
-            {
-                THROW(token.index, "expected ';' after 'use' path", 0);
-            }
-        }
-        else
-        {
-            THROW(token.index, "expected identifier after 'use' keyword", 0);
-        }
+        NEXT_TOKEN;
+        EXPECT_TOKEN(IDENT, "expected identifier after 'use' keyword", expr.u.use.name = token.value);
+        EXPECT_TOKEN(SEMICOLON, "expected ';' after 'use' path", {});
         break;
     case MOD:
         expr.kind = E_MOD;
-        expr.u.mod.pub = is_pub;
-        token = tokens.array[++*index];
-        if (token.kind == IDENT)
-        {
-            expr.u.mod.name = token.value;
-            *index += 2;
-        }
-        else
-        {
-            THROW(token.index, "expected identifier after 'mod' keyword", 0);
-        }
+        NEXT_TOKEN;
+        EXPECT_TOKEN(IDENT, "expected identifier after 'mod' keyword", expr.u.mod.name = token.value);
+        EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'struct' name", {});
+        expr.u.mod.body = parse_global_block(tokens, index);
         break;
     case STRUCT:
         expr.kind = E_STRUCT;
-        expr.u._struct.pub = is_pub;
-        token = tokens.array[++*index];
-        if (token.kind == IDENT)
+        NEXT_TOKEN;
+        EXPECT_TOKEN(IDENT, "expected identifier after 'struct' keyword", expr.u._struct.name = token.value);
+        EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'struct' name", {});
+        ExprVector fields = expr_vector_new(4);
+        while (1)
         {
-            expr.u._struct.name = token.value;
-            expr.u._struct.body = expr_vector_new(2);
-            token = tokens.array[++*index];
-            if (token.kind == LEFT_BRACE)
-            {
-                token = tokens.array[++*index];
-                if (token.kind == RIGHT_BRACE)
-                {
-                    ++*index;
-                }
-                else
-                {
-                    THROW(0, "very bad", 0);
-                }
-            }
-            else
-            {
-                THROW(0, "bad", 0);
-            }
+            OPTIONAL_TOKEN(RIGHT_BRACE, break);
+            Expr field;
+            field.kind = E_FIELD;
+            field.u.field.pub = 0;
+            OPTIONAL_TOKEN(PUB, field.u.field.pub = 1);
+            EXPECT_TOKEN(IDENT, "expected identifier after '{'", field.u.field.name = token.value);
+            EXPECT_TOKEN(COLON, "expected ':' after field name", {});
+            field.u.field.type = parse_type(tokens, index);
+            token = tokens.array[*index];
+            OPTIONAL_TOKEN(COMMA, {}); // FIX: it's not really optional
+            expr_vector_push(&fields, field);
         }
-        else
-        {
-            THROW(token.index, "expected identifier after 'struct' keyword", 0);
-        }
+        expr.u._struct.body = fields;
         break;
     case ENUM:
         expr.kind = E_ENUM;
-        expr.u._enum.pub = is_pub;
-        token = tokens.array[++*index];
-        if (token.kind == IDENT)
-        {
-            expr.u._enum.name = token.value;
-            expr.u._enum.body = expr_vector_new(4);
-            token = tokens.array[++*index];
-            if (token.kind == LEFT_BRACE)
-            {
-                while (1)
-                {
-                    token = tokens.array[++*index];
-                    if (token.kind == IDENT)
-                    {
-                        Expr opt;
-                        opt.kind = E_OPTION;
-                        opt.u.option.name = token.value;
-                        opt.u.option.body = expr_vector_new(2);
-                        token = tokens.array[++*index];
-                        if (token.kind == LEFT_PAREN)
-                        {
-                        arg:
-                            token = tokens.array[++*index];
-                            if (token.kind == IDENT)
-                            {
-                                Expr arg;
-                                arg.kind = E_OPTION_FIELD;
-                                arg.u.option_field.name = token.value;
-                                token = tokens.array[++*index];
-                                if (token.kind == COLON)
-                                {
-                                    token = tokens.array[++*index];
-                                    if (token.kind == IDENT)
-                                    {
-                                        // arg.u.option_field.type = token.value;
-                                        token = tokens.array[++*index];
-                                        expr_vector_push(&opt.u.option.body, arg);
-                                        if (token.kind == COMMA)
-                                        {
-                                            goto arg;
-                                        }
-                                        else if (token.kind == RIGHT_PAREN)
-                                        {
-                                            expr_vector_push(&expr.u._enum.body, opt);
-                                            token = tokens.array[++*index];
-                                            if (token.kind == COMMA)
-                                            {
-                                                continue;
-                                            }
-                                            else if (token.kind == RIGHT_BRACE)
-                                            {
-                                                break;
-                                            }
-                                            else
-                                            {
-                                                THROW(0, "nothing", 0);
-                                            }
-                                        }
-                                        else
-                                        {
-                                            THROW(0, "bad", 0);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        THROW(0, "type where?", 0);
-                                    }
-                                }
-                                else
-                                {
-                                    THROW(0, "colon????", 0);
-                                }
-                            }
-                            else
-                            {
-                                THROW(0, "smth", 0);
-                            }
-                        }
-                        else if (token.kind == COMMA)
-                        {
-                            expr_vector_push(&expr.u._enum.body, opt);
-                            continue;
-                        }
-                        else if (token.kind == RIGHT_BRACE)
-                        {
-                            expr_vector_push(&expr.u._enum.body, opt);
-                            break;
-                        }
-                        else
-                        {
-                            THROW(0, "yeah", 0);
-                        }
-                    }
-                    else if (token.kind == RIGHT_BRACE)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        THROW(0, "wow", 0);
-                    }
-                }
-            }
-            else
-            {
-                THROW(token.index, "expected '{' after 'enum' name", 0);
-            }
-        }
-        else
-        {
-            THROW(token.index, "expected identifier after 'enum' keyword", 0);
-        }
+        NEXT_TOKEN;
         break;
     case UNION:
         expr.kind = E_UNION;
+        NEXT_TOKEN;
         break;
     case IMPL:
         expr.kind = E_IMPL;
+        NEXT_TOKEN;
         break;
-        // fn_def, arg
-        // var_def
     default:
-        THROW(token.index, "unexpected smth in global scope", 0);
-        break;
+        THROW(token.index, "expected item in global scope", 0);
     }
 
     return expr;
 }
 
-ExprVector parse_global_block(TokenVector tokens)
+// Expr parse_global(TokenVector tokens, int *index)
+// {
+//     Expr expr;
+
+//     Token token = tokens.array[*index];
+//     char is_pub = 0;
+
+// check:
+//     switch (token.kind)
+//     {
+//     case PUB:
+//         if (is_pub == 0)
+//         {
+//             is_pub = 1;
+//             token = tokens.array[++*index];
+//             goto check;
+//         }
+//         else
+//         {
+//             THROW(token.index, "duplicate 'pub'", 0);
+//         }
+//         break;
+//     case USE:
+//         expr.kind = E_USE;
+//         token = tokens.array[++*index];
+//         if (token.kind == IDENT)
+//         {
+//             expr.u.use.name = token.value;
+//             token = tokens.array[++*index];
+//             if (token.kind == SEMICOLON)
+//             {
+//                 break;
+//             }
+//             else
+//             {
+//                 THROW(token.index, "expected ';' after 'use' path", 0);
+//             }
+//         }
+//         else
+//         {
+//             THROW(token.index, "expected identifier after 'use' keyword", 0);
+//         }
+//         break;
+//     case MOD:
+//         expr.kind = E_MOD;
+//         expr.u.mod.pub = is_pub;
+//         token = tokens.array[++*index];
+//         if (token.kind == IDENT)
+//         {
+//             expr.u.mod.name = token.value;
+//             *index += 2;
+//         }
+//         else
+//         {
+//             THROW(token.index, "expected identifier after 'mod' keyword", 0);
+//         }
+//         break;
+//     case STRUCT:
+//         expr.kind = E_STRUCT;
+//         expr.u._struct.pub = is_pub;
+//         token = tokens.array[++*index];
+//         if (token.kind == IDENT)
+//         {
+//             expr.u._struct.name = token.value;
+//             expr.u._struct.body = expr_vector_new(2);
+//             token = tokens.array[++*index];
+//             if (token.kind == LEFT_BRACE)
+//             {
+//                 token = tokens.array[++*index];
+//                 if (token.kind == RIGHT_BRACE)
+//                 {
+//                     ++*index;
+//                 }
+//                 else
+//                 {
+//                     THROW(0, "very bad", 0);
+//                 }
+//             }
+//             else
+//             {
+//                 THROW(0, "bad", 0);
+//             }
+//         }
+//         else
+//         {
+//             THROW(token.index, "expected identifier after 'struct' keyword", 0);
+//         }
+//         break;
+//     case ENUM:
+//         expr.kind = E_ENUM;
+//         expr.u._enum.pub = is_pub;
+//         token = tokens.array[++*index];
+//         if (token.kind == IDENT)
+//         {
+//             expr.u._enum.name = token.value;
+//             expr.u._enum.body = expr_vector_new(4);
+//             token = tokens.array[++*index];
+//             if (token.kind == LEFT_BRACE)
+//             {
+//                 while (1)
+//                 {
+//                     token = tokens.array[++*index];
+//                     if (token.kind == IDENT)
+//                     {
+//                         Expr opt;
+//                         opt.kind = E_OPTION;
+//                         opt.u.option.name = token.value;
+//                         opt.u.option.body = expr_vector_new(2);
+//                         token = tokens.array[++*index];
+//                         if (token.kind == LEFT_PAREN)
+//                         {
+//                         arg:
+//                             token = tokens.array[++*index];
+//                             if (token.kind == IDENT)
+//                             {
+//                                 Expr arg;
+//                                 arg.kind = E_OPTION_FIELD;
+//                                 arg.u.option_field.name = token.value;
+//                                 token = tokens.array[++*index];
+//                                 if (token.kind == COLON)
+//                                 {
+//                                     token = tokens.array[++*index];
+//                                     if (token.kind == IDENT)
+//                                     {
+//                                         // arg.u.option_field.type = token.value;
+//                                         token = tokens.array[++*index];
+//                                         expr_vector_push(&opt.u.option.body, arg);
+//                                         if (token.kind == COMMA)
+//                                         {
+//                                             goto arg;
+//                                         }
+//                                         else if (token.kind == RIGHT_PAREN)
+//                                         {
+//                                             expr_vector_push(&expr.u._enum.body, opt);
+//                                             token = tokens.array[++*index];
+//                                             if (token.kind == COMMA)
+//                                             {
+//                                                 continue;
+//                                             }
+//                                             else if (token.kind == RIGHT_BRACE)
+//                                             {
+//                                                 break;
+//                                             }
+//                                             else
+//                                             {
+//                                                 THROW(0, "nothing", 0);
+//                                             }
+//                                         }
+//                                         else
+//                                         {
+//                                             THROW(0, "bad", 0);
+//                                         }
+//                                     }
+//                                     else
+//                                     {
+//                                         THROW(0, "type where?", 0);
+//                                     }
+//                                 }
+//                                 else
+//                                 {
+//                                     THROW(0, "colon????", 0);
+//                                 }
+//                             }
+//                             else
+//                             {
+//                                 THROW(0, "smth", 0);
+//                             }
+//                         }
+//                         else if (token.kind == COMMA)
+//                         {
+//                             expr_vector_push(&expr.u._enum.body, opt);
+//                             continue;
+//                         }
+//                         else if (token.kind == RIGHT_BRACE)
+//                         {
+//                             expr_vector_push(&expr.u._enum.body, opt);
+//                             break;
+//                         }
+//                         else
+//                         {
+//                             THROW(0, "yeah", 0);
+//                         }
+//                     }
+//                     else if (token.kind == RIGHT_BRACE)
+//                     {
+//                         break;
+//                     }
+//                     else
+//                     {
+//                         THROW(0, "wow", 0);
+//                     }
+//                 }
+//             }
+//             else
+//             {
+//                 THROW(token.index, "expected '{' after 'enum' name", 0);
+//             }
+//         }
+//         else
+//         {
+//             THROW(token.index, "expected identifier after 'enum' keyword", 0);
+//         }
+//         break;
+//     case UNION:
+//         expr.kind = E_UNION;
+//         break;
+//     case IMPL:
+//         expr.kind = E_IMPL;
+//         break;
+//         // fn_def, arg
+//         // var_def
+//     default:
+//         THROW(token.index, "unexpected smth in global scope", 0);
+//         break;
+//     }
+
+//     return expr;
+// }
+
+ExprVector parse_global_block(TokenVector tokens, int *index)
 {
     ExprVector exprs = expr_vector_new(32);
 
-    for (int i = 0; i < tokens.size; ++i)
+    char is_global = *index == 0;
+
+    while (*index < tokens.size)
     {
-        Token token = tokens.array[i];
+        if (tokens.array[*index].kind == RIGHT_BRACE)
+        {
+            return exprs;
+        }
 
-        ExprVector tags = parse_tags(tokens, &i);
+        expr_vector_push(&exprs, parse_global(tokens, index));
+    }
 
-        Expr expr = parse_global(tokens, &i);
-        expr.tags = tags;
-        expr_vector_push(&exprs, expr);
+    if (!is_global)
+    {
+        THROW(current_file.size, "expected a closing brace '}'", 0);
     }
 
     return exprs;
@@ -2467,7 +2624,8 @@ ExprVector lex_parse_recursive(char *path, int length)
                 fclose(input);
                 TokenVector tokens = lex(current_file);
                 print_token_vector(tokens);
-                ExprVector exprs = parse_global_block(tokens);
+                int index = 0;
+                ExprVector exprs = parse_global_block(tokens, &index);
                 print_expr_vector(exprs, 0);
                 free(tokens.array);
                 free(exprs.array);
