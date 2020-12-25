@@ -77,6 +77,7 @@ Location get_location(int index)
 #else
 #define COLOR(c) printf(c)
 #define RESET "\033[0m"
+#define MAGENTA "\033[35m"
 #define GREEN "\033[32m"
 #define RED "\033[31m"
 #endif

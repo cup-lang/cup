@@ -1,0 +1,59 @@
+/// Decide
+    "const" or "con" or "cns" or "cnt"
+    "return" or "ret"
+    "defer" or "dfr"
+    "break" or "brk"
+    "switch" or "swt"
+
+/// Keywords
+    (3) mod // module
+    (3) use // use a certain "mod"
+    (6) struct
+    (4) enum // ADT enum
+    (5) union // multiples types combined
+    (4) prop // property
+    (3) def // define a property or functions/methods for a struct/enum/union
+    (2) fn // function
+    (2) mt // method
+    (5) where // constrain generics
+    (4) self
+    (4) rest // used to define rest args
+    (5) const
+    (4) true
+    (5) false
+    (4) null
+    (2) if
+    (4) elif
+    (4) else
+    (2) do // infinite loop
+    (5) while
+    (3) for // for-each loop
+    (2) in // used with "for"
+    (6) switch
+    (4) case
+    (4) fall // used in match
+    (5) break // breaks from a loop
+    (4) next // continues the execution of a loop
+    (5) defer // defers the execution of a block
+    (4) jump // jumps to the specified label
+    (3) ret // return from a funtion
+    (2) as // casting
+
+/// Tags
+    #pub
+    #inl
+    #os(os_name: str)
+    #def(def_name: str, value: int)
+    #if(def_name: str) 
+    #full // exhaustive switch
+    #bind(fn_name)
+    #gen(gen_name)
+    #req(header)
+
+/// Basic types
+    isize i8 i16 i32 i64, int = i32
+    usize u8 u16 u32 u64, uint = u32
+    bsize b8 b16 b32 b64, bool = b8
+    f32 f64, float = f64
+    c8 c16 c32, char = c32
+    s8 s16 s32, str = s32
