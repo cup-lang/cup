@@ -34,7 +34,7 @@
 // 2. generics
 
 prop SomeProp {
-    func add() -> i32, f64 {
+    sub add() -> i32, f64 {
         var a = 5;
         a += 5;
         ret 5, 6.1;
