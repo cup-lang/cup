@@ -1,6 +1,5 @@
 /// Decide
-    `label` or `label
-    "rest" keyword or tag
+    "new" keyword
     conditional compilation
     exception handling
     arrays
@@ -24,7 +23,7 @@ f32: AddAssign<T>,
     (4) this // current instance
     (4) type // current type
     (5) where // constrains generics
-    (4) rest // used to define rest args
+    (2) as // type casting
     (5) const // indicate a constant type
     (4) true
     (5) false
@@ -42,13 +41,13 @@ f32: AddAssign<T>,
     (4) next // continues the execution of a loop
     (5) delay // delays the execution of a block
     (4) jump // jumps to the specified label
-    (2) as // type casting
 
 /// Tags
     #pub // marks item as public
     #inl // marks sub to be inlined by the compiler
     #exh // exhaustive "match"
     #self // marks sub to act on a instance
+    #rest // marks arg as rest arg
     #os(os_name: str)
     #def(def_name: str, value: int)
     #if(def_name: str)

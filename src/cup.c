@@ -143,18 +143,19 @@ typedef enum
     CHAR_LIT,
     INT_LIT,
     FLOAT_LIT,
-    PUB,
+    TAG,
     MOD,
     USE,
     STRUCT,
     ENUM,
     UNION,
-    TRAIT,
-    IMPL,
-    SELF,
-    REST,
-    INL,
-    MACRO,
+    PROP,
+    DEF,
+    SUB,
+    THIS,
+    TYPE,
+    WHERE,
+    AS,
 
     _CONST,
     _TRUE,
@@ -168,14 +169,12 @@ typedef enum
     WHILE,
     FOR,
     _IN,
-    SWITCH,
+    MATCH,
     CASE,
-    FALL,
-    BREAK,
+    BACK,
     NEXT,
-    RETURN,
-    DEFER,
-    GOTO,
+    DELAY,
+    JUMP,
 
     SEMICOLON,
     COLON,
@@ -208,8 +207,8 @@ typedef enum
     GREATER_EQUAL,
     ADD,
     ADD_ASSIGN,
-    SUB,
-    SUB_ASSIGN,
+    SUBTRACT,
+    SUBTRACT_ASSIGN,
     MUL,
     MUL_ASSIGN,
     DIV,
@@ -247,18 +246,19 @@ void print_token_vector(TokenVector tokens)
             [CHAR_LIT] = "CHAR_LIT",
             [INT_LIT] = "INT_LIT",
             [FLOAT_LIT] = "FLOAT_LIT",
-            [PUB] = "PUB",
+            [TAG] = "TAG",
             [MOD] = "MOD",
             [USE] = "USE",
             [STRUCT] = "STRUCT",
             [ENUM] = "ENUM",
             [UNION] = "UNION",
-            [TRAIT] = "TRAIT",
-            [IMPL] = "IMPL",
-            [SELF] = "SELF",
-            [REST] = "REST",
-            [INL] = "INL",
-            [MACRO] = "MACRO",
+            [PROP] = "PROP",
+            [DEF] = "DEF",
+            [SUB] = "SUB",
+            [THIS] = "THIS",
+            [TYPE] = "TYPE",
+            [WHERE] = "WHERE",
+            [AS] = "AS",
 
             [_CONST] = "CONST",
             [_TRUE] = "TRUE",
@@ -272,14 +272,12 @@ void print_token_vector(TokenVector tokens)
             [WHILE] = "WHILE",
             [FOR] = "FOR",
             [_IN] = "IN",
-            [SWITCH] = "SWITCH",
+            [MATCH] = "MATCH",
             [CASE] = "CASE",
-            [FALL] = "FALL",
-            [BREAK] = "BREAK",
+            [BACK] = "BACK",
             [NEXT] = "NEXT",
-            [RETURN] = "RETURN",
-            [DEFER] = "DEFER",
-            [GOTO] = "GOTO",
+            [DELAY] = "DELAY",
+            [JUMP] = "JUMP",
 
             [SEMICOLON] = "SEMICOLON",
             [COLON] = "COLON",
@@ -312,8 +310,8 @@ void print_token_vector(TokenVector tokens)
             [GREATER_EQUAL] = "GREATER_EQUAL",
             [ADD] = "ADD",
             [ADD_ASSIGN] = "ADD_ASSIGN",
-            [SUB] = "SUB",
-            [SUB_ASSIGN] = "SUB_ASSIGN",
+            [SUBTRACT] = "SUBTRACT",
+            [SUBTRACT_ASSIGN] = "SUBTRACT_ASSIGN",
             [MUL] = "MUL",
             [MUL_ASSIGN] = "MUL_ASSIGN",
             [DIV] = "DIV",
@@ -350,18 +348,19 @@ void print_token_vector(TokenVector tokens)
 
 const int const token_lengths[] =
     {
-        [PUB] = 3,
+        [TAG] = 3,
         [MOD] = 3,
         [USE] = 3,
         [STRUCT] = 6,
         [ENUM] = 4,
         [UNION] = 5,
-        [TRAIT] = 5,
-        [IMPL] = 4,
-        [SELF] = 4,
-        [REST] = 4,
-        [INL] = 3,
-        [MACRO] = 5,
+        [PROP] = 4,
+        [DEF] = 3,
+        [SUB] = 3,
+        [THIS] = 4,
+        [TYPE] = 4,
+        [WHERE] = 5,
+        [AS] = 2,
 
         [_CONST] = 5,
         [_TRUE] = 4,
@@ -375,14 +374,12 @@ const int const token_lengths[] =
         [WHILE] = 5,
         [FOR] = 3,
         [_IN] = 2,
-        [SWITCH] = 6,
+        [MATCH] = 5,
         [CASE] = 4,
-        [FALL] = 4,
-        [BREAK] = 5,
+        [BACK] = 4,
         [NEXT] = 4,
-        [RETURN] = 6,
-        [DEFER] = 5,
-        [GOTO] = 4,
+        [DELAY] = 5,
+        [JUMP] = 4,
 
         [SEMICOLON] = 1,
         [COLON] = 1,
@@ -415,8 +412,8 @@ const int const token_lengths[] =
         [GREATER_EQUAL] = 2,
         [ADD] = 1,
         [ADD_ASSIGN] = 2,
-        [SUB] = 1,
-        [SUB_ASSIGN] = 2,
+        [SUBTRACT] = 1,
+        [SUBTRACT_ASSIGN] = 2,
         [MUL] = 1,
         [MUL_ASSIGN] = 2,
         [DIV] = 1,
@@ -663,16 +660,16 @@ TokenVector lex(String input)
                         ++i;
                         break;
                     case '=':
-                        kind = SUB_ASSIGN;
+                        kind = SUBTRACT_ASSIGN;
                         ++i;
                         break;
                     default:
-                        kind = SUB;
+                        kind = SUBTRACT;
                     }
                 }
                 else
                 {
-                    kind = SUB;
+                    kind = SUBTRACT;
                 }
                 break;
             case '*':
@@ -903,9 +900,9 @@ TokenVector lex(String input)
                 if (is_literal == 5 || is_literal == 6)
                 {
                 }
-                else if (strcmp(value.array, "pub") == 0)
+                else if (strcmp(value.array, "tag") == 0)
                 {
-                    value_kind = PUB;
+                    value_kind = TAG;
                 }
                 else if (strcmp(value.array, "mod") == 0)
                 {
@@ -927,29 +924,33 @@ TokenVector lex(String input)
                 {
                     value_kind = UNION;
                 }
-                else if (strcmp(value.array, "trait") == 0)
+                else if (strcmp(value.array, "prop") == 0)
                 {
-                    value_kind = TRAIT;
+                    value_kind = PROP;
                 }
-                else if (strcmp(value.array, "impl") == 0)
+                else if (strcmp(value.array, "def") == 0)
                 {
-                    value_kind = IMPL;
+                    value_kind = DEF;
                 }
-                else if (strcmp(value.array, "self") == 0)
+                else if (strcmp(value.array, "sub") == 0)
                 {
-                    value_kind = SELF;
+                    value_kind = SUB;
                 }
-                else if (strcmp(value.array, "rest") == 0)
+                else if (strcmp(value.array, "this") == 0)
                 {
-                    value_kind = REST;
+                    value_kind = THIS;
                 }
-                else if (strcmp(value.array, "inl") == 0)
+                else if (strcmp(value.array, "type") == 0)
                 {
-                    value_kind = INL;
+                    value_kind = TYPE;
                 }
-                else if (strcmp(value.array, "macro") == 0)
+                else if (strcmp(value.array, "where") == 0)
                 {
-                    value_kind = MACRO;
+                    value_kind = WHERE;
+                }
+                else if (strcmp(value.array, "AS") == 0)
+                {
+                    value_kind = AS;
                 }
                 else if (strcmp(value.array, "const") == 0)
                 {
@@ -995,37 +996,29 @@ TokenVector lex(String input)
                 {
                     value_kind = _IN;
                 }
-                else if (strcmp(value.array, "switch") == 0)
+                else if (strcmp(value.array, "match") == 0)
                 {
-                    value_kind = SWITCH;
+                    value_kind = MATCH;
                 }
                 else if (strcmp(value.array, "case") == 0)
                 {
                     value_kind = CASE;
                 }
-                else if (strcmp(value.array, "fall") == 0)
+                else if (strcmp(value.array, "back") == 0)
                 {
-                    value_kind = FALL;
-                }
-                else if (strcmp(value.array, "break") == 0)
-                {
-                    value_kind = BREAK;
+                    value_kind = BACK;
                 }
                 else if (strcmp(value.array, "next") == 0)
                 {
                     value_kind = NEXT;
                 }
-                else if (strcmp(value.array, "return") == 0)
+                else if (strcmp(value.array, "delay") == 0)
                 {
-                    value_kind = RETURN;
+                    value_kind = DELAY;
                 }
-                else if (strcmp(value.array, "defer") == 0)
+                else if (strcmp(value.array, "jump") == 0)
                 {
-                    value_kind = DEFER;
-                }
-                else if (strcmp(value.array, "goto") == 0)
-                {
-                    value_kind = GOTO;
+                    value_kind = JUMP;
                 }
 
                 if (value_kind == -1)
@@ -1305,6 +1298,7 @@ typedef enum
     E_TAG,
     E_TYPE,
     E_CONSTR_TYPE,
+    E_TAG_DEF,
     E_MOD,
     E_USE,
     E_STRUCT,
@@ -1313,39 +1307,40 @@ typedef enum
     E_ENUM,
     E_OPTION,
     E_OPTION_FIELD,
-    E_TRAIT,
-    E_IMPL,
-    E_FN_DEF,
+    E_PROP,
+    E_DEF,
+    E_SUB_DEF,
     E_ARG,
     E_VAR_DEF,
     E_LOCAL_VAR_DEF,
-    E_FN_CALL,
+    E_SUB_CALL,
     E_VAR_USE,
     E_STRUCT_INST,
     E_FIELD_VAL,
+    E_STRING,
+    E_CHAR,
+    E_ARR,
+    E_INT,
+    E_FLOAT,
+    E_BOOL,
+    E_NULL,
+    E_THIS,
+    E_TYPE,
+    E_WHERE,
     E_DO,
     E_BLOCK,
-    E_STRING_LIT,
-    E_CHAR_LIT,
-    E_ARR_LIT,
-    E_INT_LIT,
-    E_FLOAT_LIT,
-    E_BOOL_LIT,
-    E_NULL_LIT,
-    E_SELF_LIT,
+    E_AS,
     E_IF,
     E_ELIF,
     E_ELSE,
     E_WHILE,
     E_FOR,
-    E_SWITCH,
+    E_MATCH,
     E_CASE,
-    E_FALL,
-    E_BREAK,
+    E_BACK,
     E_NEXT,
-    E_GOTO,
-    E_RETURN,
-    E_DEFER,
+    E_DELAY,
+    E_JUMP,
     E_COND_OP,
     E_RANGE_OP,
     E_RANGE_INCL_OP,
@@ -1358,7 +1353,7 @@ typedef enum
     E_GREATER_OP,
     E_GREATER_EQUAL_OP,
     E_ADD_OP,
-    E_SUB_OP,
+    E_SUBTRACT_OP,
     E_MUL_OP,
     E_DIV_OP,
     E_MOD_OP,
@@ -1374,7 +1369,7 @@ typedef enum
     E_BIT_NOT_OP,
     E_ASSIGN_OP,
     E_ADD_ASSIGN_OP,
-    E_SUB_ASSIGN_OP,
+    E_SUBTRACT_ASSIGN_OP,
     E_MUL_ASSIGN_OP,
     E_DIV_ASSIGN_OP,
     E_MOD_ASSIGN_OP,
@@ -1929,7 +1924,7 @@ void print_expr(Expr expr, int depth)
     case E_GREATER_OP:
     case E_GREATER_EQUAL_OP:
     case E_ADD_OP:
-    case E_SUB_OP:
+    case E_SUBTRACT_OP:
     case E_MUL_OP:
     case E_DIV_OP:
     case E_MOD_OP:
@@ -1940,7 +1935,7 @@ void print_expr(Expr expr, int depth)
     case E_RIGHT_SHIFT:
     case E_ASSIGN_OP:
     case E_ADD_ASSIGN_OP:
-    case E_SUB_ASSIGN_OP:
+    case E_SUBTRACT_ASSIGN_OP:
     case E_MUL_ASSIGN_OP:
     case E_DIV_ASSIGN_OP:
     case E_MOD_ASSIGN_OP:
@@ -2027,7 +2022,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_GREATER_OP] = "GREATER_OP",
             [E_GREATER_EQUAL_OP] = "GREATER_EQUAL_OP",
             [E_ADD_OP] = "ADD_OP",
-            [E_SUB_OP] = "SUB_OP",
+            [E_SUBTRACT_OP] = "SUBTRACT_OP",
             [E_MUL_OP] = "MUL_OP",
             [E_DIV_OP] = "DIV_OP",
             [E_MOD_OP] = "MOD_OP",
@@ -2043,7 +2038,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_BIT_NOT_OP] = "BIT_NOT_OP",
             [E_ASSIGN_OP] = "ASSIGN_OP",
             [E_ADD_ASSIGN_OP] = "ADD_ASSIGN_OP",
-            [E_SUB_ASSIGN_OP] = "SUB_ASSIGN_OP",
+            [E_SUBTRACT_ASSIGN_OP] = "SUBTRACT_ASSIGN_OP",
             [E_MUL_ASSIGN_OP] = "MUL_ASSIGN_OP",
             [E_DIV_ASSIGN_OP] = "DIV_ASSIGN_OP",
             [E_MOD_ASSIGN_OP] = "MOD_ASSIGN_OP",

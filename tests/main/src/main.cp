@@ -1,10 +1,9 @@
 /// TODO
-// 0. add keywords 
-// 'where'
-// 'proc'
+
+
 // 1. parse more globals
 // a) use (make use have pub)
-// use abc;
+use abc;
 // b) mod
 // mod foo {
 //     use bar;
@@ -32,14 +31,6 @@
 // g) fn_def, arg
 // h) var_def
 // 2. generics
-
-prop SomeProp {
-    sub add() -> i32, f64 {
-        var a = 5;
-        a += 5;
-        ret 5, 6.1;
-    }
-}
 
 /// array constructing [,,,]
 
@@ -98,26 +89,15 @@ prop SomeProp {
 // into<T> trait for conversion (when SOMETHING is done only)
 // functions named like types for (unsafe) casting
 
-/// `labels`
+/// `labels
 
 /// rest
 // is an arr<void> by default
 // the type can be specified to be arr<something>
 
-/// closures
-// |x| { print(x); }
+/// |closures|
 
 /// #tags
-// with_values(value)
-// key_pair(key = value)
-// built in:
-// #os("WIN")
-// #def("foo", 10)
-// #if("name") 
-// #full // exhaustive switch
-// #bind("printf")
-// #gen("c_name")
-// #req("stdlib.h")
 
 /// '_'
 // number literals readability
@@ -135,7 +115,6 @@ prop SomeProp {
 // rest only in functions
 
 /// duplicate imports
-/// 'type' keyword
 /// don't allow keywords in paths
 /// type aliases
 /// raw string literals
