@@ -1,53 +1,60 @@
 /// Decide
-    "const" or "con" or "cns" or "cnt"
-    "defer" or "delay"
-    "break" or "brk"
+    `label` or `label
+    "rest" keyword or tag
+    conditional compilation
+    exception handling
+    arrays
+
+sub<T> something() -> i32 where 
+f32: AddAssign<T>,
+{
+    var a_pointer: const ptr<const int>;
+}
 
 /// Keywords
-    (3) mod // module
-    (3) use // use a certain "mod"
-    (6) struct
-    (4) enum // ADT enum
-    (5) union // multiples types combined
-    (4) prop // property
-    (3) def // define a property or subroutines for a struct/enum/union
-    (3) sub // subroutine
+    (3) tag // defines a tag
+    (3) mod // defines a module
+    (3) use // use a certain module or item
+    (6) struct // defines a struct
+    (4) enum // defines a enum
+    (5) union // defines a union
+    (4) prop // defines a property
+    (3) def // defines a property or subroutines for a struct/enum/union
+    (3) sub // defines a subroutine
     (4) this // current instance
     (4) type // current type
-    (5) where // constrain generics
+    (5) where // constrains generics
     (4) rest // used to define rest args
-    (5) const
+    (5) const // indicate a constant type
     (4) true
     (5) false
-    (4) null
+    (4) null // null pointer value
     (2) if
     (4) elif
     (4) else
     (2) do // infinite loop
     (5) while
-    (3) for // for-each loop
+    (3) for // defines a for-loop
     (2) in // used with "for"
     (5) match
-    (4) case
-    (4) fall // used in match
-    (5) break // breaks from a loop
+    (4) case // used inside "match"
+    (2) back // returns from a loop/sub
     (4) next // continues the execution of a loop
-    (5) defer // defers the execution of a block
+    (5) delay // delays the execution of a block
     (4) jump // jumps to the specified label
-    (3) ret // return from a funtion
-    (2) as // casting
+    (2) as // type casting
 
 /// Tags
-    #pub
-    #inl
-    #exh // exhaustive match
-    #self
+    #pub // marks item as public
+    #inl // marks sub to be inlined by the compiler
+    #exh // exhaustive "match"
+    #self // marks sub to act on a instance
     #os(os_name: str)
     #def(def_name: str, value: int)
-    #if(def_name: str) 
-    #bind(fn_name)
-    #gen(gen_name)
-    #req(header)
+    #if(def_name: str)
+    #bind(fn_name: str)
+    #gen(gen_name: str)
+    #req(header: str)
 
 /// Basic types
     isize i8 i16 i32 i64, int = i32
