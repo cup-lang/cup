@@ -1,9 +1,6 @@
-/// TODO
-
-
-// 1. parse more globals
-// a) use (make use have pub)
-use abc;
+/// DONE
+// a) use
+// use abc;
 // b) mod
 // mod foo {
 //     use bar;
@@ -27,12 +24,11 @@ use abc;
 //     ),
 //     Option2,
 // }
-// f) impl
+
+/// TODO
+// f) def
 // g) fn_def, arg
 // h) var_def
-// 2. generics
-
-/// array constructing [,,,]
 
 /// basic types
 // isize i8 i16 i32 i64, int = i32

@@ -1317,15 +1317,15 @@ typedef enum
     E_VAR_USE,
     E_STRUCT_INST,
     E_FIELD_VAL,
-    E_STRING,
-    E_CHAR,
-    E_ARR,
-    E_INT,
-    E_FLOAT,
-    E_BOOL,
-    E_NULL,
-    E_THIS,
-    E_TYPE,
+    E_STRING_LIT,
+    E_CHAR_LIT,
+    E_ARR_LIT,
+    E_INT_LIT,
+    E_FLOAT_LIT,
+    E_BOOL_LIT,
+    E_NULL_LIT,
+    E_THIS_LIT,
+    E_TYPE_LIT,
     E_WHERE,
     E_DO,
     E_BLOCK,
@@ -1403,6 +1403,13 @@ typedef struct
 {
     char pub;
     char *name;
+    ExprVector args;
+} TagDef;
+
+typedef struct
+{
+    char pub;
+    char *name;
     ExprVector body;
 } Mod;
 
@@ -1452,7 +1459,7 @@ typedef struct
     char *name;
     ExprVector gen;
     ExprVector body;
-} Trait;
+} Prop;
 
 typedef struct
 {
@@ -1461,7 +1468,7 @@ typedef struct
     Expr *trait;
     Expr *target;
     ExprVector body;
-} Impl;
+} Def;
 
 typedef struct
 {
@@ -1473,7 +1480,7 @@ typedef struct
     ExprVector args;
     Expr *ret_type;
     ExprVector body;
-} FnDef;
+} SubDef;
 
 typedef struct
 {
@@ -1502,7 +1509,7 @@ typedef struct
 {
     Expr *type;
     ExprVector args;
-} FnCall;
+} SubCall;
 
 typedef struct
 {
@@ -1520,16 +1527,6 @@ typedef struct
     char *name;
     Expr *value;
 } FieldVal;
-
-typedef struct
-{
-    ExprVector body;
-} Do;
-
-typedef struct
-{
-    ExprVector body;
-} Block;
 
 typedef struct
 {
@@ -1566,6 +1563,16 @@ typedef struct
 
 typedef struct
 {
+    ExprVector body;
+} Do;
+
+typedef struct
+{
+    ExprVector body;
+} Block;
+
+typedef struct
+{
     Expr *con;
     ExprVector body;
 } While;
@@ -1580,7 +1587,7 @@ typedef struct
 {
     Expr *value;
     ExprVector body;
-} Switch;
+} Match;
 
 typedef struct
 {
@@ -1591,7 +1598,8 @@ typedef struct
 typedef struct
 {
     char *label;
-} Break;
+    Expr *value;
+} Back;
 
 typedef struct
 {
@@ -1600,18 +1608,13 @@ typedef struct
 
 typedef struct
 {
-    char *label;
-} Goto;
-
-typedef struct
-{
-    Expr *value;
-} Return;
-
-typedef struct
-{
     ExprVector body;
-} Defer;
+} Delay;
+
+typedef struct
+{
+    char *label;
+} Jump;
 
 typedef struct
 {
@@ -1636,6 +1639,7 @@ typedef union
     Tag tag;
     Type type;
     ConstrType constr_type;
+    TagDef tag_def;
     Mod mod;
     Use use;
     Struct _struct;
@@ -1644,13 +1648,13 @@ typedef union
     Enum _enum;
     Option option;
     OptionField option_field;
-    Trait trait;
-    Impl impl;
-    FnDef fn_def;
+    Prop prop;
+    Def def;
+    SubDef sub_def;
     Arg arg;
     VarDef var_def;
     LocalVarDef local_var_def;
-    FnCall fn_call;
+    SubCall sub_call;
     VarUse var_use;
     StructInst struct_inst;
     FieldVal field_val;
@@ -1667,13 +1671,12 @@ typedef union
     Else _else;
     While _while;
     For _for;
-    Switch _switch;
+    Match match;
     Case _case;
-    Break _break;
+    Back back;
     Next next;
-    Goto _goto;
-    Return _return;
-    Defer defer;
+    Jump jump;
+    Delay delay;
     CondOp cond_op;
     BinaryOp binary_op;
     UnaryOp unary_op;
@@ -1743,6 +1746,10 @@ void print_expr(Expr expr, int depth)
         indent(depth);
         putchar(']');
         break;
+    case E_TAG_DEF:
+        printf("pub = %i, name = %s", expr.u.tag_def.pub);
+        PRINT_OPT_EXPR_VECTOR(expr.u.tag_def.args, "args", 1)
+        break;
     case E_MOD:
         printf("pub = %i, name = %s", expr.u.mod.pub, expr.u.mod.name);
         PRINT_OPT_EXPR_VECTOR(expr.u.mod.body, "body", 1)
@@ -1773,27 +1780,27 @@ void print_expr(Expr expr, int depth)
         printf("name = %s, type = ", expr.u.option_field.name);
         print_expr(*expr.u.option_field.type, depth);
         break;
-    case E_TRAIT:
-        printf("pub = %i, name = %s", expr.u.trait.pub, expr.u.trait.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u.trait.gen, "gen", 1)
-        PRINT_OPT_EXPR_VECTOR(expr.u.trait.body, "body", 1)
+    case E_PROP:
+        printf("pub = %i, name = %s", expr.u.prop.pub, expr.u.prop.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u.prop.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u.prop.body, "body", 1)
         break;
-    case E_IMPL:
-        printf("pub = %i", expr.u.impl.pub);
-        PRINT_OPT_EXPR_VECTOR(expr.u.impl.gen, "gen", 1)
+    case E_DEF:
+        printf("pub = %i", expr.u.def.pub);
+        PRINT_OPT_EXPR_VECTOR(expr.u.def.gen, "gen", 1)
         printf(", type = ");
-        print_expr(*expr.u.impl.trait, depth);
+        print_expr(*expr.u.def.trait, depth);
         printf(", target = ");
-        print_expr(*expr.u.impl.target, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.impl.body, "body", 1)
+        print_expr(*expr.u.def.target, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.def.body, "body", 1)
         break;
-    case E_FN_DEF:
-        printf("pub = %i, inl = %i, macro = %i, name = %s", expr.u.fn_def.pub, expr.u.fn_def.inl, expr.u.fn_def.macro, expr.u.fn_def.name);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.gen, "gen", 1)
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.args, "args", 1)
+    case E_SUB_DEF:
+        printf("pub = %i, inl = %i, macro = %i, name = %s", expr.u.sub_def.pub, expr.u.sub_def.inl, expr.u.sub_def.macro, expr.u.sub_def.name);
+        PRINT_OPT_EXPR_VECTOR(expr.u.sub_def.gen, "gen", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u.sub_def.args, "args", 1)
         printf(", ret_type = ");
-        print_expr(*expr.u.fn_def.ret_type, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_def.body, "body", 1)
+        print_expr(*expr.u.sub_def.ret_type, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.sub_def.body, "body", 1)
         break;
     case E_ARG:
         printf("rest = %i, name = %s, type = ", expr.u.arg.rest, expr.u.arg.name);
@@ -1825,10 +1832,10 @@ void print_expr(Expr expr, int depth)
             print_expr(*expr.u.local_var_def.value, depth);
         }
         break;
-    case E_FN_CALL:
+    case E_SUB_CALL:
         printf("type = ");
-        print_expr(*expr.u.fn_call.type, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args", 1)
+        print_expr(*expr.u.sub_call.type, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.sub_call.args, "args", 1)
         break;
     case E_VAR_USE:
         printf("name = %s", expr.u.var_use.name);
@@ -1836,15 +1843,11 @@ void print_expr(Expr expr, int depth)
     case E_STRUCT_INST:
         printf("type = ");
         print_expr(*expr.u.struct_inst.type, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u.fn_call.args, "args", 1)
+        PRINT_OPT_EXPR_VECTOR(expr.u.struct_inst.fields, "fields", 1)
         break;
     case E_FIELD_VAL:
         printf("name = %s, value = ", expr.u.field_val.name);
         print_expr(*expr.u.field_val.value, depth);
-        break;
-    case E_DO:
-    case E_BLOCK:
-        PRINT_OPT_EXPR_VECTOR(expr.u._do.body, "body", expr.tags.size)
         break;
     case E_ARR_LIT:
         PRINT_OPT_EXPR_VECTOR(expr.u.arr_lit.value, "value", expr.tags.size)
@@ -1857,6 +1860,10 @@ void print_expr(Expr expr, int depth)
         break;
     case E_BOOL_LIT:
         printf("value = %i", expr.u.bool_lit.value);
+        break;
+    case E_DO:
+    case E_BLOCK:
+        PRINT_OPT_EXPR_VECTOR(expr.u._do.body, "body", expr.tags.size)
         break;
     case E_IF:
     case E_ELIF:
@@ -1874,33 +1881,35 @@ void print_expr(Expr expr, int depth)
         printf("range = ");
         print_expr(*expr.u._for.range, depth);
         break;
-    case E_SWITCH:
+    case E_MATCH:
         printf("value = ");
-        print_expr(*expr.u._switch.value, depth);
-        PRINT_OPT_EXPR_VECTOR(expr.u._switch.body, "body", 1)
+        print_expr(*expr.u.match.value, depth);
+        PRINT_OPT_EXPR_VECTOR(expr.u.match.body, "body", 1)
         break;
     case E_CASE:
         printf("value = ");
         print_expr(*expr.u._case.value, depth);
         PRINT_OPT_EXPR_VECTOR(expr.u._case.body, "body", 1)
         break;
-    case E_BREAK:
+    case E_BACK:
+        if (expr.u.back.label)
+        {
+            printf("label = %s", expr.u.back.label);
+        }
+        if (expr.u.back.value)
+        {
+            printf(", value = ");
+            print_expr(*expr.u.back.value, depth);
+        }
     case E_NEXT:
-    case E_GOTO:
-        if (expr.u._break.label)
+    case E_JUMP:
+        if (expr.u.back.label)
         {
-            printf("label = %s", expr.u._break.label);
+            printf("label = %s", expr.u.back.label);
         }
         break;
-    case E_RETURN:
-        if (expr.u._return.value)
-        {
-            printf("value = ");
-            print_expr(*expr.u._return.value, depth);
-        }
-        break;
-    case E_DEFER:
-        PRINT_OPT_EXPR_VECTOR(expr.u.defer.body, "body", expr.tags.size)
+    case E_DELAY:
+        PRINT_OPT_EXPR_VECTOR(expr.u.delay.body, "body", expr.tags.size)
         break;
     case E_COND_OP:
         printf("con = ");
@@ -1968,6 +1977,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_TAG] = "TAG",
             [E_TYPE] = "TYPE",
             [E_CONSTR_TYPE] = "CONSTR_TYPE",
+            [E_TAG_DEF] = "TAG_DEF",
             [E_MOD] = "MOD",
             [E_USE] = "USE",
             [E_STRUCT] = "STRUCT",
@@ -1976,40 +1986,40 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_ENUM] = "ENUM",
             [E_OPTION] = "OPTION",
             [E_OPTION_FIELD] = "OPTION_FIELD",
-            [E_TRAIT] = "TRAIT",
-            [E_IMPL] = "IMPL",
-            [E_FN_DEF] = "FN_DEF",
+            [E_PROP] = "PROP",
+            [E_DEF] = "DEF",
+            [E_SUB_DEF] = "SUB_DEF",
             [E_ARG] = "ARG",
             [E_VAR_DEF] = "VAR_DEF",
             [E_LOCAL_VAR_DEF] = "LOCAL_VAR_DEF",
-            [E_FN_CALL] = "FN_CALL",
+            [E_SUB_CALL] = "SUB_CALL",
             [E_VAR_USE] = "VAR_USE",
             [E_STRUCT_INST] = "STRUCT_INST",
             [E_FIELD_VAL] = "FIELD_VAL",
-            [E_DO] = "DO",
-            [E_BLOCK] = "BLOCK",
             [E_STRING_LIT] = "STRING_LIT",
             [E_CHAR_LIT] = "CHAR_LIT",
             [E_ARR_LIT] = "ARR_LIT",
             [E_INT_LIT] = "INT_LIT",
             [E_FLOAT_LIT] = "FLOAT_LIT",
             [E_BOOL_LIT] = "BOOL_LIT",
-            [E_CHAR_LIT] = "CHAR_LIT",
             [E_NULL_LIT] = "NULL_LIT",
-            [E_SELF_LIT] = "SELF_LIT",
+            [E_THIS_LIT] = "THIS_LIT",
+            [E_TYPE_LIT] = "TYPE_LIT",
+            [E_WHERE] = "WHERE",
+            [E_DO] = "DO",
+            [E_BLOCK] = "BLOCK",
+            [E_AS] = "AS",
             [E_IF] = "IF",
             [E_ELIF] = "ELIF",
             [E_ELSE] = "ELSE",
             [E_WHILE] = "WHILE",
             [E_FOR] = "FOR",
-            [E_SWITCH] = "SWITCH",
+            [E_MATCH] = "MATCH",
             [E_CASE] = "CASE",
-            [E_FALL] = "FALL",
-            [E_BREAK] = "BREAK",
+            [E_BACK] = "BACK",
             [E_NEXT] = "NEXT",
-            [E_GOTO] = "GOTO",
-            [E_RETURN] = "RETURN",
-            [E_DEFER] = "DEFER",
+            [E_DELAY] = "DELAY",
+            [E_JUMP] = "JUMP",
             [E_COND_OP] = "COND_OP",
             [E_RANGE_OP] = "RANGE_OP",
             [E_RANGE_INCL_OP] = "RANGE_INCL_OP",
@@ -2046,8 +2056,7 @@ void print_expr_vector(ExprVector exprs, int depth)
             [E_BIT_OR_ASSIGN] = "BIT_OR_ASSIGN",
             [E_BIT_XOR_ASSIGN] = "BIT_XOR_ASSIGN",
             [E_LEFT_SHIFT_ASSIGN] = "LEFT_SHIFT_ASSIGN",
-            [E_RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIG",
-        };
+            [E_RIGHT_SHIFT_ASSIGN] = "RIGHT_SHIFT_ASSIGN"};
 
     if (depth == 0)
     {
@@ -2270,8 +2279,6 @@ Expr parse_global(TokenVector tokens, int *index)
 
     Token token = tokens.array[*index];
 
-    OPTIONAL_TOKEN(PUB, expr.u.mod.pub = 1, expr.u.mod.pub = 0);
-
     switch (token.kind)
     {
     case USE:
@@ -2301,7 +2308,6 @@ Expr parse_global(TokenVector tokens, int *index)
             field.kind = E_FIELD;
             field.tags = parse_tags(tokens, index);
             token = tokens.array[*index];
-            OPTIONAL_TOKEN(PUB, field.u.field.pub = 1, field.u.field.pub = 0);
             EXPECT_TOKEN(IDENT, "expected field name in 'struct' body", field.u.field.name = token.value);
             EXPECT_TOKEN(COLON, "expected ':' after field name", {});
             field.u.field.type = parse_type(tokens, index);
@@ -2351,8 +2357,8 @@ Expr parse_global(TokenVector tokens, int *index)
         EXPECT_TOKEN(RIGHT_BRACE, "expected '}' after last option", {});
     end_enum:
         break;
-    case IMPL:
-        expr.kind = E_IMPL;
+    case DEF:
+        expr.kind = E_DEF;
         NEXT_TOKEN;
         // EXPECT_TOKEN(IDENT, "expected identifier after 'impl' keyword", expr.u.impl.trait = token.value);
         // OPTIONAL_TOKEN(FOR, {}, {});

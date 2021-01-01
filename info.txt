@@ -1,6 +1,8 @@
 /// Decide
     "new" keyword
     conditional compilation
+    compl time
+    exh match by default
     exception handling
     arrays
 
