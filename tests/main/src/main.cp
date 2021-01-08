@@ -1,21 +1,19 @@
-/// DONE
-// a) use
+//// DONE
+/// use
 // use abc;
 // b) mod
-// mod foo {
-//     use bar;
-// }
-// c) struct
+// mod foo { }
+/// struct, field
 // struct SomeStruct {
 //     foo: i32,
 //     foo: i32,
 // }
-// d) union
+/// union, field
 // union SomeUnion {
 //     foo: i32,
 //     foo: i32,
 // }
-// e) enum, option
+/// enum, option
 // enum SomeEnum {
 //     Option0,
 //     Option1(
@@ -24,11 +22,18 @@
 //     ),
 //     Option2,
 // }
+/// tag_def, arg
+// tag test_tag(s: string, b: int);
+/// prop
+// prop SomeProp { }
+/// def
+// def SomeProp for SomeObject { }
+/// sub_def, arg
+sub some_sub() -> i32 {
 
-/// TODO
-// f) def
-// g) fn_def, arg
-// h) var_def
+}
+/// var_def
+// var some_var: i32;
 
 /// basic types
 // isize i8 i16 i32 i64, int = i32

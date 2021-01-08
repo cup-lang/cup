@@ -1,8 +1,10 @@
 /// Decide
-    "new" keyword
-    conditional compilation
-    compl time
-    exh match by default
+
+    err<ptr<int>>
+    opt<int>
+
+    compile time constantness (zig)
+    exhaustive match by default
     exception handling
     arrays
 
@@ -22,6 +24,7 @@ f32: AddAssign<T>,
     (4) prop // defines a property
     (3) def // defines a property or subroutines for a struct/enum/union
     (3) sub // defines a subroutine
+    (3) var // defines a variable
     (4) this // current instance
     (4) type // current type
     (5) where // constrains generics
@@ -53,6 +56,7 @@ f32: AddAssign<T>,
     #os(os_name: str)
     #def(def_name: str, value: int)
     #if(def_name: str)
+    #if(def_name: str, value: int)
     #bind(fn_name: str)
     #gen(gen_name: str)
     #req(header: str)
