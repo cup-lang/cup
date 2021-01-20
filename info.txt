@@ -8,6 +8,21 @@
     exception handling
     arrays
 
+        ! - not for bools
+        & - and for bools
+        | - or for bools
+
+    abused operators:
+        @ - nothing really
+        # - preprocesor
+        $ - string interpol?
+        % - modulo
+        ^ - bitwise smth
+        & - bitwise smth
+        | - bitwise smth
+        * - multiply, abused for comments
+        / - division, abused for comments
+
 sub<T> something() -> i32 where 
 f32: AddAssign<T>,
 {
