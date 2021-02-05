@@ -1,73 +1,91 @@
-/// Decide
-
-    err<ptr<int>>
-    opt<int>
-
-    compile time constantness (zig)
-    exhaustive match by default
-    exception handling
-    arrays
-
-        ! - not for bools
-        & - and for bools
-        | - or for bools
-
-    abused operators:
-        @ - nothing really
-        # - preprocesor
-        $ - string interpol?
-        % - modulo
-        ^ - bitwise smth
-        & - bitwise smth
-        | - bitwise smth
-        * - multiply, abused for comments
-        / - division, abused for comments
-
 sub<T> something() -> i32 where 
 f32: AddAssign<T>,
 {
-    var a_pointer: const ptr<const int>;
+    
 }
 
-/// Keywords
-    (3) tag // defines a tag
-    (3) mod // defines a module
-    (3) use // use a certain module or item
-    (6) struct // defines a struct
-    (4) enum // defines a enum
-    (5) union // defines a union
-    (4) prop // defines a property
-    (3) def // defines a property or subroutines for a struct/enum/union
-    (3) sub // defines a subroutine
-    (3) var // defines a variable
-    (4) this // current instance
-    (4) type // current type
-    (5) where // constrains generics
-    (2) as // type casting
-    (5) const // indicate a constant type
+# Decide
+    arrays
+    type aliases
+    raw string literals
+    remove "as" keyword
+    exhaustive match by default
+    compile time constantness (zig)
+
+# Changes
+    `` comment
+    ` comment `
+    ~label
+    void -> any
+    a < b < c
+
+# Features
+    generics<T>
+    #tags
+    ~labels
+    `comments`
+    |closures|
+    struct { field1 = 1, field2 = 2 }
+    into<T> prop
+    $"{"string"} {"interpolation"}"
+
+# Operator presedence
+    foo(), foo.bar, foo[], foo@, bar&
+    !bar, -foo
+    *, /, %
+    +, -
+    <, <=, >, >=
+    ==, !=
+    &
+    |
+    ?
+    =, +=, -=, *=, /=, %=, ^=
+
+# Keywords (avg ~3.83)
+    (3) tag ` defines a tag
+    (3) mod ` defines a module
+    (3) use ` use a certain module or item
+    (6) struct ` defines a struct
+    (4) enum ` defines a enum
+    (5) union ` defines a union
+    (4) prop ` defines a property
+    (3) def ` defines a property or subroutines for a struct/enum/union
+    (3) sub ` defines a subroutine
+    (4) this ` current instance
+    (4) type ` current type
+    (5) where ` constrains generics
     (4) true
     (5) false
-    (4) null // null pointer value
+    (4) null ` null pointer value
     (2) if
     (4) elif
     (4) else
-    (2) do // infinite loop
+    (2) do ` infinite loop
     (5) while
-    (3) for // defines a for-loop
-    (2) in // used with "for"
+    (3) for ` defines a for-loop
+    (2) in ` used with "for"
     (5) match
-    (4) case // used inside "match"
-    (2) back // returns from a loop/sub
-    (4) next // continues the execution of a loop
-    (5) delay // delays the execution of a block
-    (4) jump // jumps to the specified label
+    (4) case ` used inside "match"
+    (2) back ` returns from a loop/sub
+    (4) next ` continues the execution of a loop
+    (5) delay ` delays the execution of a block
+    (4) jump ` jumps to the specified label
 
-/// Tags
-    #pub // marks item as public
-    #inl // marks sub to be inlined by the compiler
-    #exh // exhaustive "match"
-    #self // marks sub to act on a instance
-    #rest // marks arg as rest arg
+# Basic types
+    isize i8 i16 i32 i64, int = i32
+    usize u8 u16 u32 u64, uint = u32
+    bsize b8 b16 b32 b64, bool = b8
+    f32 f64, float = f64
+    c8 c16 c32, char = c32
+    s8 s16 s32, str = s32
+    
+# Basic tags
+    #mut - marks item as mutable
+    #pub - marks item as public
+    #inl - marks sub to be inlined by the compiler
+    #exh - exhaustive "match"
+    #self - marks sub to act on a instance
+    #rest - marks arg as a rest arg
     #os(os_name: str)
     #def(def_name: str, value: int)
     #if(def_name: str)
@@ -75,11 +93,3 @@ f32: AddAssign<T>,
     #bind(fn_name: str)
     #gen(gen_name: str)
     #req(header: str)
-
-/// Basic types
-    isize i8 i16 i32 i64, int = i32
-    usize u8 u16 u32 u64, uint = u32
-    bsize b8 b16 b32 b64, bool = b8
-    f32 f64, float = f64
-    c8 c16 c32, char = c32
-    s8 s16 s32, str = s32
