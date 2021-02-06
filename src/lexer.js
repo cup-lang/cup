@@ -1,4 +1,4 @@
-module.exports.tokenKind = {
+const tokenKind = module.exports.tokenKind = {
     IDENT: 'ident',
     STRING_LIT: 'string_lit',
     CHAR_LIT: 'char_lit',
@@ -37,6 +37,7 @@ module.exports.tokenKind = {
 
     SEMICOLON: 'semicolon',
     COLON: 'colon',
+    DOUBLE_COLON: 'double_colon',
     COMMA: 'comma',
     DOT: 'dot',
     ARROW: 'arrow',
@@ -77,34 +78,34 @@ module.exports.tokenKind = {
 }
 
 keywords = {
-    'tag': this.tokenKind.TAG,
-    'mod': this.tokenKind.MOD,
-    'use': this.tokenKind.USE,
-    'struct': this.tokenKind.STRUCT,
-    'enum': this.tokenKind.ENUM,
-    'union': this.tokenKind.UNION,
-    'prop': this.tokenKind.PROP,
-    'def': this.tokenKind.DEF,
-    'sub': this.tokenKind.SUB,
-    'this': this.tokenKind.THIS,
-    'type': this.tokenKind.TYPE,
-    'where': this.tokenKind.WHERE,
-    'true': this.tokenKind.TRUE,
-    'false': this.tokenKind.FALSE,
-    'null': this.tokenKind.NULL,
-    'if': this.tokenKind.IF,
-    'elif': this.tokenKind.ELIF,
-    'else': this.tokenKind.ELSE,
-    'do': this.tokenKind.DO,
-    'while': this.tokenKind.WHILE,
-    'for': this.tokenKind.FOR,
-    'in': this.tokenKind.IN,
-    'match': this.tokenKind.MATCH,
-    'case': this.tokenKind.CASE,
-    'back': this.tokenKind.BACK,
-    'next': this.tokenKind.NEXT,
-    'delay': this.tokenKind.DELAY,
-    'jump': this.tokenKind.JUMP,
+    'tag': tokenKind.TAG,
+    'mod': tokenKind.MOD,
+    'use': tokenKind.USE,
+    'struct': tokenKind.STRUCT,
+    'enum': tokenKind.ENUM,
+    'union': tokenKind.UNION,
+    'prop': tokenKind.PROP,
+    'def': tokenKind.DEF,
+    'sub': tokenKind.SUB,
+    'this': tokenKind.THIS,
+    'type': tokenKind.TYPE,
+    'where': tokenKind.WHERE,
+    'true': tokenKind.TRUE,
+    'false': tokenKind.FALSE,
+    'null': tokenKind.NULL,
+    'if': tokenKind.IF,
+    'elif': tokenKind.ELIF,
+    'else': tokenKind.ELSE,
+    'do': tokenKind.DO,
+    'while': tokenKind.WHILE,
+    'for': tokenKind.FOR,
+    'in': tokenKind.IN,
+    'match': tokenKind.MATCH,
+    'case': tokenKind.CASE,
+    'back': tokenKind.BACK,
+    'next': tokenKind.NEXT,
+    'delay': tokenKind.DELAY,
+    'jump': tokenKind.JUMP,
 };
 
 function isWhitespace(c) { return c.charCodeAt() === 0 || /\s/.test(c); }
@@ -171,7 +172,7 @@ module.exports.lex = function (input) {
             switch (char) {
                 case '"':
                     if (is_literal == 1) {
-                        kind = this.tokenKind.STRING_LIT;
+                        kind = tokenKind.STRING_LIT;
                         is_literal = 0;
                     }
                     else {
@@ -181,7 +182,7 @@ module.exports.lex = function (input) {
                     break;
                 case '\'':
                     if (is_literal == 2) {
-                        kind = this.tokenKind.CHAR_LIT;
+                        kind = tokenKind.CHAR_LIT;
                         is_literal = 0;
                     }
                     else {
@@ -190,144 +191,150 @@ module.exports.lex = function (input) {
                     }
                     break;
                 case ';':
-                    kind = this.tokenKind.SEMICOLON;
+                    kind = tokenKind.SEMICOLON;
                     break;
                 case ':':
-                    kind = this.tokenKind.COLON;
+                    if (value && i + 1 < input.length && input[i + 1] === ':') {
+                        kind = tokenKind.DOUBLE_COLON;
+                        ++i;
+                    }
+                    else {
+                        kind = tokenKind.COLON;
+                    }
                     break;
                 case ',':
-                    kind = this.tokenKind.COMMA;
+                    kind = tokenKind.COMMA;
                     break;
                 case '.':
                     if (i + 1 < input.length && input[i + 1] === '.') {
                         if (i + 2 < input.length && input[i + 2] === '.') {
-                            kind = this.tokenKind.RANGE_INCL;
+                            kind = tokenKind.RANGE_INCL;
                             ++i;
                         } else {
-                            kind = this.tokenKind.RANGE;
+                            kind = tokenKind.RANGE;
                         }
                         ++i;
                     } else if (is_literal !== 5 || (i + 1 < input.length && (input[i + 1] === '_' || isAlpha(input[i + 1])))) {
-                        kind = this.tokenKind.DOT;
+                        kind = tokenKind.DOT;
                     }
                     break;
                 case '?':
-                    kind = this.tokenKind.QUESTION_MARK;
+                    kind = tokenKind.QUESTION_MARK;
                     break;
                 case '~':
-                    kind = this.tokenKind.TILDE;
+                    kind = tokenKind.TILDE;
                     break;
                 case '#':
-                    kind = this.tokenKind.HASH;
+                    kind = tokenKind.HASH;
                     break;
                 case '(':
-                    kind = this.tokenKind.LEFT_PAREN;
+                    kind = tokenKind.LEFT_PAREN;
                     break;
                 case ')':
-                    kind = this.tokenKind.RIGHT_PAREN;
+                    kind = tokenKind.RIGHT_PAREN;
                     break;
                 case '{':
-                    kind = this.tokenKind.LEFT_BRACE;
+                    kind = tokenKind.LEFT_BRACE;
                     break;
                 case '}':
-                    kind = this.tokenKind.RIGHT_BRACE;
+                    kind = tokenKind.RIGHT_BRACE;
                     break;
                 case '[':
-                    kind = this.tokenKind.LEFT_BRACKET;
+                    kind = tokenKind.LEFT_BRACKET;
                     break;
                 case ']':
-                    kind = this.tokenKind.RIGHT_BRACKET;
+                    kind = tokenKind.RIGHT_BRACKET;
                     break;
                 case '@':
-                    kind = this.tokenKind.AT;
+                    kind = tokenKind.AT;
                     break;
                 case '$':
-                    kind = this.tokenKind.DOLLAR;
+                    kind = tokenKind.DOLLAR;
                     break;
                 case '=':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.EQUAL;
+                        kind = tokenKind.EQUAL;
                         ++i;
                     } else {
-                        kind = this.tokenKind.ASSIGN;
+                        kind = tokenKind.ASSIGN;
                     }
                     break;
                 case '!':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.NOT_EQUAL;
+                        kind = tokenKind.NOT_EQUAL;
                         ++i;
                     } else {
-                        kind = this.tokenKind.NOT;
+                        kind = tokenKind.NOT;
                     }
                     break;
                 case '&':
-                    kind = this.tokenKind.AND;
+                    kind = tokenKind.AND;
                     break;
                 case '|':
-                    kind = this.tokenKind.OR;
+                    kind = tokenKind.OR;
                     break;
                 case '<':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.LESS_EQUAL;
+                        kind = tokenKind.LESS_EQUAL;
                         ++i;
                     } else {
-                        kind = this.tokenKind.LESS;
+                        kind = tokenKind.LESS;
                     }
                     break;
                 case '>':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.GREATER_EQUAL;
+                        kind = tokenKind.GREATER_EQUAL;
                         ++i;
                     } else {
-                        kind = this.tokenKind.GREATER;
+                        kind = tokenKind.GREATER;
                     }
                     break;
                 case '+':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.ADD_ASSIGN;
+                        kind = tokenKind.ADD_ASSIGN;
                         ++i;
                     } else {
-                        kind = this.tokenKind.ADD;
+                        kind = tokenKind.ADD;
                     }
                     break;
                 case '-':
                     if (i + 1 < input.length) {
                         switch (input[i + 1]) {
                             case '>':
-                                kind = this.tokenKind.ARROW;
+                                kind = tokenKind.ARROW;
                                 ++i;
                                 break;
                             case '=':
-                                kind = this.tokenKind.SUBTRACT_ASSIGN;
+                                kind = tokenKind.SUBTRACT_ASSIGN;
                                 ++i;
                                 break;
                         }
                     } else {
-                        kind = this.tokenKind.SUBTRACT;
+                        kind = tokenKind.SUBTRACT;
                     }
                     break;
                 case '*':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.MULTIPLY_ASSIGN;
+                        kind = tokenKind.MULTIPLY_ASSIGN;
                         ++i;
                     } else {
-                        kind = this.tokenKind.MULTIPLY;
+                        kind = tokenKind.MULTIPLY;
                     }
                     break;
                 case '/':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.DIVIDE_ASSIGN;
+                        kind = tokenKind.DIVIDE_ASSIGN;
                         ++i;
                     } else {
-                        kind = this.tokenKind.DIVIDE;
+                        kind = tokenKind.DIVIDE;
                     }
                     break;
                 case '%':
                     if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = this.tokenKind.MODULO_ASSIGN;
+                        kind = tokenKind.MODULO_ASSIGN;
                         ++i;
                     } else {
-                        kind = this.tokenKind.MODULO;
+                        kind = tokenKind.MODULO;
                     }
                     break;
             }
@@ -357,23 +364,23 @@ module.exports.lex = function (input) {
                 throw `at ${i} unexpected symbol '${char}'`;
             }
         } else {
-            if (value && kind !== this.tokenKind.STRING_LIT && kind !== this.tokenKind.CHAR_LIT) {
+            if (value && kind !== tokenKind.STRING_LIT && kind !== tokenKind.CHAR_LIT) {
                 const value_kind = keywords[value];
 
                 if (value_kind === undefined) {
                     let token = {};
                     switch (is_literal) {
                         case 5:
-                            token.kind = this.tokenKind.INT_LIT;
+                            token.kind = tokenKind.INT_LIT;
                             break;
                         case 6:
-                            token.kind = this.tokenKind.FLOAT_LIT;
+                            token.kind = tokenKind.FLOAT_LIT;
                             if (value[value.length - 1] === '.') {
                                 throw `at ${i - 1} expected a value after the decimal point`;
                             }
                             break;
                         default:
-                            token.kind = this.tokenKind.IDENT;
+                            token.kind = tokenKind.IDENT;
                             break;
                     }
                     token.value = value;
@@ -390,7 +397,7 @@ module.exports.lex = function (input) {
 
             if (kind) {
                 let token = { kind: kind };
-                if (kind === this.tokenKind.STRING_LIT || kind === this.tokenKind.CHAR_LIT) {
+                if (kind === tokenKind.STRING_LIT || kind === tokenKind.CHAR_LIT) {
                     token.value = value;
                     token.index = i - value.length;
                     value = '';

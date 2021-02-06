@@ -13,10 +13,8 @@ f32: AddAssign<T>,
     compile time constantness (zig)
 
 # Changes
-    `` comment
-    ` comment `
+    ` comment
     ~label
-    void -> any
     a < b < c
 
 # Features
@@ -41,7 +39,7 @@ f32: AddAssign<T>,
     ?
     =, +=, -=, *=, /=, %=, ^=
 
-# Keywords (avg ~3.83)
+# Keywords (avg ~3.86) (total 28)
     (3) tag ` defines a tag
     (3) mod ` defines a module
     (3) use ` use a certain module or item
@@ -66,7 +64,7 @@ f32: AddAssign<T>,
     (2) in ` used with "for"
     (5) match
     (4) case ` used inside "match"
-    (2) back ` returns from a loop/sub
+    (4) back ` returns from a loop/sub
     (4) next ` continues the execution of a loop
     (5) delay ` delays the execution of a block
     (4) jump ` jumps to the specified label
@@ -78,6 +76,7 @@ f32: AddAssign<T>,
     f32 f64, float = f64
     c8 c16 c32, char = c32
     s8 s16 s32, str = s32
+    any
     
 # Basic tags
     #mut - marks item as mutable
@@ -93,3 +92,6 @@ f32: AddAssign<T>,
     #bind(fn_name: str)
     #gen(gen_name: str)
     #req(header: str)
+
+# Expressions
+    
