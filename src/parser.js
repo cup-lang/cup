@@ -79,6 +79,27 @@ const exprKind = {
 let tokens;
 let index;
 
+function nextToken() { return tokens[++index]; }
+
+function expectToken(kind, error, code) {
+    let token = tokens[index];
+    if (token.kind !== kind) { throw `at ${token.index} ${error}`; }
+    if (code) { code(); }
+    return nextToken();
+}
+
+function optionalToken(kind, true_code, false_code) {
+    let token = tokens[index];
+    if (token.kind == kind) {
+        if (true_code) { true_code(); }
+        return nextToken();
+    }
+    else {
+        if (false_code) { false_code(); }
+        return token;
+    }
+}
+
 function parseTags() {
     let tags = [];
 
@@ -103,27 +124,27 @@ function parseTags() {
 
                     switch (token.kind) {
                         case tokenKind.STRING_LIT:
-                            lit.kind = E_STRING_LIT;
+                            lit.kind = exprKind.STRING_LIT;
                             lit.value = token.value;
                             break;
                         case tokenKind.CHAR_LIT:
-                            lit.kind = E_CHAR_LIT;
+                            lit.kind = exprKind.CHAR_LIT;
                             lit.value = token.value;
                             break;
                         case tokenKind.INT_LIT:
-                            lit.kind = E_INT_LIT;
+                            lit.kind = exprKind.INT_LIT;
                             lit.value = token.value;
                             break;
                         case tokenKind.FLOAT_LIT:
-                            lit.kind = E_FLOAT_LIT;
+                            lit.kind = exprKind.FLOAT_LIT;
                             lit.value = token.value;
                             break;
                         case tokenKind.LEFT_BRACKET:
                             throw `at ${token.index} unexpected array literal`;
                         case tokenKind.TRUE:
                         case tokenKind.FALSE:
-                            lit.kind = E_BOOL_LIT;
-                            lit.u.bool_lit.value = token.kind == _TRUE;
+                            lit.kind = exprKind.BOOL_LIT;
+                            lit.value = token.kind === TtokenKind.RUE;
                             break;
                     }
 
@@ -170,168 +191,183 @@ function parseGlobal() {
     let expr = {};
     expr.tags = parseTags();
 
-    const token = tokens[index];
-    ++index;
+    let token = tokens[index];
 
+    end:
     switch (token.kind) {
-        // case USE:
-        //     expr.kind = E_USE;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'use' keyword", expr.u.use.name = token.value);
-        //     EXPECT_TOKEN(SEMICOLON, "expected ';' after 'use' path", {});
-        //     break;
-        // case MOD:
-        //     expr.kind = E_MOD;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'mod' keyword", expr.u.mod.name = token.value);
-        //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'struct' name", {});
-        //     expr.u.mod.body = parse_global_block(tokens, index);
-        //     break;
-        // case STRUCT:
-        // case UNION:
-        //     expr.kind = token.kind == STRUCT ? E_STRUCT : E_UNION;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'struct' keyword", expr.u._struct.name = token.value);
-        //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'struct' name", {});
-        //     expr.u._struct.body = expr_vector_new(4);
-        //     while (1)
-        //     {
-        //         OPTIONAL_TOKEN(RIGHT_BRACE, goto end_struct, {});
-        //         Expr field;
-        //         field.kind = E_FIELD;
-        //         field.tags = parse_tags(tokens, index);
-        //         token = tokens.array[*index];
-        //         EXPECT_TOKEN(IDENT, "expected field name in 'struct' body", field.u.field.name = token.value);
-        //         EXPECT_TOKEN(COLON, "expected ':' after field name", {});
-        //         field.u.field.type = parse_type(tokens, index);
-        //         token = tokens.array[*index];
-        //         expr_vector_push(&expr.u._struct.body, field);
-        //         OPTIONAL_TOKEN(COMMA, {}, break);
-        //     }
-        //     EXPECT_TOKEN(RIGHT_BRACE, "expected '}' after last field", {});
-        // end_struct:
-        //     break;
-        // case ENUM:
-        //     expr.kind = E_ENUM;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'enum' keyword", expr.u._enum.name = token.value);
-        //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'enum' name", {});
-        //     expr.u._enum.body = expr_vector_new(4);
-        //     while (1)
-        //     {
-        //         OPTIONAL_TOKEN(RIGHT_BRACE, goto end_enum, {});
-        //         Expr opt;
-        //         opt.kind = E_OPTION;
-        //         opt.tags = parse_tags(tokens, index);
-        //         token = tokens.array[*index];
-        //         EXPECT_TOKEN(IDENT, "expected option name in 'struct' body", opt.u.option.name = token.value);
-        //         OPTIONAL_TOKEN(
-        //             LEFT_PAREN,
-        //             opt.u.option.body = expr_vector_new(2);
-        //             while (1) {
-        //                 OPTIONAL_TOKEN(RIGHT_PAREN, goto end_option, {});
-        //                 Expr field;
-        //                 field.kind = E_OPTION_FIELD;
-        //                 field.tags = parse_tags(tokens, index);
-        //                 token = tokens.array[*index];
-        //                 EXPECT_TOKEN(IDENT, "expected field name in 'option' body", field.u.option_field.name = token.value);
-        //                 EXPECT_TOKEN(COLON, "expected ':' after field name", {});
-        //                 field.u.option_field.type = parse_type(tokens, index);
-        //                 token = tokens.array[*index];
-        //                 expr_vector_push(&opt.u.option.body, field);
-        //                 OPTIONAL_TOKEN(COMMA, {}, break);
-        //             };
-        //             EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last field", {});
-        //             end_option:
-        //                 , opt.u.option.body.size = 0);
-        //         expr_vector_push(&expr.u._enum.body, opt);
-        //         OPTIONAL_TOKEN(COMMA, {}, break);
-        //     }
-        //     EXPECT_TOKEN(RIGHT_BRACE, "expected '}' after last option", {});
-        // end_enum:
-        //     break;
-        // case TAG:
-        //     expr.kind = E_TAG_DEF;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'tag' keyword", expr.u.tag_def.name = token.value);
-        //     EXPECT_TOKEN(LEFT_PAREN, "expected '(' after 'tag' name", {});
-        //     expr.u.tag_def.args = expr_vector_new(2);
-        //     while (1)
-        //     {
-        //         OPTIONAL_TOKEN(RIGHT_PAREN, goto end_tag_def, {});
-        //         Expr arg;
-        //         arg.kind = E_ARG;
-        //         arg.tags = parse_tags(tokens, index);
-        //         token = tokens.array[*index];
-        //         EXPECT_TOKEN(IDENT, "expected arg name in 'tag' args", arg.u.arg.name = token.value);
-        //         EXPECT_TOKEN(COLON, "expected ':' after arg name", {});
-        //         arg.u.arg.type = parse_type(tokens, index);
-        //         token = tokens.array[*index];
-        //         expr_vector_push(&expr.u.tag_def.args, arg);
-        //         OPTIONAL_TOKEN(COMMA, {}, break);
-        //     }
-        //     EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last arg", {});
-        // end_tag_def:
-        //     EXPECT_TOKEN(SEMICOLON, "expected ';' after tag args", {});
-        //     break;
-        // case PROP:
-        //     expr.kind = E_PROP;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'prop' keyword", expr.u.prop.name = token.value);
-        //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'prop' name", {});
-        //     expr.u.prop.body = parse_global_block(tokens, index);
-        //     break;
-        // case DEF:
-        //     expr.kind = E_DEF;
-        //     NEXT_TOKEN;
-        //     expr.u.def.prop = parse_type(tokens, index);
-        //     token = tokens.array[*index];
-        //     EXPECT_TOKEN(FOR, "expected 'for' after 'def' property", {});
-        //     expr.u.def.target = parse_type(tokens, index);
-        //     token = tokens.array[*index];
-        //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'def' target", {});
-        //     expr.u.def.body = parse_global_block(tokens, index);
-        //     break;
-        // case SUB:
-        //     expr.kind = E_SUB_DEF;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'sub' keyword", expr.u.sub_def.name = token.value);
-        //     EXPECT_TOKEN(LEFT_PAREN, "expected '(' after 'sub' name", {});
-        //     expr.u.sub_def.args = expr_vector_new(2);
-        //     while (1)
-        //     {
-        //         OPTIONAL_TOKEN(RIGHT_PAREN, goto end_sub_def, {});
-        //         Expr arg;
-        //         arg.kind = E_ARG;
-        //         arg.tags = parse_tags(tokens, index);
-        //         token = tokens.array[*index];
-        //         EXPECT_TOKEN(IDENT, "expected arg name in 'tag' args", arg.u.arg.name = token.value);
-        //         EXPECT_TOKEN(COLON, "expected ':' after arg name", {});
-        //         arg.u.arg.type = parse_type(tokens, index);
-        //         token = tokens.array[*index];
-        //         expr_vector_push(&expr.u.sub_def.args, arg);
-        //         OPTIONAL_TOKEN(COMMA, {}, break);
-        //     }
-        //     EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last arg", {});
-        // end_sub_def:
-        //     OPTIONAL_TOKEN(
-        //         ARROW,
-        //         expr.u.sub_def.ret_type = parse_type(tokens, index);
-        //         token = tokens.array[*index];
-        //         , {});
-        //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'sub' args", {});
-        //     expr.u.sub_def.body = parse_global_block(tokens, index);
-        //     break;
+        case tokenKind.USE:
+            expr.kind = exprKind.USE;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'use' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'use' path");
+            break;
+        case tokenKind.MOD:
+            expr.kind = exprKind.MOD;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'mod' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'struct' name");
+            expr.body = parseGlobalBlock();
+            break;
+        case tokenKind.STRUCT:
+        case tokenKind.UNION:
+            expr.kind = token.kind === tokenKind.STRUCT ? exprKind.STRUCT : exprKind.UNION;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'struct' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'struct' name");
+            expr.body = [];
+            while (1) {
+                let should_end;
+                token = optionalToken(tokenKind.RIGHT_BRACE, () => {
+                    should_end = true;
+                });
+                if (should_end) { break end; }
+                let field = {
+                    kind: exprKind.FIELD,
+                    tags: parseTags()
+                };
+                token = tokens[index];
+                token = expectToken(tokenKind.IDENT, "expected field name in 'struct' body", () => {
+                    field.name = token.value;
+                });
+                token = expectToken(tokenKind.COLON, "expected ':' after field name");
+                field.type = parseType();
+                token = tokens[index];
+                expr.body.push(field);
+                let should_break;
+                token = optionalToken(tokenKind.COMMA, null, () => {
+                    should_break = true;
+                });
+                if (should_break) { break; }
+            }
+            token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last field");
+            break;
+        case tokenKind.ENUM:
+            //     expr.kind = E_ENUM;
+            //     NEXT_TOKEN;
+            //     EXPECT_TOKEN(IDENT, "expected identifier after 'enum' keyword", expr.u._enum.name = token.value);
+            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'enum' name", {});
+            //     expr.u._enum.body = expr_vector_new(4);
+            //     while (1)
+            //     {
+            //         OPTIONAL_TOKEN(RIGHT_BRACE, goto end_enum, {});
+            //         Expr opt;
+            //         opt.kind = E_OPTION;
+            //         opt.tags = parse_tags(tokens, index);
+            //         token = tokens.array[*index];
+            //         EXPECT_TOKEN(IDENT, "expected option name in 'struct' body", opt.u.option.name = token.value);
+            //         OPTIONAL_TOKEN(
+            //             LEFT_PAREN,
+            //             opt.u.option.body = expr_vector_new(2);
+            //             while (1) {
+            //                 OPTIONAL_TOKEN(RIGHT_PAREN, goto end_option, {});
+            //                 Expr field;
+            //                 field.kind = E_OPTION_FIELD;
+            //                 field.tags = parse_tags(tokens, index);
+            //                 token = tokens.array[*index];
+            //                 EXPECT_TOKEN(IDENT, "expected field name in 'option' body", field.u.option_field.name = token.value);
+            //                 EXPECT_TOKEN(COLON, "expected ':' after field name", {});
+            //                 field.u.option_field.type = parse_type(tokens, index);
+            //                 token = tokens.array[*index];
+            //                 expr_vector_push(&opt.u.option.body, field);
+            //                 OPTIONAL_TOKEN(COMMA, {}, break);
+            //             };
+            //             EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last field", {});
+            //             end_option:
+            //                 , opt.u.option.body.size = 0);
+            //         expr_vector_push(&expr.u._enum.body, opt);
+            //         OPTIONAL_TOKEN(COMMA, {}, break);
+            //     }
+            //     EXPECT_TOKEN(RIGHT_BRACE, "expected '}' after last option", {});
+            // end_enum:
+            break;
+        case tokenKind.TAG:
+            //     expr.kind = E_TAG_DEF;
+            //     NEXT_TOKEN;
+            //     EXPECT_TOKEN(IDENT, "expected identifier after 'tag' keyword", expr.u.tag_def.name = token.value);
+            //     EXPECT_TOKEN(LEFT_PAREN, "expected '(' after 'tag' name", {});
+            //     expr.u.tag_def.args = expr_vector_new(2);
+            //     while (1)
+            //     {
+            //         OPTIONAL_TOKEN(RIGHT_PAREN, goto end_tag_def, {});
+            //         Expr arg;
+            //         arg.kind = E_ARG;
+            //         arg.tags = parse_tags(tokens, index);
+            //         token = tokens.array[*index];
+            //         EXPECT_TOKEN(IDENT, "expected arg name in 'tag' args", arg.u.arg.name = token.value);
+            //         EXPECT_TOKEN(COLON, "expected ':' after arg name", {});
+            //         arg.u.arg.type = parse_type(tokens, index);
+            //         token = tokens.array[*index];
+            //         expr_vector_push(&expr.u.tag_def.args, arg);
+            //         OPTIONAL_TOKEN(COMMA, {}, break);
+            //     }
+            //     EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last arg", {});
+            // end_tag_def:
+            //     EXPECT_TOKEN(SEMICOLON, "expected ';' after tag args", {});
+            break;
+        case tokenKind.PROP:
+            //     expr.kind = E_PROP;
+            //     NEXT_TOKEN;
+            //     EXPECT_TOKEN(IDENT, "expected identifier after 'prop' keyword", expr.u.prop.name = token.value);
+            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'prop' name", {});
+            //     expr.u.prop.body = parse_global_block(tokens, index);
+            break;
+        case tokenKind.DEF:
+            //     expr.kind = E_DEF;
+            //     NEXT_TOKEN;
+            //     expr.u.def.prop = parse_type(tokens, index);
+            //     token = tokens.array[*index];
+            //     EXPECT_TOKEN(FOR, "expected 'for' after 'def' property", {});
+            //     expr.u.def.target = parse_type(tokens, index);
+            //     token = tokens.array[*index];
+            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'def' target", {});
+            //     expr.u.def.body = parse_global_block(tokens, index);
+            break;
+        case tokenKind.SUB:
+            //     expr.kind = E_SUB_DEF;
+            //     NEXT_TOKEN;
+            //     EXPECT_TOKEN(IDENT, "expected identifier after 'sub' keyword", expr.u.sub_def.name = token.value);
+            //     EXPECT_TOKEN(LEFT_PAREN, "expected '(' after 'sub' name", {});
+            //     expr.u.sub_def.args = expr_vector_new(2);
+            //     while (1)
+            //     {
+            //         OPTIONAL_TOKEN(RIGHT_PAREN, goto end_sub_def, {});
+            //         Expr arg;
+            //         arg.kind = E_ARG;
+            //         arg.tags = parse_tags(tokens, index);
+            //         token = tokens.array[*index];
+            //         EXPECT_TOKEN(IDENT, "expected arg name in 'tag' args", arg.u.arg.name = token.value);
+            //         EXPECT_TOKEN(COLON, "expected ':' after arg name", {});
+            //         arg.u.arg.type = parse_type(tokens, index);
+            //         token = tokens.array[*index];
+            //         expr_vector_push(&expr.u.sub_def.args, arg);
+            //         OPTIONAL_TOKEN(COMMA, {}, break);
+            //     }
+            //     EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last arg", {});
+            // end_sub_def:
+            //     OPTIONAL_TOKEN(
+            //         ARROW,
+            //         expr.u.sub_def.ret_type = parse_type(tokens, index);
+            //         token = tokens.array[*index];
+            //         , {});
+            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'sub' args", {});
+            //     expr.u.sub_def.body = parse_global_block(tokens, index);
+            break;
         // case VAR:
-        //     expr.kind = E_VAR_DEF;
-        //     NEXT_TOKEN;
-        //     EXPECT_TOKEN(IDENT, "expected identifier after 'var' keyword", expr.u.var_def.name = token.value);
-        //     EXPECT_TOKEN(COLON, "expected ':' after variable name", {});
-        //     expr.u.var_def.type = parse_type(tokens, index);
-        //     token = tokens.array[*index];
-        //     expr.u.var_def.value = NULL;
-        //     EXPECT_TOKEN(SEMICOLON, "expected ';' after variable declaration", {});
-        //     break;
+        // expr.kind = E_VAR_DEF;
+        // NEXT_TOKEN;
+        // EXPECT_TOKEN(IDENT, "expected identifier after 'var' keyword", expr.u.var_def.name = token.value);
+        // EXPECT_TOKEN(COLON, "expected ':' after variable name", {});
+        // expr.u.var_def.type = parse_type(tokens, index);
+        // token = tokens.array[*index];
+        // expr.u.var_def.value = NULL;
+        // EXPECT_TOKEN(SEMICOLON, "expected ';' after variable declaration", {});
+        // break;
         default:
             throw `at ${token.index} expected item in global scope`;
     }

@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { stdout } = require('process');
 const lexer = require('./lexer.js');
 const parser = require('./parser.js');
 
@@ -10,11 +11,13 @@ function lex_parse_recursive(path) {
             lex_parse_recursive(path + '/' + file.name);
         } else {
             const contents = fs.readFileSync(path + '/' + file.name).toString();
-            console.log("File:", file.name);
+            console.log('````````````````````````````````````````');
+            console.log('File:', file.name);
             const tokens = lexer.lex(contents);
-            console.log("Tokens:", tokens);
+            console.log('Tokens:', tokens);
             const ast = parser.parse(tokens);
-            console.log("AST:", ast);
+            stdout.write('AST: ');
+            console.dir(ast, { depth: null });
         }
     }
 }
