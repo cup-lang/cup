@@ -90,14 +90,14 @@ function expectToken(kind, error, code) {
 
 function optionalToken(kind, true_code, false_code) {
     let token = tokens[index];
-    if (token.kind == kind) {
+    if (token.kind === kind) {
+        token = nextToken();
         if (true_code) { true_code(); }
-        return nextToken();
     }
-    else {
-        if (false_code) { false_code(); }
-        return token;
+    else if (false_code) {
+        false_code();
     }
+    return token;
 }
 
 function parseTags() {
@@ -177,6 +177,10 @@ function parseTags() {
     return tags;
 }
 
+function parseType() {
+    return null;
+}
+
 function parseLocal() {
 
 }
@@ -237,7 +241,6 @@ function parseGlobal() {
                 });
                 token = expectToken(tokenKind.COLON, "expected ':' after field name");
                 field.type = parseType();
-                token = tokens[index];
                 expr.body.push(field);
                 let should_break;
                 token = optionalToken(tokenKind.COMMA, null, () => {
@@ -248,43 +251,64 @@ function parseGlobal() {
             token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last field");
             break;
         case tokenKind.ENUM:
-            //     expr.kind = E_ENUM;
-            //     NEXT_TOKEN;
-            //     EXPECT_TOKEN(IDENT, "expected identifier after 'enum' keyword", expr.u._enum.name = token.value);
-            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'enum' name", {});
-            //     expr.u._enum.body = expr_vector_new(4);
-            //     while (1)
-            //     {
-            //         OPTIONAL_TOKEN(RIGHT_BRACE, goto end_enum, {});
-            //         Expr opt;
-            //         opt.kind = E_OPTION;
-            //         opt.tags = parse_tags(tokens, index);
-            //         token = tokens.array[*index];
-            //         EXPECT_TOKEN(IDENT, "expected option name in 'struct' body", opt.u.option.name = token.value);
-            //         OPTIONAL_TOKEN(
-            //             LEFT_PAREN,
-            //             opt.u.option.body = expr_vector_new(2);
-            //             while (1) {
-            //                 OPTIONAL_TOKEN(RIGHT_PAREN, goto end_option, {});
-            //                 Expr field;
-            //                 field.kind = E_OPTION_FIELD;
-            //                 field.tags = parse_tags(tokens, index);
-            //                 token = tokens.array[*index];
-            //                 EXPECT_TOKEN(IDENT, "expected field name in 'option' body", field.u.option_field.name = token.value);
-            //                 EXPECT_TOKEN(COLON, "expected ':' after field name", {});
-            //                 field.u.option_field.type = parse_type(tokens, index);
-            //                 token = tokens.array[*index];
-            //                 expr_vector_push(&opt.u.option.body, field);
-            //                 OPTIONAL_TOKEN(COMMA, {}, break);
-            //             };
-            //             EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last field", {});
-            //             end_option:
-            //                 , opt.u.option.body.size = 0);
-            //         expr_vector_push(&expr.u._enum.body, opt);
-            //         OPTIONAL_TOKEN(COMMA, {}, break);
-            //     }
-            //     EXPECT_TOKEN(RIGHT_BRACE, "expected '}' after last option", {});
-            // end_enum:
+            expr.kind = exprKind.ENUM;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'enum' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'enum' name");
+            expr.body = [];
+            while (1) {
+                let should_end;
+                token = optionalToken(tokenKind.RIGHT_BRACE, () => {
+                    should_end = true;
+                });
+                if (should_end) { break end; }
+                let opt = {
+                    kind: exprKind.OPTION,
+                    tags: parseTags(),
+                    body: []
+                };
+                token = expectToken(tokenKind.IDENT, "expected option name in 'enum' body", () => {
+                    opt.name = token.value;
+                });
+                token = optionalToken(tokenKind.LEFT_PAREN, () => {
+                    while (1) {
+                        let should_return;
+                        token = optionalToken(tokenKind.RIGHT_PAREN, () => {
+                            should_return = true;
+                        });
+                        if (should_return) { return; }
+                        let field = {
+                            kind: exprKind.OPTION_FIELD,
+                            tags: parseTags()
+                        };
+                        token = expectToken(tokenKind.IDENT, "expected field name in 'option' body", () => {
+                            field.name = token.value;
+                        });
+                        token = expectToken(tokenKind.COLON, "expected ':' after field name");
+                        field.type = parseType();
+                        token = tokens[index];
+                        opt.body.push(field);
+                        let should_break;
+                        console.log(tokens[index].kind, index, should_break);
+                        token = optionalToken(tokenKind.COMMA, null, () => {
+                            should_break = true;
+                        });
+                        console.log(tokens[index].kind, index, should_break);
+                        if (should_break) { break; }
+                    };
+                    console.log(index);
+                    token = expectToken(tokenKind.RIGHT_PAREN, "expected ')' after last field");
+                });
+                expr.body.push(opt);
+                let should_break;
+                token = optionalToken(tokenKind.COMMA, null, () => {
+                    should_break = true;
+                });
+                if (should_break) { break; }
+            }
+            token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last option");
             break;
         case tokenKind.TAG:
             //     expr.kind = E_TAG_DEF;

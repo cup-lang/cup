@@ -14,14 +14,14 @@
 `     bar: i32,
 ` }
 ```````````````````````````````````````````````` enum, option
-` enum SomeEnum {
-`     Option0,
-`     Option1(
-`         foo: i32, 
-`         bar: f32,
-`     ),
-`     Option2,
-` }
+enum SomeEnum {
+    Option0,
+    Option1(
+        foo: i32, 
+        bar: f32,
+    ),
+    Option2,
+}
 ```````````````````````````````````````````````` tag_def, arg
 ` tag test_tag(foo: string, bar: int);
 ```````````````````````````````````````````````` prop
