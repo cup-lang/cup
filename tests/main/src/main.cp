@@ -14,14 +14,14 @@
 `     bar: i32,
 ` }
 ```````````````````````````````````````````````` enum, option
-enum SomeEnum {
-    Option0,
-    Option1(
-        foo: i32, 
-        bar: f32,
-    ),
-    Option2,
-}
+` enum SomeEnum {
+`     Option0,
+`     Option1(
+`         foo: i32, 
+`         bar: f32,
+`     ),
+`     Option2,
+` }
 ```````````````````````````````````````````````` tag_def, arg
 ` tag test_tag(foo: string, bar: int);
 ```````````````````````````````````````````````` prop
@@ -29,11 +29,16 @@ enum SomeEnum {
 ```````````````````````````````````````````````` def
 ` def SomeProp for SomeObject { }
 ```````````````````````````````````````````````` sub_def, arg
-` sub foo() -> i32 {
-` 
-` }
+sub foo(bar: i32) -> i32 {
+    if true {
+        
+    }
+}
 ```````````````````````````````````````````````` var_def
 ` bar: i32 = 1;
+` bar := 1;
 
-`` fix number literals (?in tags?)
-`` add parseType()
+
+`` add walrus to lexer
+`` add labels to parser
+`` add variables to parser

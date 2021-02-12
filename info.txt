@@ -13,8 +13,6 @@ f32: AddAssign<T>,
     compile time constantness (zig)
 
 # Changes
-    ` comment
-    ~label
     a < b < c
 
 # Features
@@ -39,35 +37,34 @@ f32: AddAssign<T>,
     ?
     =, +=, -=, *=, /=, %=, ^=
 
-# Keywords (avg ~3.86) (total 28)
-    (3) tag ` defines a tag
-    (3) mod ` defines a module
-    (3) use ` use a certain module or item
-    (6) struct ` defines a struct
-    (4) enum ` defines a enum
-    (5) union ` defines a union
-    (4) prop ` defines a property
-    (3) def ` defines a property or subroutines for a struct/enum/union
-    (3) sub ` defines a subroutine
-    (4) this ` current instance
-    (4) type ` current type
-    (5) where ` constrains generics
+# Keywords (avg ~3.74) (total 27)
+    (3) tag - defines a tag
+    (3) mod - defines a module
+    (3) use - use a certain module or item
+    (4) comp - defines a compund
+    (4) enum - defines a enum
+    (4) prop - defines a property
+    (3) def - defines a property or subroutines for a struct/enum/union
+    (3) sub - defines a subroutine
+    (4) this - current instance
+    (4) type - current type
+    (5) where - constrains generics
     (4) true
     (5) false
-    (4) null ` null pointer value
+    (4) null - null pointer value
     (2) if
     (4) elif
     (4) else
-    (2) do ` infinite loop
+    (2) do - infinite loop
     (5) while
-    (3) for ` defines a for-loop
-    (2) in ` used with "for"
+    (3) for - defines a for-loop
+    (2) in - used with "for"
     (5) match
-    (4) case ` used inside "match"
-    (4) back ` returns from a loop/sub
-    (4) next ` continues the execution of a loop
-    (5) delay ` delays the execution of a block
-    (4) jump ` jumps to the specified label
+    (4) case - used inside "match"
+    (4) back - returns from a loop/sub
+    (4) next - continues the execution of a loop
+    (5) delay - delays the execution of a block
+    (4) jump - jumps to the specified label
 
 # Basic types
     isize i8 i16 i32 i64, int = i32
@@ -82,6 +79,7 @@ f32: AddAssign<T>,
     #mut - marks item as mutable
     #pub - marks item as public
     #inl - marks sub to be inlined by the compiler
+    #uni - unified "comp"
     #exh - exhaustive "match"
     #self - marks sub to act on a instance
     #rest - marks arg as a rest arg
@@ -94,4 +92,75 @@ f32: AddAssign<T>,
     #req(header: str)
 
 # Expressions
-    
+    literal: bool_lit, num_lit, char_lit, str_lit, null_lit, arr_lit, this_lit, type_lit
+    value: op, sub_call, var_use, literal
+    local: if, elif, else, do, while, for, match, back, next, jump, delay, local_var_def, value
+    global: use, mod, comp, enum, prop, def, sub_def, var_def
+
+    tag:
+        name: str
+        args: arr<literal>
+
+    mod:
+        pub: bool
+        name: str
+        body: arr<global>
+
+    use:
+        path: path
+
+    path:
+        child: path
+
+    type:
+        mut: bool
+        name: str
+        gen_children: arr<type>
+
+    constr_type:
+        name: str
+        constr: arr<type>
+
+    struct:
+        pub: bool
+        uni: bool
+        name: str
+        gen: arr<constr_type>
+        body: arr<field>
+
+    enum:
+        pub: bool
+        name: str
+        gen: arr<constr_type>
+        body: arr<option>
+
+    option:
+        name: str
+        body: arr<field>
+
+    prop:
+        pub: bool
+        name: str
+        gen: arr<constr_type>
+        body: arr<sub_def>
+
+    def:
+        pub: bool
+        gen: arr<constr_type>
+        prop: type
+        target: type
+        body: arr<sub_def>
+
+    sub_def:
+        pub: bool
+        inl: bool
+        name: str
+        gen: arr<constr_type>
+        args: arr<arg>
+        ret_type: type
+        body: arr<local>
+
+    arg:
+        rest: bool
+        name: str,
+        type: type

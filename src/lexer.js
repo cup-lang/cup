@@ -7,9 +7,8 @@ const tokenKind = module.exports.tokenKind = {
     TAG: 'tag',
     MOD: 'mod',
     USE: 'use',
-    STRUCT: 'struct',
+    COMP: 'comp',
     ENUM: 'enum',
-    UNION: 'union',
     PROP: 'prop',
     DEF: 'def',
     SUB: 'sub',
@@ -81,9 +80,8 @@ keywords = {
     'tag': tokenKind.TAG,
     'mod': tokenKind.MOD,
     'use': tokenKind.USE,
-    'struct': tokenKind.STRUCT,
+    'comp': tokenKind.COMP,
     'enum': tokenKind.ENUM,
-    'union': tokenKind.UNION,
     'prop': tokenKind.PROP,
     'def': tokenKind.DEF,
     'sub': tokenKind.SUB,
@@ -130,7 +128,7 @@ module.exports.lex = function (input) {
     let value = '';
 
     for (let i = 0; i <= input.length; ++i) {
-        char = input[i];
+        char = input[i] || '\u0000';
 
         if (char === '`') {
             is_comment = 1;
@@ -352,7 +350,7 @@ module.exports.lex = function (input) {
                     else if (char === '_' || isNumeric(char)) {
 
                     } else {
-                        throw `at ${i - value.size} invalid identifier name starting with a digit`;
+                        throw `at ${i - value.length} invalid identifier name starting with a digit`;
                     }
                 }
 
@@ -393,6 +391,7 @@ module.exports.lex = function (input) {
                 }
 
                 value = '';
+                is_literal = 0;
             }
 
             if (kind) {

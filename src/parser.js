@@ -7,8 +7,7 @@ const exprKind = {
     TAG_DEF: 'tag_def',
     MOD: 'mod',
     USE: 'use',
-    STRUCT: 'struct',
-    UNION: 'union',
+    COMP: 'comp',
     FIELD: 'field',
     ENUM: 'enum',
     OPTION: 'option',
@@ -22,7 +21,7 @@ const exprKind = {
     LOCAL_VAR_DEF: 'local_var_def',
     SUB_CALL: 'sub_call',
     VAR_USE: 'var_use',
-    STRUCT_INST: 'struct_inst',
+    COMP_INST: 'comp_inst',
     FIELD_VAL: 'field_val',
     STRING_LIT: 'string_lit',
     CHAR_LIT: 'char_lit',
@@ -178,17 +177,58 @@ function parseTags() {
 }
 
 function parseType() {
-    return null;
+    let type = { kind: exprKind.TYPE };
+
+    let token = tokens[index];
+
+    if (token.kind === tokenKind.IDENT) {
+        type.name = token.value;
+        nextToken();
+    } else {
+        throw `at ${token.index} expected a type`;
+    }
+
+    return type;
+}
+
+function parseValue(endTokenKind) {
+
 }
 
 function parseLocal() {
+    let expr = {};
+    expr.tags = parseTags();
 
-}
+    let token = tokens[index];
 
-function parseLocalBlock() {
-    let exprs = [];
+    switch (token.kind) {
+        case tokenKind.IF:
+            expr.kind = exprKind.IF;
+            expr.if = parseValue(tokenKind.LEFT_BRACE);
+            token = nextToken();
+            expr.if
+            break;
+        case tokenKind.DO:
+            break;
+        case tokenKind.WHILE:
+            break;
+        case tokenKind.FOR:
+            break;
+        case tokenKind.MATCH:
+            break;
+        case tokenKind.BACK:
+            break;
+        case tokenKind.NEXT:
+            break;
+        case tokenKind.JUMP:
+            break;
+        case tokenKind.DELAY:
+            break;
+        default:
+            throw `at ${token.index} expected item in local scope`;
+    }
 
-    return exprs;
+    return expr;
 }
 
 function parseGlobal() {
@@ -213,17 +253,16 @@ function parseGlobal() {
             token = expectToken(tokenKind.IDENT, "expected identifier after 'mod' keyword", () => {
                 expr.name = token.value;
             });
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'struct' name");
-            expr.body = parseGlobalBlock();
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'comp' name");
+            expr.body = parseBlock();
             break;
-        case tokenKind.STRUCT:
-        case tokenKind.UNION:
-            expr.kind = token.kind === tokenKind.STRUCT ? exprKind.STRUCT : exprKind.UNION;
+        case tokenKind.COMP:
+            expr.kind = exprKind.COMP;
             token = nextToken();
-            token = expectToken(tokenKind.IDENT, "expected identifier after 'struct' keyword", () => {
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'comp' keyword", () => {
                 expr.name = token.value;
             });
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'struct' name");
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'comp' name");
             expr.body = [];
             while (1) {
                 let should_end;
@@ -236,7 +275,7 @@ function parseGlobal() {
                     tags: parseTags()
                 };
                 token = tokens[index];
-                token = expectToken(tokenKind.IDENT, "expected field name in 'struct' body", () => {
+                token = expectToken(tokenKind.IDENT, "expected field name in 'comp' body", () => {
                     field.name = token.value;
                 });
                 token = expectToken(tokenKind.COLON, "expected ':' after field name");
@@ -288,17 +327,13 @@ function parseGlobal() {
                         });
                         token = expectToken(tokenKind.COLON, "expected ':' after field name");
                         field.type = parseType();
-                        token = tokens[index];
                         opt.body.push(field);
                         let should_break;
-                        console.log(tokens[index].kind, index, should_break);
                         token = optionalToken(tokenKind.COMMA, null, () => {
                             should_break = true;
                         });
-                        console.log(tokens[index].kind, index, should_break);
                         if (should_break) { break; }
                     };
-                    console.log(index);
                     token = expectToken(tokenKind.RIGHT_PAREN, "expected ')' after last field");
                 });
                 expr.body.push(opt);
@@ -311,76 +346,100 @@ function parseGlobal() {
             token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last option");
             break;
         case tokenKind.TAG:
-            //     expr.kind = E_TAG_DEF;
-            //     NEXT_TOKEN;
-            //     EXPECT_TOKEN(IDENT, "expected identifier after 'tag' keyword", expr.u.tag_def.name = token.value);
-            //     EXPECT_TOKEN(LEFT_PAREN, "expected '(' after 'tag' name", {});
-            //     expr.u.tag_def.args = expr_vector_new(2);
-            //     while (1)
-            //     {
-            //         OPTIONAL_TOKEN(RIGHT_PAREN, goto end_tag_def, {});
-            //         Expr arg;
-            //         arg.kind = E_ARG;
-            //         arg.tags = parse_tags(tokens, index);
-            //         token = tokens.array[*index];
-            //         EXPECT_TOKEN(IDENT, "expected arg name in 'tag' args", arg.u.arg.name = token.value);
-            //         EXPECT_TOKEN(COLON, "expected ':' after arg name", {});
-            //         arg.u.arg.type = parse_type(tokens, index);
-            //         token = tokens.array[*index];
-            //         expr_vector_push(&expr.u.tag_def.args, arg);
-            //         OPTIONAL_TOKEN(COMMA, {}, break);
-            //     }
-            //     EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last arg", {});
-            // end_tag_def:
-            //     EXPECT_TOKEN(SEMICOLON, "expected ';' after tag args", {});
+            expr.kind = exprKind.TAG_DEF;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'tag' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.LEFT_PAREN, "expected '(' after 'tag' name");
+            expr.args = [];
+            while (1) {
+                let should_return;
+                token = optionalToken(tokenKind.RIGHT_PAREN, () => {
+                    should_return = true;
+                });
+                if (should_return) {
+                    token = expectToken(tokenKind.SEMICOLON, "expected ';' after tag args");
+                    return;
+                }
+                let arg = {
+                    kind: exprKind.ARG,
+                    tags: parseTags()
+                };
+                token = expectToken(tokenKind.IDENT, "expected arg name in 'tag' args", () => {
+                    arg.name = token.value;
+                });
+                token = expectToken(tokenKind.COLON, "expected ':' after arg name");
+                arg.type = parseType();
+                expr.args.push(arg);
+                let should_break;
+                token = optionalToken(tokenKind.COMMA, null, () => {
+                    should_break = true;
+                });
+                if (should_break) { break; }
+            }
+            token = expectToken(tokenKind.RIGHT_PAREN, "expected ')' after last arg");
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after tag args");
             break;
         case tokenKind.PROP:
-            //     expr.kind = E_PROP;
-            //     NEXT_TOKEN;
-            //     EXPECT_TOKEN(IDENT, "expected identifier after 'prop' keyword", expr.u.prop.name = token.value);
-            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'prop' name", {});
-            //     expr.u.prop.body = parse_global_block(tokens, index);
+            expr.kind = exprKind.PROP;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'prop' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'prop' name");
+            expr.body = parseBlock();
             break;
         case tokenKind.DEF:
-            //     expr.kind = E_DEF;
-            //     NEXT_TOKEN;
-            //     expr.u.def.prop = parse_type(tokens, index);
-            //     token = tokens.array[*index];
-            //     EXPECT_TOKEN(FOR, "expected 'for' after 'def' property", {});
-            //     expr.u.def.target = parse_type(tokens, index);
-            //     token = tokens.array[*index];
-            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'def' target", {});
-            //     expr.u.def.body = parse_global_block(tokens, index);
+            expr.kind = exprKind.DEF;
+            token = nextToken();
+            expr.prop = parseType();
+            token = expectToken(tokenKind.FOR, "expected 'for' after 'def' property");
+            expr.target = parseType();
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'def' target");
+            expr.body = parseBlock();
             break;
         case tokenKind.SUB:
-            //     expr.kind = E_SUB_DEF;
-            //     NEXT_TOKEN;
-            //     EXPECT_TOKEN(IDENT, "expected identifier after 'sub' keyword", expr.u.sub_def.name = token.value);
-            //     EXPECT_TOKEN(LEFT_PAREN, "expected '(' after 'sub' name", {});
-            //     expr.u.sub_def.args = expr_vector_new(2);
-            //     while (1)
-            //     {
-            //         OPTIONAL_TOKEN(RIGHT_PAREN, goto end_sub_def, {});
-            //         Expr arg;
-            //         arg.kind = E_ARG;
-            //         arg.tags = parse_tags(tokens, index);
-            //         token = tokens.array[*index];
-            //         EXPECT_TOKEN(IDENT, "expected arg name in 'tag' args", arg.u.arg.name = token.value);
-            //         EXPECT_TOKEN(COLON, "expected ':' after arg name", {});
-            //         arg.u.arg.type = parse_type(tokens, index);
-            //         token = tokens.array[*index];
-            //         expr_vector_push(&expr.u.sub_def.args, arg);
-            //         OPTIONAL_TOKEN(COMMA, {}, break);
-            //     }
-            //     EXPECT_TOKEN(RIGHT_PAREN, "expected ')' after last arg", {});
-            // end_sub_def:
-            //     OPTIONAL_TOKEN(
-            //         ARROW,
-            //         expr.u.sub_def.ret_type = parse_type(tokens, index);
-            //         token = tokens.array[*index];
-            //         , {});
-            //     EXPECT_TOKEN(LEFT_BRACE, "expected '{' after 'sub' args", {});
-            //     expr.u.sub_def.body = parse_global_block(tokens, index);
+            expr.kind = exprKind.SUB_DEF;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected identifier after 'sub' keyword", () => {
+                expr.name = token.value;
+            });
+            token = expectToken(tokenKind.LEFT_PAREN, "expected '(' after 'sub' name");
+            expr.args = [];
+            args:
+            do {
+                while (1) {
+                    let should_break_args;
+                    token = optionalToken(tokenKind.RIGHT_PAREN, () => {
+                        should_break_args = true;
+                    });
+                    if (should_break_args) {
+                        break args;
+                    }
+                    let arg = {
+                        kind: exprKind.ARG,
+                        tags: parseTags()
+                    };
+                    token = expectToken(tokenKind.IDENT, "expected arg name in 'tag' args", () => {
+                        arg.name = token.value;
+                    });
+                    token = expectToken(tokenKind.COLON, "expected ':' after arg name");
+                    arg.type = parseType();
+                    expr.args.push(arg);
+                    let should_break;
+                    token = optionalToken(tokenKind.COMMA, null, () => {
+                        should_break = true;
+                    });
+                    if (should_break) { break; }
+                }
+                token = expectToken(tokenKind.RIGHT_PAREN, "expected ')' after last arg");
+            } while (0);
+            token = optionalToken(tokenKind.ARROW, () => {
+                expr.ret_type = parseType();
+            });
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'sub' args");
+            expr.body = parseBlock(true);
             break;
         // case VAR:
         // expr.kind = E_VAR_DEF;
@@ -399,23 +458,16 @@ function parseGlobal() {
     return expr;
 }
 
-function parseGlobalBlock() {
+function parseBlock(local) {
     let exprs = [];
-
-    const is_global = index === 0;
 
     while (index < tokens.length) {
         if (tokens[index].kind === tokenKind.RIGHT_BRACE) {
-            if (!is_global) {
-                ++index;
-                return exprs;
-            }
-            else {
-                throw `at ${tokens[index].index} unexpected item in global scope`;
-            }
+            ++index;
+            return exprs;
         }
 
-        exprs.push(parseGlobal());
+        exprs.push(local ? parseLocal() : parseGlobal());
     }
 
     return exprs;
@@ -424,5 +476,5 @@ function parseGlobalBlock() {
 module.exports.parse = function (_tokens) {
     tokens = _tokens;
     index = 0;
-    return parseGlobalBlock();
+    return parseBlock();
 };
