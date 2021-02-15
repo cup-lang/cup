@@ -8,12 +8,16 @@ f32: AddAssign<T>,
     arrays
     type aliases
     raw string literals
-    remove "as" keyword
     exhaustive match by default
     compile time constantness (zig)
+    auto cleanup variable (tag?)
+    string interpolation
 
 # Changes
+    & -> and
+    | -> or
     a < b < c
+    null -> none
 
 # Features
     generics<T>
@@ -23,10 +27,9 @@ f32: AddAssign<T>,
     |closures|
     struct { field1 = 1, field2 = 2 }
     into<T> prop
-    $"{"string"} {"interpolation"}"
 
 # Operator presedence
-    foo(), foo.bar, foo[], foo@, bar&
+    foo(), foo.bar, foo[], foo@, bar$, bar&
     !bar, -foo
     *, /, %
     +, -
@@ -162,5 +165,20 @@ f32: AddAssign<T>,
 
     arg:
         rest: bool
-        name: str,
+        name: str
+        type: type
+
+    var_def:
+        pub: bool
+        inl: bool
+        name: str
+        type: type
+        value: value
+
+    local_var_def:
+        name: str
+        type: type
+        value: value
+
+    sub_call:
         type: type
