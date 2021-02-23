@@ -18,24 +18,24 @@ const tokenKind = module.exports.tokenKind = {
 
     TRUE: 'true',
     FALSE: 'false',
-    NULL: 'null',
+    NONE: 'none',
 
     IF: 'if',
     ELIF: 'elif',
     ELSE: 'else',
-    DO: 'do',
+    LOOP: 'loop',
     WHILE: 'while',
     FOR: 'for',
-    IN: 'in',
+    EACH: 'each',
     MATCH: 'match',
     CASE: 'case',
     BACK: 'back',
     NEXT: 'next',
-    DELAY: 'delay',
     JUMP: 'jump',
 
     SEMICOLON: 'semicolon',
     COLON: 'colon',
+    WALRUS: 'walrus',
     DOUBLE_COLON: 'double_colon',
     COMMA: 'comma',
     DOT: 'dot',
@@ -50,8 +50,9 @@ const tokenKind = module.exports.tokenKind = {
     LEFT_BRACKET: 'left_bracket',
     RIGHT_BRACKET: 'right_bracket',
 
-    AT: 'at',
-    DOLLAR: 'dollar',
+    DEREF: 'deref',
+    DEREF_ASSIGN: 'deref_assign',
+    ADDRESS: 'address',
     RANGE: 'range',
     RANGE_INCL: 'range_incl',
     ASSIGN: 'assign',
@@ -90,20 +91,21 @@ keywords = {
     'where': tokenKind.WHERE,
     'true': tokenKind.TRUE,
     'false': tokenKind.FALSE,
-    'null': tokenKind.NULL,
+    'none': tokenKind.NONE,
     'if': tokenKind.IF,
     'elif': tokenKind.ELIF,
     'else': tokenKind.ELSE,
-    'do': tokenKind.DO,
+    'loop': tokenKind.LOOP,
     'while': tokenKind.WHILE,
     'for': tokenKind.FOR,
-    'in': tokenKind.IN,
+    'each': tokenKind.EACH,
     'match': tokenKind.MATCH,
     'case': tokenKind.CASE,
     'back': tokenKind.BACK,
     'next': tokenKind.NEXT,
-    'delay': tokenKind.DELAY,
     'jump': tokenKind.JUMP,
+    'and': tokenKind.AND,
+    'or': tokenKind.OR,
 };
 
 function isWhitespace(c) { return c.charCodeAt() === 0 || /\s/.test(c); }
@@ -195,6 +197,9 @@ module.exports.lex = function (input) {
                     if (value && i + 1 < input.length && input[i + 1] === ':') {
                         kind = tokenKind.DOUBLE_COLON;
                         ++i;
+                    } else if (value && i + 1 < input.length && input[i + 1] === ':') {
+                        kind = tokenKind.WALRUS;
+                        ++i;
                     }
                     else {
                         kind = tokenKind.COLON;
@@ -244,10 +249,16 @@ module.exports.lex = function (input) {
                     kind = tokenKind.RIGHT_BRACKET;
                     break;
                 case '@':
-                    kind = tokenKind.AT;
+                    if (value && i + 1 < input.length && input[i + 1] === '=') {
+                        kind = tokenKind.DEREF_ASSIGN;
+                        ++i;
+                    }
+                    else {
+                        kind = tokenKind.DEREF;
+                    }
                     break;
-                case '$':
-                    kind = tokenKind.DOLLAR;
+                case '&':
+                    kind = tokenKind.ADDRESS;
                     break;
                 case '=':
                     if (i + 1 < input.length && input[i + 1] === '=') {
@@ -264,12 +275,6 @@ module.exports.lex = function (input) {
                     } else {
                         kind = tokenKind.NOT;
                     }
-                    break;
-                case '&':
-                    kind = tokenKind.AND;
-                    break;
-                case '|':
-                    kind = tokenKind.OR;
                     break;
                 case '<':
                     if (i + 1 < input.length && input[i + 1] === '=') {

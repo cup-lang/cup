@@ -29,50 +29,27 @@ const exprKind = {
     INT_LIT: 'int_lit',
     FLOAT_LIT: 'float_lit',
     BOOL_LIT: 'bool_lit',
-    NULL_LIT: 'null_lit',
+    NONE_LIT: 'none_lit',
     THIS_LIT: 'this_lit',
     TYPE_LIT: 'type_lit',
     WHERE: 'where',
-    DO: 'do',
     BLOCK: 'block',
     IF: 'if',
     ELIF: 'elif',
     ELSE: 'else',
+    LOOP: 'loop',
     WHILE: 'while',
     FOR: 'for',
+    EACH: 'each',
     MATCH: 'match',
     CASE: 'case',
     BACK: 'back',
     NEXT: 'next',
-    DELAY: 'delay',
     JUMP: 'jump',
 
-    DEREF_OP: 'deref_op',
-    ADDRESS_OP: 'address_op',
-    NEGATION_OP: 'negation_op',
-    COND_OP: 'cond_op',
-    RANGE_OP: 'range_op',
-    RANGE_INCL_OP: 'range_incl_op',
-    ASSIGN_OP: 'assign_op',
-    EQUAL_OP: 'equal_op',
-    NOT_OP: 'not_op',
-    NOT_EQUAL_OP: 'not_equal_op',
-    AND_OP: 'and_op',
-    OR_OP: 'or_op',
-    LESS_OP: 'less_op',
-    LESS_EQUAL_OP: 'less_equal_op',
-    GREATER_OP: 'greater_op',
-    GREATER_EQUAL_OP: 'greater_equal_op',
-    ADD_OP: 'add_op',
-    ADD_ASSIGN_OP: 'add_assign_op',
-    SUBTRACT_OP: 'substract_op',
-    SUBTRACT_ASSIGN_OP: 'substract_assign_op',
-    MULTIPLY_OP: 'multiply_op',
-    MULTIPLY_ASSIGN_OP: 'multiply_assign_op',
-    DIVIDE_OP: 'divide_op',
-    DIVIDE_ASSIGN_OP: 'divide_assign_op',
-    MODULO_OP: 'modulo_op',
-    MODULO_ASSIGN_OP: 'modulo_assign_op',
+    UNARY_OP: 'unary_op',
+    BINARY_OP: 'binary_op',
+    TERNARY_OP: 'ternary_op',
 };
 
 let tokens;
@@ -191,8 +168,217 @@ function parseType() {
     return type;
 }
 
-function parseValue(endTokenKind) {
+function nextOfKind(kind, start = index, end = tokens.length) {
+    for (let i = start; i < end; ++i) {
+        if (tokens[i].kind === kind) {
+            return i;
+        }
+    }
+}
 
+function parseValueRange(start, end) {
+    let opLevel = 0;
+    let opCount = 0;
+    let opIndex;
+    let parenCount = 0;
+    let opKind;
+    for (let i = start; i < end; ++i) {
+        const token = tokens[i];
+        switch (token.kind) {
+            case tokenKind.LEFT_PAREN:
+                ++parenCount;
+                break;
+            case tokenKind.RIGHT_PAREN:
+                if (parenCount-- == 0) {
+                    throw "unexpected ')'";
+                }
+                break;
+        }
+
+        if (parenCount > 0) {
+            continue;
+        }
+
+        ++opCount;
+
+        switch (token.kind) {
+            case tokenKind.ASSIGN:
+            case tokenKind.ADD_ASSIGN:
+            case tokenKind.SUBTRACT_ASSIGN:
+            case tokenKind.MULTIPLY_ASSIGN:
+            case tokenKind.DIVIDE_ASSIGN:
+            case tokenKind.MODULO_ASSIGN:
+                if (opLevel < 6) {
+                    opLevel = 6;
+                }
+                if (opLevel == 6) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            case tokenKind.EQUAL:
+            case tokenKind.NOT_EQUAL:
+                if (opLevel < 5) {
+                    opLevel = 5;
+                }
+                if (opLevel == 5) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            case tokenKind.LESS:
+            case tokenKind.LESS_EQUAL:
+            case tokenKind.GREATER:
+            case tokenKind.GREATER_EQUAL:
+                if (opLevel < 4) {
+                    opLevel = 4;
+                }
+                if (opLevel == 4) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            case tokenKind.ADD:
+            case tokenKind.SUBTRACT:
+                if (opLevel < 3) {
+                    opLevel = 3;
+                }
+                if (opLevel == 3) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            case tokenKind.MULTIPLY:
+            case tokenKind.DIVIDE:
+            case tokenKind.MODULO:
+                if (opLevel < 2) {
+                    opLevel = 2;
+                }
+                if (opLevel == 2) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            case tokenKind.NOT:
+                console.log('asdasdsd');
+                if (opLevel == 0) {
+                    opLevel = 1;
+                }
+                if (opLevel == 1) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            default:
+                --opCount;
+                break;
+        }
+    }
+
+    if (opCount > 0) {
+        let expr = {
+            kind: exprKind.BINARY_OP,
+            type: opKind,
+            lhs: parseValueRange(start, opIndex),
+        };
+        switch (opKind) {
+            case tokenKind.ASSIGN:
+            case tokenKind.ADD_ASSIGN:
+            case tokenKind.SUBTRACT_ASSIGN:
+            case tokenKind.MULTIPLY_ASSIGN:
+            case tokenKind.DIVIDE_ASSIGN:
+            case tokenKind.MODULO_ASSIGN:
+                if (expr.lhs.kind !== exprKind.VAR_USE) {
+                    throw "expected a mutable variable";
+                }
+                break;
+        }
+        expr.rhs = parseValueRange(opIndex + 1, end);
+        return expr;
+    } else {
+        let expr = {};
+        const token = tokens[start];
+
+        if (token.kind === tokenKind.LEFT_PAREN) {
+            if (tokens[end - 1].kind !== tokenKind.RIGHT_PAREN) {
+                throw "expected ')' after '('";
+            }
+            return parseValueRange(start + 1, end - 1);
+        }
+
+        if (token.kind !== tokenKind.IDENT &&
+            token.kind !== tokenKind.STRING_LIT &&
+            token.kind !== tokenKind.CHAR_LIT &&
+            token.kind !== tokenKind.INT_LIT &&
+            token.kind !== tokenKind.FLOAT_LIT &&
+            token.kind !== tokenKind.TRUE && 
+            token.kind !== tokenKind.FALSE && 
+            token.kind !== tokenKind.NONE) {
+            throw "expected identifier or value";
+        }
+
+        switch (tokens[start + 1].kind) {
+            case tokenKind.LEFT_PAREN:
+                expr.kind = exprKind.SUB_CALL;
+                expr.name = token.value;
+                expr.args = [];
+                const paren = nextOfKind(tokenKind.RIGHT_PAREN, start + 2);
+                if (paren === undefined) {
+                    throw "expected ')' after '('";
+                }
+                if (paren !== start + 2) {
+                    expr.args = [];
+                    let comma = nextOfKind(tokenKind.COMMA, start + 2, paren);
+                    let index = start + 2;
+                    while (comma !== undefined && comma + 1 < paren) {
+                        expr.args.push(parseValueRange(index, comma));
+                        index = comma + 1;
+                        comma = nextOfKind(tokenKind.COMMA, index, paren);
+                    }
+                    expr.args.push(parseValueRange(index, paren));
+                }
+                return expr;
+            default:
+                switch (token.kind) {
+                    case tokenKind.STRING_LIT:
+                        expr.kind = exprKind.STRING_LIT;
+                        expr.value = token.value;
+                        break;
+                    case tokenKind.CHAR_LIT:
+                        expr.kind = exprKind.CHAR_LIT;
+                        expr.value = token.value;
+                        break;
+                    case tokenKind.INT_LIT:
+                        expr.kind = exprKind.INT_LIT;
+                        expr.value = token.value;
+                        break;
+                    case tokenKind.FLOAT_LIT:
+                        expr.kind = exprKind.FLOAT_LIT;
+                        expr.value = token.value;
+                        break;
+                    case tokenKind.TRUE:
+                    case tokenKind.FALSE:
+                        expr.kind = exprKind.BOOL_LIT;
+                        expr.value = token.kind === tokenKind.TRUE;
+                        break;
+                    case tokenKind.NONE:
+                        expr.kind = exprKind.NONE_LIT;
+                        break;
+                    default:
+                        expr.kind = exprKind.VAR_USE;
+                        expr.name = token.value;
+                        break;
+                }
+                return expr;
+        }
+    }
+}
+
+function parseValue(endTokenKind) {
+    const end = nextOfKind(endTokenKind);
+    let expr = parseValueRange(index, end);
+    index = end;
+    return expr;
 }
 
 function parseLocal() {
@@ -204,15 +390,69 @@ function parseLocal() {
     switch (token.kind) {
         case tokenKind.IF:
             expr.kind = exprKind.IF;
-            expr.if = parseValue(tokenKind.LEFT_BRACE);
             token = nextToken();
-            expr.if
+            expr.if = {
+                cond: parseValue(tokenKind.LEFT_BRACE)
+            };
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'if' condition");
+            expr.if.body = parseBlock(true);
+            expr.elif = [];
+            while (1) {
+                token = tokens[index];
+                let should_break;
+                token = optionalToken(tokenKind.ELIF, () => {
+                    let elif = {
+                        cond: parseValue(tokenKind.LEFT_BRACE)
+                    };
+                    token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'elif' condition");
+                    elif.body = parseBlock(true);
+                    expr.elif.push(elif);
+                }, () => {
+                    should_break = true;
+                });
+                if (should_break) { break; }
+            }
+            token = optionalToken(tokenKind.ELSE, () => {
+                token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'else' condition");
+                expr.else = parseBlock(true);
+            });
             break;
-        case tokenKind.DO:
+        case tokenKind.LOOP:
+            expr.kind = exprKind.LOOP;
+            token = nextToken();
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'do' keyword");
+            expr.body = parseBlock(true);
             break;
         case tokenKind.WHILE:
+            expr.kind = exprKind.WHILE;
+            token = nextToken();
+            expr.cond = parseValue(tokenKind.LEFT_BRACE);
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'while' condition");
+            expr.body = parseBlock(true);
             break;
         case tokenKind.FOR:
+            expr.kind = exprKind.FOR;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected 'for' iteration variable name", () => {
+                expr.loop_var = token.value;
+            });
+            token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable name");
+            expr.cond = parseValue(tokenKind.COMMA);
+            token = expectToken(tokenKind.COMMA, "expected ',' after 'for' condition");
+            expr.next = parseValue(tokenKind.LEFT_BRACE);
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'for' next");
+            expr.body = parseBlock(true);
+            break;
+        case tokenKind.EACH:
+            expr.kind = exprKind.EACH;
+            token = nextToken();
+            token = expectToken(tokenKind.IDENT, "expected 'each' iteration variable name", () => {
+                expr.loop_var = token.value;
+            });
+            token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable name");
+            expr.iter = parseValue(tokenKind.LEFT_BRACE);
+            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'each' iterator");
+            expr.body = parseBlock(true);
             break;
         case tokenKind.MATCH:
             break;
@@ -221,8 +461,6 @@ function parseLocal() {
         case tokenKind.NEXT:
             break;
         case tokenKind.JUMP:
-            break;
-        case tokenKind.DELAY:
             break;
         default:
             throw `at ${token.index} expected item in local scope`;

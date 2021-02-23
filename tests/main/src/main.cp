@@ -30,15 +30,24 @@
 ` def SomeProp for SomeObject { }
 ```````````````````````````````````````````````` sub_def, arg
 sub foo(bar: i32) -> i32 {
-    if true {
-        
+    if !1 {
+
     }
+
+    ` if 0 { } elif 1 { } else { }
+    ` loop { }
+    ` while 1 { }
+    ` for i, i, i { }
+    ` each i, foo { }
+    ` match foo { case 0 { }, case 1 { }, }
+    ` back `bar foo;
+    ` next ~label;
+    ` jump ~label;
 }
 ```````````````````````````````````````````````` var_def
 ` bar: i32 = 1;
 ` bar := 1;
 
-
-`` add walrus to lexer
-`` add labels to parser
+`` add ~labels to parser
 `` add variables to parser
+`` a < b < c

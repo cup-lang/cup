@@ -5,31 +5,27 @@ f32: AddAssign<T>,
 }
 
 # Decide
-    arrays
+    array literals
     type aliases
     raw string literals
     exhaustive match by default
     compile time constantness (zig)
-    auto cleanup variable (tag?)
+    auto free variable tag name
+    delay/defer excecution tag name
     string interpolation
-
-# Changes
-    & -> and
-    | -> or
-    a < b < c
-    null -> none
 
 # Features
     generics<T>
     #tags
     ~labels
-    `comments`
+    `comments
+    $"{string} {interpolation}"
     |closures|
-    struct { field1 = 1, field2 = 2 }
+    SomeComp { field1 = 1, field2 = 2 }
     into<T> prop
 
 # Operator presedence
-    foo(), foo.bar, foo[], foo@, bar$, bar&
+    foo(), foo.bar, foo[], foo@, bar&
     !bar, -foo
     *, /, %
     +, -
@@ -40,11 +36,11 @@ f32: AddAssign<T>,
     ?
     =, +=, -=, *=, /=, %=, ^=
 
-# Keywords (avg ~3.74) (total 27)
+# Keywords (avg ~3.77) (total 26)
     (3) tag - defines a tag
     (3) mod - defines a module
     (3) use - use a certain module or item
-    (4) comp - defines a compund
+    (4) comp - defines a compound
     (4) enum - defines a enum
     (4) prop - defines a property
     (3) def - defines a property or subroutines for a struct/enum/union
@@ -52,21 +48,20 @@ f32: AddAssign<T>,
     (4) this - current instance
     (4) type - current type
     (5) where - constrains generics
-    (4) true
-    (5) false
-    (4) null - null pointer value
+    (4) true - true value
+    (5) false - false value
+    (4) none - none value
     (2) if
     (4) elif
     (4) else
-    (2) do - infinite loop
-    (5) while
-    (3) for - defines a for-loop
-    (2) in - used with "for"
+    (4) loop - infinite loop
+    (5) while - while loop
+    (3) for - for loop
+    (4) each - each loop
     (5) match
     (4) case - used inside "match"
     (4) back - returns from a loop/sub
     (4) next - continues the execution of a loop
-    (5) delay - delays the execution of a block
     (4) jump - jumps to the specified label
 
 # Basic types
@@ -79,17 +74,17 @@ f32: AddAssign<T>,
     any
     
 # Basic tags
-    #mut - marks item as mutable
+    #mut - marks "var" as mutable
     #pub - marks item as public
-    #inl - marks sub to be inlined by the compiler
+    #inl - marks "sub"/"var" to be inlined by the compiler
     #uni - unified "comp"
     #exh - exhaustive "match"
+    #del - delay execution of a "local"
     #self - marks sub to act on a instance
     #rest - marks arg as a rest arg
     #os(os_name: str)
     #def(def_name: str, value: int)
-    #if(def_name: str)
-    #if(def_name: str, value: int)
+    #if(def_name: str) #if(def_name: str, value: int)
     #bind(fn_name: str)
     #gen(gen_name: str)
     #req(header: str)
@@ -97,7 +92,7 @@ f32: AddAssign<T>,
 # Expressions
     literal: bool_lit, num_lit, char_lit, str_lit, null_lit, arr_lit, this_lit, type_lit
     value: op, sub_call, var_use, literal
-    local: if, elif, else, do, while, for, match, back, next, jump, delay, local_var_def, value
+    local: if, do, while, for, match, back, next, jump, delay, local_var_def, value
     global: use, mod, comp, enum, prop, def, sub_def, var_def
 
     tag:
@@ -124,7 +119,7 @@ f32: AddAssign<T>,
         name: str
         constr: arr<type>
 
-    struct:
+    comp:
         pub: bool
         uni: bool
         name: str
@@ -182,3 +177,117 @@ f32: AddAssign<T>,
 
     sub_call:
         type: type
+
+    var_use:
+        name: str
+
+    struct_inst:
+        type: type
+        args: arr<value>
+    
+    field_val:
+        name: str
+        value: value
+
+    loop:
+    block:
+        body: arr<local>
+
+    string_lit:
+    array_lit:
+        value: arr<value>
+
+    num_lit:
+        value: str
+
+    bool_lit:
+        value: bool
+
+    char_lit:
+        value: char
+
+    null_lit:
+    self_lit:
+
+    if:
+        if: while
+        elif: arr<while>
+        else: arr<local>
+
+    while:
+        cond: value
+        body: arr<local>
+
+    for:
+        loop_var: str
+        cond: value
+        next: value
+
+    each:
+        loop_var: str
+        iter: value
+
+    match:
+        value: value
+        body: arr<case>
+
+    case:
+        value: value
+        body: arr<case>
+
+    next:
+    jump:
+        label: str
+
+    back:
+        value: value
+    
+    defer:
+        body: arr<local>
+
+    cond_op:
+        cond: value
+        lhs: value
+        rhs: value
+    
+    range_op:
+    equal_op:
+    not_equal_op:
+    and_op:
+    or_op:
+    less_op:
+    less_equal_op:
+    greater_op:
+    greater_equal_op:
+    add_op:
+    sub_op:
+    mul_op:
+    div_op:
+    mod_op:
+    bit_and:
+    bit_or:
+    bit_xor:
+    left_shift:
+    right_shift:
+        lhs: value
+        rhs: value
+
+    deref_op:
+    address_op:
+    not_op:
+    bit_not:
+        val: value
+
+    assign_op:
+    add_assign_op:
+    sub_assign_op:
+    mul_assign_op:
+    div_assign_op:
+    mod_assign_op:
+    bit_and_assign:
+    bit_or_assign:
+    bit_xor_assign:
+    left_shift_assign:
+    right_shift_assign:
+        lhs: var_use
+        rhs: value
