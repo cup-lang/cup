@@ -80,7 +80,7 @@ function parseTags() {
     let tags = [];
 
     while (tokens[index].kind === tokenKind.HASH) {
-        let token = tokens[++index];
+        let token = nextToken();
         if (token.kind === tokenKind.IDENT) {
             let tag = {
                 kind: exprKind.TAG,
@@ -88,7 +88,7 @@ function parseTags() {
                 args: []
             };
 
-            token = tokens[++index];
+            token = nextToken();
             if (token.kind === tokenKind.LEFT_PAREN) {
                 while (1) {
                     token = tokens[++index];
@@ -153,24 +153,91 @@ function parseTags() {
     return tags;
 }
 
-function parseType() {
-    let type = { kind: exprKind.TYPE };
-
-    let token = tokens[index];
-
-    if (token.kind === tokenKind.IDENT) {
-        type.name = token.value;
-        nextToken();
+function parseLabel(optional) {
+    let label;
+    if (optional) {
+        optionalToken(tokenKind.TILDE, () => {
+            label = tokens[index].value;
+            nextToken();
+        });
     } else {
-        throw `at ${token.index} expected a type`;
+        expectToken(tokenKind.TILDE, "expected a label", () => {
+            nextToken();
+            label = tokens[index].value;
+        });
     }
-
-    return type;
+    return label;
 }
 
-function nextOfKind(kind, start = index, end = tokens.length) {
+function parsePath(start) {
+    let path = [];
+    let need_colon = false;
+    let i = start;
+    while (1) {
+        const token = tokens[i];
+        if (need_colon) {
+            if (token.kind === tokenKind.DOUBLE_COLON) {
+                need_colon = false;
+            } else {
+                return [path, i];
+            }
+        } else {
+            if (token.kind === tokenKind.IDENT) {
+                path.push(token.value);
+                need_colon = true;
+            } else if (path.length) {
+                throw "expected identifier after '::'";
+            } else {
+                return [path, i];
+            }
+        }
+        ++i;
+    }
+}
+
+function parseType() {
+    if (tokens[index].kind === tokenKind.IDENT) {
+        const [path, i] = parsePath(index);
+        index = i;
+        return {
+            kind: exprKind.TYPE,
+            path: path,
+        };
+    } else {
+        throw `at ${tokens[index].index} expected a type`;
+    }
+}
+
+function nextOfKind(target, start = index, end = tokens.length) {
+    let scope = 0;
     for (let i = start; i < end; ++i) {
-        if (tokens[i].kind === kind) {
+        const kind = tokens[i].kind;
+
+        switch (target) {
+            case tokenKind.RIGHT_PAREN:
+                if (kind === tokenKind.LEFT_PAREN) {
+                    ++scope; continue;
+                } else if (kind === target && scope > 0) {
+                    --scope; continue;
+                }
+                break;
+            case tokenKind.RIGHT_BRACE:
+                if (kind === tokenKind.LEFT_BRACE) {
+                    ++scope; continue;
+                } else if (kind === target && scope > 0) {
+                    --scope; continue;
+                }
+                break;
+            case tokenKind.RIGHT_BRACKET:
+                if (kind === tokenKind.LEFT_BRACKET) {
+                    ++scope; continue;
+                } else if (kind === target && scope > 0) {
+                    --scope; continue;
+                }
+                break;
+        }
+
+        if (kind === target) {
             return i;
         }
     }
@@ -203,11 +270,22 @@ function parseValueRange(start, end) {
 
         switch (token.kind) {
             case tokenKind.ASSIGN:
+            case tokenKind.DEREF_ASSIGN:
             case tokenKind.ADD_ASSIGN:
             case tokenKind.SUBTRACT_ASSIGN:
             case tokenKind.MULTIPLY_ASSIGN:
             case tokenKind.DIVIDE_ASSIGN:
             case tokenKind.MODULO_ASSIGN:
+                if (opLevel < 7) {
+                    opLevel = 7;
+                }
+                if (opLevel == 7) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            case tokenKind.AND:
+            case tokenKind.OR:
                 if (opLevel < 6) {
                     opLevel = 6;
                 }
@@ -259,8 +337,10 @@ function parseValueRange(start, end) {
                     opIndex = i;
                 }
                 break;
+            case tokenKind.DOT:
             case tokenKind.NOT:
-                console.log('asdasdsd');
+            case tokenKind.DEREF:
+            case tokenKind.ADDRESS:
                 if (opLevel == 0) {
                     opLevel = 1;
                 }
@@ -276,26 +356,33 @@ function parseValueRange(start, end) {
     }
 
     if (opCount > 0) {
-        let expr = {
-            kind: exprKind.BINARY_OP,
-            type: opKind,
-            lhs: parseValueRange(start, opIndex),
-        };
-        switch (opKind) {
-            case tokenKind.ASSIGN:
-            case tokenKind.ADD_ASSIGN:
-            case tokenKind.SUBTRACT_ASSIGN:
-            case tokenKind.MULTIPLY_ASSIGN:
-            case tokenKind.DIVIDE_ASSIGN:
-            case tokenKind.MODULO_ASSIGN:
-                if (expr.lhs.kind !== exprKind.VAR_USE) {
-                    throw "expected a mutable variable";
-                }
-                break;
+        let expr = { type: opKind };
+        if (opKind === tokenKind.NOT || opKind === tokenKind.DEREF || opKind === tokenKind.ADDRESS) {
+            expr.kind = exprKind.UNARY_OP;
+            expr.value = parseValueRange(start, opIndex);
+        } else {
+            expr.kind = exprKind.BINARY_OP;
+            expr.lhs = parseValueRange(start, opIndex);
+            switch (opKind) {
+                case tokenKind.ASSIGN:
+                case tokenKind.ADD_ASSIGN:
+                case tokenKind.SUBTRACT_ASSIGN:
+                case tokenKind.MULTIPLY_ASSIGN:
+                case tokenKind.DIVIDE_ASSIGN:
+                case tokenKind.MODULO_ASSIGN:
+                    if (expr.lhs.kind !== exprKind.VAR_USE) {
+                        throw "expected a mutable variable";
+                    }
+                    break;
+            }
+            expr.rhs = parseValueRange(opIndex + 1, end);
         }
-        expr.rhs = parseValueRange(opIndex + 1, end);
         return expr;
     } else {
+        if (start === end) {
+            throw "expected at least something";
+        }
+
         let expr = {};
         const token = tokens[start];
 
@@ -306,71 +393,71 @@ function parseValueRange(start, end) {
             return parseValueRange(start + 1, end - 1);
         }
 
-        if (token.kind !== tokenKind.IDENT &&
-            token.kind !== tokenKind.STRING_LIT &&
-            token.kind !== tokenKind.CHAR_LIT &&
-            token.kind !== tokenKind.INT_LIT &&
-            token.kind !== tokenKind.FLOAT_LIT &&
-            token.kind !== tokenKind.TRUE && 
-            token.kind !== tokenKind.FALSE && 
-            token.kind !== tokenKind.NONE) {
-            throw "expected identifier or value";
+        let is_path = 0;
+        switch (token.kind) {
+            case tokenKind.STRING_LIT:
+                expr.kind = exprKind.STRING_LIT;
+                expr.value = token.value;
+                break;
+            case tokenKind.CHAR_LIT:
+                expr.kind = exprKind.CHAR_LIT;
+                expr.value = token.value;
+                break;
+            case tokenKind.INT_LIT:
+                expr.kind = exprKind.INT_LIT;
+                expr.value = token.value;
+                break;
+            case tokenKind.FLOAT_LIT:
+                expr.kind = exprKind.FLOAT_LIT;
+                expr.value = token.value;
+                break;
+            case tokenKind.TRUE:
+            case tokenKind.FALSE:
+                expr.kind = exprKind.BOOL_LIT;
+                expr.value = token.kind === tokenKind.TRUE;
+                break;
+            case tokenKind.NONE:
+                expr.kind = exprKind.NONE_LIT;
+                break;
+            case tokenKind.IDENT:
+                is_path = 1;
+                break;
+            default:
+                throw "expected identifier or value";
         }
 
-        switch (tokens[start + 1].kind) {
-            case tokenKind.LEFT_PAREN:
+        let i = start + 1;
+        if (is_path === 1) {
+            [expr.path, i] = parsePath(start);
+            if (tokens[i].kind === tokenKind.LEFT_PAREN) {
                 expr.kind = exprKind.SUB_CALL;
-                expr.name = token.value;
                 expr.args = [];
-                const paren = nextOfKind(tokenKind.RIGHT_PAREN, start + 2);
+                const paren = nextOfKind(tokenKind.RIGHT_PAREN, ++i);
                 if (paren === undefined) {
                     throw "expected ')' after '('";
                 }
-                if (paren !== start + 2) {
+                if (paren !== i) {
                     expr.args = [];
-                    let comma = nextOfKind(tokenKind.COMMA, start + 2, paren);
-                    let index = start + 2;
+                    let comma = nextOfKind(tokenKind.COMMA, i + 1, paren);
                     while (comma !== undefined && comma + 1 < paren) {
-                        expr.args.push(parseValueRange(index, comma));
-                        index = comma + 1;
-                        comma = nextOfKind(tokenKind.COMMA, index, paren);
+                        expr.args.push(parseValueRange(i, comma));
+                        i = comma + 1;
+                        comma = nextOfKind(tokenKind.COMMA, i, paren);
                     }
-                    expr.args.push(parseValueRange(index, paren));
+                    expr.args.push(parseValueRange(i, paren));
                 }
-                return expr;
-            default:
-                switch (token.kind) {
-                    case tokenKind.STRING_LIT:
-                        expr.kind = exprKind.STRING_LIT;
-                        expr.value = token.value;
-                        break;
-                    case tokenKind.CHAR_LIT:
-                        expr.kind = exprKind.CHAR_LIT;
-                        expr.value = token.value;
-                        break;
-                    case tokenKind.INT_LIT:
-                        expr.kind = exprKind.INT_LIT;
-                        expr.value = token.value;
-                        break;
-                    case tokenKind.FLOAT_LIT:
-                        expr.kind = exprKind.FLOAT_LIT;
-                        expr.value = token.value;
-                        break;
-                    case tokenKind.TRUE:
-                    case tokenKind.FALSE:
-                        expr.kind = exprKind.BOOL_LIT;
-                        expr.value = token.kind === tokenKind.TRUE;
-                        break;
-                    case tokenKind.NONE:
-                        expr.kind = exprKind.NONE_LIT;
-                        break;
-                    default:
-                        expr.kind = exprKind.VAR_USE;
-                        expr.name = token.value;
-                        break;
-                }
-                return expr;
+                i = paren + 1;
+            } else {
+                expr.kind = exprKind.VAR_USE;
+            }
+            is_path = 0;
         }
+
+        if (i < end) {
+            throw "expected operator or ';'";
+        }
+
+        return expr;
     }
 }
 
@@ -382,19 +469,21 @@ function parseValue(endTokenKind) {
 }
 
 function parseLocal() {
-    let expr = {};
-    expr.tags = parseTags();
+    let expr = {
+        label: parseLabel(true),
+        tags: parseTags(),
+    };
 
     let token = tokens[index];
 
-    switch (token.kind) {
+    end: switch (token.kind) {
         case tokenKind.IF:
             expr.kind = exprKind.IF;
             token = nextToken();
             expr.if = {
                 cond: parseValue(tokenKind.LEFT_BRACE)
             };
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'if' condition");
+            token = nextToken();
             expr.if.body = parseBlock(true);
             expr.elif = [];
             while (1) {
@@ -404,7 +493,7 @@ function parseLocal() {
                     let elif = {
                         cond: parseValue(tokenKind.LEFT_BRACE)
                     };
-                    token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'elif' condition");
+                    token = nextToken();
                     elif.body = parseBlock(true);
                     expr.elif.push(elif);
                 }, () => {
@@ -427,7 +516,7 @@ function parseLocal() {
             expr.kind = exprKind.WHILE;
             token = nextToken();
             expr.cond = parseValue(tokenKind.LEFT_BRACE);
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'while' condition");
+            token = nextToken();
             expr.body = parseBlock(true);
             break;
         case tokenKind.FOR:
@@ -438,9 +527,9 @@ function parseLocal() {
             });
             token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable name");
             expr.cond = parseValue(tokenKind.COMMA);
-            token = expectToken(tokenKind.COMMA, "expected ',' after 'for' condition");
+            token = nextToken();
             expr.next = parseValue(tokenKind.LEFT_BRACE);
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'for' next");
+            token = nextToken();
             expr.body = parseBlock(true);
             break;
         case tokenKind.EACH:
@@ -451,19 +540,106 @@ function parseLocal() {
             });
             token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable name");
             expr.iter = parseValue(tokenKind.LEFT_BRACE);
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'each' iterator");
+            token = nextToken();
             expr.body = parseBlock(true);
             break;
         case tokenKind.MATCH:
+            expr.kind = exprKind.MATCH;
+            token = nextToken();
+            expr.value = parseValue(tokenKind.LEFT_BRACE);
+            token = nextToken();
+            expr.body = [];
+            while (1) {
+                let should_end;
+                token = optionalToken(tokenKind.RIGHT_BRACE, () => {
+                    should_end = true;
+                });
+                if (should_end) { break end; }
+                token = expectToken(tokenKind.CASE, "expected '{' after 'match' value");
+                let _case = {
+                    kind: exprKind.CASE,
+                    tags: parseTags()
+                };
+                _case.value = parseValue(tokenKind.LEFT_BRACE);
+                token = nextToken();
+                _case.body = parseBlock(true);
+                expr.body.push(_case);
+                let should_break;
+                token = optionalToken(tokenKind.COMMA, null, () => {
+                    should_break = true;
+                });
+                if (should_break) { break; }
+            }
             break;
         case tokenKind.BACK:
+            expr.kind = exprKind.BACK;
+            token = nextToken();
+            expr.target = parseLabel();
+            const semicolon = nextOfKind(tokenKind.SEMICOLON);
+            if (semicolon === undefined) {
+                throw "expected ';' after 'back' value(s)"
+            }
+            expr.values = [];
+            while (1) {
+                const comma = nextOfKind(tokenKind.COMMA, index, semicolon);
+                if (comma === undefined) {
+                    expr.values.push(parseValueRange(index, semicolon));
+                    break;
+                } else {
+                    expr.values.push(parseValueRange(index, comma));
+
+                    if (comma + 1 === semicolon) {
+                        token = nextToken();
+                        break;
+                    }
+                }
+                index = comma + 1;
+            }
+            index = semicolon;
+            token = nextToken();
             break;
         case tokenKind.NEXT:
+            expr.kind = exprKind.NEXT;
+            token = nextToken();
+            expr.target = parseLabel();
+            token = expectToken(tokenKind.SEMICOLON, "expected a ';' after 'next' label");
             break;
         case tokenKind.JUMP:
+            expr.kind = exprKind.JUMP;
+            token = nextToken();
+            expr.target = parseLabel();
+            token = expectToken(tokenKind.SEMICOLON, "expected a ';' after 'jump' label");
             break;
         default:
-            throw `at ${token.index} expected item in local scope`;
+            if (token.kind === tokenKind.IDENT && tokens[index + 1].kind === tokenKind.COLON || tokens[index + 1].kind === tokenKind.WALRUS) {
+                expr.kind = exprKind.LOCAL_VAR_DEF;
+                expr.name = token.value;
+                token = nextToken();
+                switch (token.kind) {
+                    case tokenKind.COLON:
+                        token = nextToken();
+                        expr.type = parseType();
+                        token = optionalToken(tokenKind.ASSIGN, () => {
+                            expr.value = parseValue(tokenKind.SEMICOLON);
+                        });
+                        break;
+                    case tokenKind.WALRUS:
+                        token = nextToken();
+                        expr.value = parseValue(tokenKind.SEMICOLON);
+                        break;
+                }
+                token = nextToken();
+            } else {
+                const value = parseValue(tokenKind.SEMICOLON);
+                if (value) {
+                    token = nextToken();
+                    value.label = expr.label;
+                    value.tags = expr.tags;
+                    return value;
+                } else {
+                    throw `at ${token.index} expected item in local scope`;
+                }
+            }
     }
 
     return expr;
@@ -512,7 +688,6 @@ function parseGlobal() {
                     kind: exprKind.FIELD,
                     tags: parseTags()
                 };
-                token = tokens[index];
                 token = expectToken(tokenKind.IDENT, "expected field name in 'comp' body", () => {
                     field.name = token.value;
                 });
@@ -673,22 +848,51 @@ function parseGlobal() {
                 }
                 token = expectToken(tokenKind.RIGHT_PAREN, "expected ')' after last arg");
             } while (0);
+            let parse_block;
             token = optionalToken(tokenKind.ARROW, () => {
-                expr.ret_type = parseType();
+                expr.backTypes = [];
+                while (1) {
+                    expr.backTypes.push(parseType());
+                    if (tokens[index].kind === tokenKind.COMMA) {
+                        token = nextToken();
+                        if (token.kind === tokenKind.LEFT_BRACE) {
+                            parse_block = true;
+                            break;
+                        }
+                        continue;
+                    } else if (tokens[index].kind === tokenKind.LEFT_BRACE) {
+                        parse_block = true;
+                        break;
+                    } else {
+                        throw "expected '{' after 'sub' back types";
+                    }
+                }
             });
-            token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'sub' args");
+            if (parse_block === undefined) {
+                token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'sub' args");
+            } else {
+                token = nextToken();
+            }
             expr.body = parseBlock(true);
             break;
-        // case VAR:
-        // expr.kind = E_VAR_DEF;
-        // NEXT_TOKEN;
-        // EXPECT_TOKEN(IDENT, "expected identifier after 'var' keyword", expr.u.var_def.name = token.value);
-        // EXPECT_TOKEN(COLON, "expected ':' after variable name", {});
-        // expr.u.var_def.type = parse_type(tokens, index);
-        // token = tokens.array[*index];
-        // expr.u.var_def.value = NULL;
-        // EXPECT_TOKEN(SEMICOLON, "expected ';' after variable declaration", {});
-        // break;
+        case tokenKind.IDENT:
+            expr.kind = exprKind.VAR_DEF;
+            expr.name = token.value;
+            token = nextToken();
+            const hasType = token.kind === tokenKind.COLON;
+            if (token.kind === tokenKind.COLON || token.kind === tokenKind.WALRUS) {
+                token = nextToken();
+                if (hasType) {
+                    expr.type = parseType();
+                    token = optionalToken(tokenKind.ASSIGN, () => {
+                        expr.value = parseValue(tokenKind.SEMICOLON);
+                    });
+                } else {
+                    expr.value = parseValue(tokenKind.SEMICOLON);
+                }
+                token = nextToken();
+                break;
+            }
         default:
             throw `at ${token.index} expected item in global scope`;
     }

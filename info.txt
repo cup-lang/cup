@@ -12,21 +12,20 @@ f32: AddAssign<T>,
     compile time constantness (zig)
     auto free variable tag name
     delay/defer excecution tag name
-    string interpolation
+    string interpolation 
+    solve a() == 1 | a() == 2 | a() == 3
 
 # Features
     generics<T>
     #tags
     ~labels
     `comments
-    $"{string} {interpolation}"
-    |closures|
     SomeComp { field1 = 1, field2 = 2 }
     into<T> prop
 
 # Operator presedence
-    foo(), foo.bar, foo[], foo@, bar&
-    !bar, -foo
+    foo[], (), foo()
+    foo.bar, foo@, foo$, foo!
     *, /, %
     +, -
     <, <=, >, >=
@@ -34,7 +33,7 @@ f32: AddAssign<T>,
     &
     |
     ?
-    =, +=, -=, *=, /=, %=, ^=
+    =, @=, +=, -=, *=, /=, %=
 
 # Keywords (avg ~3.77) (total 26)
     (3) tag - defines a tag
@@ -105,14 +104,11 @@ f32: AddAssign<T>,
         body: arr<global>
 
     use:
-        path: path
-
-    path:
-        child: path
+        path: arr<str>
 
     type:
         mut: bool
-        name: str
+        path: arr<str>
         gen_children: arr<type>
 
     constr_type:
@@ -155,7 +151,7 @@ f32: AddAssign<T>,
         name: str
         gen: arr<constr_type>
         args: arr<arg>
-        ret_type: type
+        backType: arr<type>
         body: arr<local>
 
     arg:
@@ -176,16 +172,17 @@ f32: AddAssign<T>,
         value: value
 
     sub_call:
-        type: type
+        path: arr<str>
+        args: arr<value>
 
     var_use:
-        name: str
+        path: arr<str>
 
-    struct_inst:
-        type: type
+    comp_inst:
+        path: arr<str>
         args: arr<value>
     
-    field_val:
+    field_inst:
         name: str
         value: value
 
@@ -237,13 +234,11 @@ f32: AddAssign<T>,
 
     next:
     jump:
-        label: str
+        target: str
 
     back:
-        value: value
-    
-    defer:
-        body: arr<local>
+        target: str
+        values: arr<value>
 
     cond_op:
         cond: value
@@ -264,19 +259,13 @@ f32: AddAssign<T>,
     mul_op:
     div_op:
     mod_op:
-    bit_and:
-    bit_or:
-    bit_xor:
-    left_shift:
-    right_shift:
         lhs: value
         rhs: value
 
     deref_op:
     address_op:
     not_op:
-    bit_not:
-        val: value
+        value: value
 
     assign_op:
     add_assign_op:
@@ -284,10 +273,5 @@ f32: AddAssign<T>,
     mul_assign_op:
     div_assign_op:
     mod_assign_op:
-    bit_and_assign:
-    bit_or_assign:
-    bit_xor_assign:
-    left_shift_assign:
-    right_shift_assign:
         lhs: var_use
         rhs: value

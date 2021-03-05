@@ -103,9 +103,7 @@ keywords = {
     'case': tokenKind.CASE,
     'back': tokenKind.BACK,
     'next': tokenKind.NEXT,
-    'jump': tokenKind.JUMP,
-    'and': tokenKind.AND,
-    'or': tokenKind.OR,
+    'jump': tokenKind.JUMP
 };
 
 function isWhitespace(c) { return c.charCodeAt() === 0 || /\s/.test(c); }
@@ -194,10 +192,10 @@ module.exports.lex = function (input) {
                     kind = tokenKind.SEMICOLON;
                     break;
                 case ':':
-                    if (value && i + 1 < input.length && input[i + 1] === ':') {
+                    if (i + 1 < input.length && input[i + 1] === ':') {
                         kind = tokenKind.DOUBLE_COLON;
                         ++i;
-                    } else if (value && i + 1 < input.length && input[i + 1] === ':') {
+                    } else if (i + 1 < input.length && input[i + 1] === '=') {
                         kind = tokenKind.WALRUS;
                         ++i;
                     }
@@ -257,8 +255,14 @@ module.exports.lex = function (input) {
                         kind = tokenKind.DEREF;
                     }
                     break;
-                case '&':
+                case '$':
                     kind = tokenKind.ADDRESS;
+                    break;
+                case '&':
+                    kind = tokenKind.AND;
+                    break;
+                case '|':
+                    kind = tokenKind.OR;
                     break;
                 case '=':
                     if (i + 1 < input.length && input[i + 1] === '=') {
