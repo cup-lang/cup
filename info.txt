@@ -4,17 +4,6 @@ f32: AddAssign<T>,
     
 }
 
-# Decide
-    array literals
-    type aliases
-    raw string literals
-    exhaustive match by default
-    compile time constantness (zig)
-    auto free variable tag name
-    delay/defer excecution tag name
-    string interpolation 
-    solve a() == 1 | a() == 2 | a() == 3
-
 # Features
     generics<T>
     #tags
@@ -42,7 +31,7 @@ f32: AddAssign<T>,
     (4) comp - defines a compound
     (4) enum - defines a enum
     (4) prop - defines a property
-    (3) def - defines a property or subroutines for a struct/enum/union
+    (3) def - defines a property or subroutines for a comp/enum
     (3) sub - defines a subroutine
     (4) this - current instance
     (4) type - current type
@@ -238,7 +227,7 @@ f32: AddAssign<T>,
 
     back:
         target: str
-        values: arr<value>
+        values: value
 
     cond_op:
         cond: value

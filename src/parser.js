@@ -463,6 +463,9 @@ function parseValueRange(start, end) {
 
 function parseValue(endTokenKind) {
     const end = nextOfKind(endTokenKind);
+    if (end === undefined) {
+        throw "expected endToken at the end";
+    }
     let expr = parseValueRange(index, end);
     index = end;
     return expr;
@@ -505,12 +508,14 @@ function parseLocal() {
                 token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'else' condition");
                 expr.else = parseBlock(true);
             });
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'if/elif/else' body");
             break;
         case tokenKind.LOOP:
             expr.kind = exprKind.LOOP;
             token = nextToken();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'do' keyword");
             expr.body = parseBlock(true);
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'loop' body");
             break;
         case tokenKind.WHILE:
             expr.kind = exprKind.WHILE;
@@ -518,6 +523,7 @@ function parseLocal() {
             expr.cond = parseValue(tokenKind.LEFT_BRACE);
             token = nextToken();
             expr.body = parseBlock(true);
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'while' body");
             break;
         case tokenKind.FOR:
             expr.kind = exprKind.FOR;
@@ -531,6 +537,7 @@ function parseLocal() {
             expr.next = parseValue(tokenKind.LEFT_BRACE);
             token = nextToken();
             expr.body = parseBlock(true);
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'for' body");
             break;
         case tokenKind.EACH:
             expr.kind = exprKind.EACH;
@@ -542,6 +549,7 @@ function parseLocal() {
             expr.iter = parseValue(tokenKind.LEFT_BRACE);
             token = nextToken();
             expr.body = parseBlock(true);
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'each' body");
             break;
         case tokenKind.MATCH:
             expr.kind = exprKind.MATCH;
@@ -570,6 +578,7 @@ function parseLocal() {
                 });
                 if (should_break) { break; }
             }
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'match' body");
             break;
         case tokenKind.BACK:
             expr.kind = exprKind.BACK;
@@ -577,24 +586,9 @@ function parseLocal() {
             expr.target = parseLabel();
             const semicolon = nextOfKind(tokenKind.SEMICOLON);
             if (semicolon === undefined) {
-                throw "expected ';' after 'back' value(s)"
+                throw "expected ';' after 'back' value"
             }
-            expr.values = [];
-            while (1) {
-                const comma = nextOfKind(tokenKind.COMMA, index, semicolon);
-                if (comma === undefined) {
-                    expr.values.push(parseValueRange(index, semicolon));
-                    break;
-                } else {
-                    expr.values.push(parseValueRange(index, comma));
-
-                    if (comma + 1 === semicolon) {
-                        token = nextToken();
-                        break;
-                    }
-                }
-                index = comma + 1;
-            }
+            expr.value = parseValueRange(index, semicolon);
             index = semicolon;
             token = nextToken();
             break;
@@ -669,6 +663,7 @@ function parseGlobal() {
             });
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'comp' name");
             expr.body = parseBlock();
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'mod' body");
             break;
         case tokenKind.COMP:
             expr.kind = exprKind.COMP;
@@ -701,6 +696,7 @@ function parseGlobal() {
                 if (should_break) { break; }
             }
             token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last field");
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'comp' body");
             break;
         case tokenKind.ENUM:
             expr.kind = exprKind.ENUM;
@@ -757,6 +753,7 @@ function parseGlobal() {
                 if (should_break) { break; }
             }
             token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last option");
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'enum' body");
             break;
         case tokenKind.TAG:
             expr.kind = exprKind.TAG_DEF;
@@ -802,6 +799,7 @@ function parseGlobal() {
             });
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'prop' name");
             expr.body = parseBlock();
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'prop' body");
             break;
         case tokenKind.DEF:
             expr.kind = exprKind.DEF;
@@ -811,6 +809,7 @@ function parseGlobal() {
             expr.target = parseType();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'def' target");
             expr.body = parseBlock();
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'def' body");
             break;
         case tokenKind.SUB:
             expr.kind = exprKind.SUB_DEF;
@@ -874,6 +873,7 @@ function parseGlobal() {
                 token = nextToken();
             }
             expr.body = parseBlock(true);
+            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'sub' body");
             break;
         case tokenKind.IDENT:
             expr.kind = exprKind.VAR_DEF;

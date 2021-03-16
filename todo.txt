@@ -1,0 +1,59 @@
+* try keyword
+* ret keyword
+* "back" -> "break"
+* comp inst
+* generics
+
+- cond op
+- subs only in defs
+- combo var_def
+- a < b < c
+
+? "back" or "break"
+? arrays, heap arrays?, growable heap arrays?
+? clojures
+? aliases, copy fields
+? remove "case" from "match"
+? defer, errdefer
+? naming conventions
+? comptime
+? raw string literals, string interpolation
+? auto-free tag
+? "yield", coroutines, generators
+
+enum MyError = Foo::SomeError + Bar::SomeError;
+
+enum MyError {
+    embed Foo::SomeError;
+    embed Foo::Bar::SomeError;
+    CustomError(x: int),
+} 
+
+comp SomeComp = (x: i32, y: i32);
+
+enum SomeEnum = (
+    Foo: (x: i32),
+    Bar: (x: i64, y: i64),
+);
+
+sub mult_ret_values: (x: i32, y: i32) -> (b: i32) = {
+    match foo {
+        
+    };
+};
+
+` a == (((((((a)))))))
+
+a := mult_ret_values + ;
+
+sub foo() -> res<{ x: i32, y: i32 }, MyError> {
+    ret Ok({ x = 1, y = 2 });
+}
+
+a, b := {
+    back (1, 2);
+}
+
+ret (1, 2); ` comp would be useful to give names
+ret (1, foo); ` comp still would be useful
+ret (foo, bar); ` comp might not be needed because of comp names
