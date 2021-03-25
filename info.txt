@@ -22,7 +22,7 @@ f32: AddAssign<T>,
     &
     |
     ?
-    =, @=, +=, -=, *=, /=, %=
+    :=, =, @=, +=, -=, *=, /=, %=
 
 # Keywords (avg ~3.77) (total 26)
     (3) tag - defines a tag
@@ -47,10 +47,10 @@ f32: AddAssign<T>,
     (3) for - for loop
     (4) each - each loop
     (5) match
-    (4) case - used inside "match"
-    (4) back - returns from a loop/sub
     (4) next - continues the execution of a loop
     (4) jump - jumps to the specified label
+    (3) ret - returns from a sub
+    (3) try - tries to unwrap a "res"
 
 # Basic types
     isize i8 i16 i32 i64, int = i32
@@ -62,7 +62,8 @@ f32: AddAssign<T>,
     any
     
 # Basic tags
-    #mut - marks "var" as mutable
+    #con - marks variable as constant
+    #cmp - marks expression as compile time
     #pub - marks item as public
     #inl - marks "sub"/"var" to be inlined by the compiler
     #uni - unified "comp"
@@ -219,15 +220,16 @@ f32: AddAssign<T>,
 
     case:
         value: value
-        body: arr<case>
+        body: arr<local>
 
     next:
     jump:
         target: str
 
-    back:
+    ret:
+    try:
         target: str
-        values: value
+        value: value
 
     cond_op:
         cond: value

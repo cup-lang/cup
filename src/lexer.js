@@ -28,10 +28,10 @@ const tokenKind = module.exports.tokenKind = {
     FOR: 'for',
     EACH: 'each',
     MATCH: 'match',
-    CASE: 'case',
-    BACK: 'back',
+    RET: 'ret',
     NEXT: 'next',
     JUMP: 'jump',
+    TRY: 'try',
 
     SEMICOLON: 'semicolon',
     COLON: 'colon',
@@ -100,10 +100,10 @@ keywords = {
     'for': tokenKind.FOR,
     'each': tokenKind.EACH,
     'match': tokenKind.MATCH,
-    'case': tokenKind.CASE,
-    'back': tokenKind.BACK,
+    'ret': tokenKind.RET,
     'next': tokenKind.NEXT,
-    'jump': tokenKind.JUMP
+    'jump': tokenKind.JUMP,
+    'try': tokenKind.TRY,
 };
 
 function isWhitespace(c) { return c.charCodeAt() === 0 || /\s/.test(c); }
