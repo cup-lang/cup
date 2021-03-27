@@ -75,7 +75,7 @@ const tokenKind = module.exports.tokenKind = {
     DIVIDE_ASSIGN: 'divide_assign',
     MODULO: 'modulo',
     MODULO_ASSIGN: 'modulo_assign'
-}
+};
 
 keywords = {
     'tag': tokenKind.TAG,
@@ -305,6 +305,7 @@ module.exports.lex = function (input) {
                     }
                     break;
                 case '-':
+                    kind = tokenKind.SUBTRACT;
                     if (i + 1 < input.length) {
                         switch (input[i + 1]) {
                             case '>':
@@ -316,8 +317,6 @@ module.exports.lex = function (input) {
                                 ++i;
                                 break;
                         }
-                    } else {
-                        kind = tokenKind.SUBTRACT;
                     }
                     break;
                 case '*':

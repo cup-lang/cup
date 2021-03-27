@@ -99,7 +99,7 @@ f32: AddAssign<T>,
     type:
         mut: bool
         path: arr<str>
-        gen_children: arr<type>
+        gens: arr<type>
 
     constr_type:
         name: str
@@ -109,13 +109,13 @@ f32: AddAssign<T>,
         pub: bool
         uni: bool
         name: str
-        gen: arr<constr_type>
+        gens: arr<constr_type>
         body: arr<field>
 
     enum:
         pub: bool
         name: str
-        gen: arr<constr_type>
+        gens: arr<constr_type>
         body: arr<option>
 
     option:
@@ -125,12 +125,12 @@ f32: AddAssign<T>,
     prop:
         pub: bool
         name: str
-        gen: arr<constr_type>
+        gens: arr<constr_type>
         body: arr<sub_def>
 
     def:
         pub: bool
-        gen: arr<constr_type>
+        gens: arr<constr_type>
         prop: type
         target: type
         body: arr<sub_def>
@@ -139,9 +139,9 @@ f32: AddAssign<T>,
         pub: bool
         inl: bool
         name: str
-        gen: arr<constr_type>
+        gens: arr<constr_type>
         args: arr<arg>
-        backType: arr<type>
+        retType: arr<type>
         body: arr<local>
 
     arg:
@@ -170,15 +170,11 @@ f32: AddAssign<T>,
 
     comp_inst:
         path: arr<str>
-        args: arr<value>
+        args: arr<field_inst>
     
     field_inst:
         name: str
         value: value
-
-    loop:
-    block:
-        body: arr<local>
 
     string_lit:
     array_lit:
@@ -196,6 +192,10 @@ f32: AddAssign<T>,
     null_lit:
     self_lit:
 
+    loop:
+    block:
+        body: arr<local>
+
     if:
         if: while
         elif: arr<while>
@@ -209,10 +209,12 @@ f32: AddAssign<T>,
         loop_var: str
         cond: value
         next: value
+        body: arr<local>
 
     each:
         loop_var: str
         iter: value
+        body: arr<local>
 
     match:
         value: value

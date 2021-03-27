@@ -1,6 +1,6 @@
 const tokenKind = require('./lexer.js').tokenKind;
 
-const exprKind = {
+const exprKind = module.exports.exprKind = {
     TAG: 'tag',
     TYPE: 'type',
     CONSTR_TYPE: 'constr_type',
@@ -170,8 +170,31 @@ function parseLabel(optional) {
     return label;
 }
 
+function parseGenerics() {
+    let gens = [];
+    if (tokens[index].kind === tokenKind.LESS) {
+        nextToken();
+        while (1) {
+            let should_break;
+            optionalToken(tokenKind.GREATER, () => {
+                should_break = true;
+            }, null);
+            if (should_break) { break; }
+            expectToken(tokenKind.IDENT, "expected a ident for a generic thing", () => {
+                gens.push({
+                    kind: exprKind.CONSTR_TYPE,
+                    name: tokens[index].value,
+                });
+            });
+            optionalToken(tokenKind.COMMA, null, null);
+        }
+    }
+    return gens;
+}
+
 function parsePath(start) {
     let path = [];
+    let gens = [];
     let need_colon = false;
     let i = start;
     while (1) {
@@ -179,8 +202,23 @@ function parsePath(start) {
         if (need_colon) {
             if (token.kind === tokenKind.DOUBLE_COLON) {
                 need_colon = false;
-            } else {
-                return [path, i];
+            } else if (token.kind === tokenKind.LESS) {
+                index = i;
+                nextToken();
+                while (1) {
+                    let should_break;
+                    optionalToken(tokenKind.GREATER, () => {
+                        should_break = true;
+                    }, null);
+                    if (should_break) { break; }
+                    gens.push(parseType());
+                    optionalToken(tokenKind.COMMA, null, null);
+                }
+                i = index;
+                return [path, gens, i];
+            }
+            else {
+                return [path, gens, i];
             }
         } else {
             if (token.kind === tokenKind.IDENT) {
@@ -189,7 +227,7 @@ function parsePath(start) {
             } else if (path.length) {
                 throw "expected identifier after '::'";
             } else {
-                return [path, i];
+                return [path, gens, i];
             }
         }
         ++i;
@@ -198,11 +236,12 @@ function parsePath(start) {
 
 function parseType() {
     if (tokens[index].kind === tokenKind.IDENT) {
-        const [path, i] = parsePath(index);
+        const [path, gens, i] = parsePath(index);
         index = i;
         return {
             kind: exprKind.TYPE,
             path: path,
+            gens: gens,
         };
     } else {
         throw `at ${tokens[index].index} expected a type`;
@@ -210,36 +249,30 @@ function parseType() {
 }
 
 function nextOfKind(target, start = index, end = tokens.length) {
-    let scope = 0;
+    let scopes = [0, 0, 0];
     for (let i = start; i < end; ++i) {
         const kind = tokens[i].kind;
 
-        switch (target) {
-            case tokenKind.RIGHT_PAREN:
-                if (kind === tokenKind.LEFT_PAREN) {
-                    ++scope; continue;
-                } else if (kind === target && scope > 0) {
-                    --scope; continue;
-                }
-                break;
-            case tokenKind.RIGHT_BRACE:
-                if (kind === tokenKind.LEFT_BRACE) {
-                    ++scope; continue;
-                } else if (kind === target && scope > 0) {
-                    --scope; continue;
-                }
-                break;
-            case tokenKind.RIGHT_BRACKET:
-                if (kind === tokenKind.LEFT_BRACKET) {
-                    ++scope; continue;
-                } else if (kind === target && scope > 0) {
-                    --scope; continue;
-                }
-                break;
+        if (kind === target && scopes[0] === 0 && scopes[1] === 0 && scopes[2] === 0) {
+            return i;
         }
 
-        if (kind === target) {
-            return i;
+        if (kind === tokenKind.LEFT_PAREN) {
+            ++scopes[0]; continue;
+        } else if (kind === tokenKind.RIGHT_PAREN) {
+            --scopes[0]; continue;
+        }
+
+        if (kind === tokenKind.LEFT_BRACE) {
+            ++scopes[1]; continue;
+        } else if (kind === tokenKind.RIGHT_BRACE) {
+            --scopes[1]; continue;
+        }
+
+        if (kind === tokenKind.LEFT_BRACKET) {
+            ++scopes[2]; continue;
+        } else if (kind === tokenKind.RIGHT_BRACKET) {
+            --scopes[2]; continue;
         }
     }
 }
@@ -270,8 +303,6 @@ function parseValueRange(start, end) {
         ++opCount;
 
         switch (token.kind) {
-            case tokenKind.COLON:
-            case tokenKind.WALRUS:
             case tokenKind.ASSIGN:
             case tokenKind.DEREF_ASSIGN:
             case tokenKind.ADD_ASSIGN:
@@ -367,14 +398,12 @@ function parseValueRange(start, end) {
             expr.kind = exprKind.BINARY_OP;
             expr.lhs = parseValueRange(start, opIndex);
             switch (opKind) {
-                case tokenKind.WALRUS:
                 case tokenKind.ASSIGN:
                 case tokenKind.ADD_ASSIGN:
                 case tokenKind.SUBTRACT_ASSIGN:
                 case tokenKind.MULTIPLY_ASSIGN:
                 case tokenKind.DIVIDE_ASSIGN:
                 case tokenKind.MODULO_ASSIGN:
-                    console.log(expr.lhs);
                     if (expr.lhs.kind !== exprKind.VAR_USE && expr.lhs.type !== tokenKind.COLON) {
                         throw "expected a mutable variable";
                     }
@@ -427,6 +456,7 @@ function parseValueRange(start, end) {
                     token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'else' condition");
                     expr.else = parseBlock(true);
                 });
+                console.log(index);
                 break;
             case tokenKind.LOOP:
                 expr.kind = exprKind.LOOP;
@@ -507,7 +537,6 @@ function parseValueRange(start, end) {
                 }
                 expr.value = parseValueRange(index, semicolon);
                 index = semicolon;
-                token = nextToken();
                 break;
             case tokenKind.NEXT:
                 expr.kind = exprKind.NEXT;
@@ -560,7 +589,7 @@ function parseValueRange(start, end) {
                 break;
             case tokenKind.IDENT:
                 let i = start + 1;
-                [expr.path, i] = parsePath(start);
+                [expr.path, expr.gens, i] = parsePath(start);
                 if (tokens[i].kind === tokenKind.LEFT_PAREN) {
                     expr.kind = exprKind.SUB_CALL;
                     expr.args = [];
@@ -606,7 +635,30 @@ function parseValue(endTokenKind) {
 }
 
 function parseLocal() {
-    const expr = parseValue(tokenKind.SEMICOLON);
+    let expr = {};
+    if (tokens[index + 1].kind === tokenKind.COLON || tokens[index + 1].kind === tokenKind.WALRUS) {
+        expr.kind = exprKind.LOCAL_VAR_DEF;
+        let token = tokens[index];
+        expr.name = token.value;
+        token = nextToken();
+        switch (token.kind) {
+            case tokenKind.COLON:
+                token = nextToken();
+                expr.type = parseType();
+                token = optionalToken(tokenKind.ASSIGN, () => {
+                    expr.value = parseValue(tokenKind.SEMICOLON);
+                });
+                break;
+            case tokenKind.WALRUS:
+                token = nextToken();
+                expr.value = parseValue(tokenKind.SEMICOLON);
+                break;
+        }
+        token = nextToken();
+        return expr;
+    }
+
+    expr = parseValue(tokenKind.SEMICOLON);
     nextToken();
     return expr;
 
@@ -788,6 +840,8 @@ function parseLocal() {
 }
 
 function parseGlobal() {
+    console.log(index);
+
     let expr = {};
     expr.tags = parseTags();
 
@@ -818,6 +872,7 @@ function parseGlobal() {
             token = expectToken(tokenKind.IDENT, "expected identifier after 'comp' keyword", () => {
                 expr.name = token.value;
             });
+            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'comp' name");
             expr.body = [];
             while (1) {
@@ -843,7 +898,6 @@ function parseGlobal() {
                 if (should_break) { break; }
             }
             token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last field");
-            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'comp' body");
             break;
         case tokenKind.ENUM:
             expr.kind = exprKind.ENUM;
@@ -900,7 +954,6 @@ function parseGlobal() {
                 if (should_break) { break; }
             }
             token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last option");
-            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'enum' body");
             break;
         case tokenKind.TAG:
             expr.kind = exprKind.TAG_DEF;
@@ -936,7 +989,6 @@ function parseGlobal() {
                 if (should_break) { break; }
             }
             token = expectToken(tokenKind.RIGHT_PAREN, "expected ')' after last arg");
-            token = expectToken(tokenKind.SEMICOLON, "expected ';' after tag args");
             break;
         case tokenKind.PROP:
             expr.kind = exprKind.PROP;
@@ -946,7 +998,6 @@ function parseGlobal() {
             });
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'prop' name");
             expr.body = parseBlock();
-            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'prop' body");
             break;
         case tokenKind.DEF:
             expr.kind = exprKind.DEF;
@@ -956,7 +1007,6 @@ function parseGlobal() {
             expr.target = parseType();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'def' target");
             expr.body = parseBlock();
-            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'def' body");
             break;
         case tokenKind.SUB:
             expr.kind = exprKind.SUB_DEF;
@@ -996,9 +1046,9 @@ function parseGlobal() {
             } while (0);
             let parse_block;
             token = optionalToken(tokenKind.ARROW, () => {
-                expr.backTypes = [];
+                expr.retTypes = [];
                 while (1) {
-                    expr.backTypes.push(parseType());
+                    expr.retTypes.push(parseType());
                     if (tokens[index].kind === tokenKind.COMMA) {
                         token = nextToken();
                         if (token.kind === tokenKind.LEFT_BRACE) {
@@ -1020,7 +1070,6 @@ function parseGlobal() {
                 token = nextToken();
             }
             expr.body = parseBlock(true);
-            token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'sub' body");
             break;
         case tokenKind.IDENT:
             expr.kind = exprKind.VAR_DEF;

@@ -1,7 +1,9 @@
 const fs = require('fs');
 const { stdout } = require('process');
+const { exec } = require("child_process");
 const lexer = require('./lexer.js');
 const parser = require('./parser.js');
+const cgen = require('./cgen.js');
 
 function lex_parse_recursive(path) {
     const files = fs.readdirSync(path, { withFileTypes: true });
@@ -18,6 +20,10 @@ function lex_parse_recursive(path) {
             const ast = parser.parse(tokens);
             stdout.write('AST: ');
             console.dir(ast, { depth: null });
+            const c = cgen.generate(ast);
+            console.log('C:', c);
+            fs.writeFileSync('out.c', c);
+            exec('rm out && cc out.c -o out');
         }
     }
 }
