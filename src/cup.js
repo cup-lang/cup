@@ -1,31 +1,42 @@
 const fs = require('fs');
 const { stdout } = require('process');
-const { exec } = require("child_process");
 const lexer = require('./lexer.js');
 const parser = require('./parser.js');
 const cgen = require('./cgen.js');
 
-function lex_parse_recursive(path) {
+function compileRecursive(mods, path) {
     const files = fs.readdirSync(path, { withFileTypes: true });
+    let allAst = [];
     for (let i = 0; i < files.length; ++i) {
-        const file = files[i];
+        let file = files[i];
         if (file.isDirectory()) {
-            lex_parse_recursive(path + '/' + file.name);
+            const ast = compileRecursive(mods.concat(file.name), path + '/' + file.name);
+            allAst = allAst.concat(ast);
         } else {
-            const contents = fs.readFileSync(path + '/' + file.name).toString();
-            console.log('````````````````````````````````````````');
-            console.log('File:', file.name);
+            file = path + '/' + file.name;
+            const contents = fs.readFileSync(file).toString();
             const tokens = lexer.lex(contents);
-            console.log('Tokens:', tokens);
-            const ast = parser.parse(tokens);
-            stdout.write('AST: ');
-            console.dir(ast, { depth: null });
-            const c = cgen.generate(ast);
-            console.log('C:', c);
-            fs.writeFileSync('out.c', c);
-            exec('rm out && cc out.c -o out');
+            let ast = parser.parse(tokens);
+            if (mods.length) {
+                ast = {
+                    kind: parser.exprKind.MOD,
+                    name: mods[mods.length - 1],
+                    body: ast
+                };
+            }
+            allAst = allAst.concat(ast);
+
+            // console.log('````````````````````````````````````````');
+            // console.log('File:', file);
+            // console.log('Tokens:', tokens);
+            // stdout.write('AST: ');
+            // console.dir(ast, { depth: null });
         }
     }
+    return allAst;
 }
 
-lex_parse_recursive('tests/main/src');
+let ast = compileRecursive([], 'tests/main/src');
+console.dir(ast, { depth: null });
+const c = cgen.generate(ast);
+fs.writeFileSync('out.c', c);

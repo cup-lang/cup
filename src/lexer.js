@@ -121,6 +121,33 @@ function addToValue(is_literal, value, char) {
     return value + char;
 }
 
+function isBinaryOperator(token) {
+    return token.kind === tokenKind.LEFT_PAREN ||
+        token.kind === tokenKind.WALRUS ||
+        token.kind === tokenKind.DEREF_ASSIGN ||
+        token.kind === tokenKind.RANGE ||
+        token.kind === tokenKind.RANGE_INCL ||
+        token.kind === tokenKind.ASSIGN ||
+        token.kind === tokenKind.EQUAL ||
+        token.kind === tokenKind.NOT_EQUAL ||
+        token.kind === tokenKind.AND ||
+        token.kind === tokenKind.OR ||
+        token.kind === tokenKind.LESS ||
+        token.kind === tokenKind.LESS_EQUAL ||
+        token.kind === tokenKind.GREATER ||
+        token.kind === tokenKind.GREATER_EQUAL ||
+        token.kind === tokenKind.ADD ||
+        token.kind === tokenKind.ADD_ASSIGN ||
+        token.kind === tokenKind.SUBTRACT ||
+        token.kind === tokenKind.SUBTRACT_ASSIGN ||
+        token.kind === tokenKind.MULTIPLY ||
+        token.kind === tokenKind.MULTIPLY_ASSIGN ||
+        token.kind === tokenKind.DIVIDE ||
+        token.kind === tokenKind.DIVIDE_ASSIGN ||
+        token.kind === tokenKind.MODULO ||
+        token.kind === tokenKind.MODULO_ASSIGN;
+}
+
 module.exports.lex = function (input) {
     let tokens = [];
     let is_comment = 0;
@@ -305,6 +332,9 @@ module.exports.lex = function (input) {
                     }
                     break;
                 case '-':
+                    if (isBinaryOperator(tokens[tokens.length - 1]) && isNumeric(input[i + 1])) {
+                        break;
+                    }
                     kind = tokenKind.SUBTRACT;
                     if (i + 1 < input.length) {
                         switch (input[i + 1]) {
@@ -347,8 +377,8 @@ module.exports.lex = function (input) {
         }
 
         if (kind === null) {
-            if (char === '_' || char === '.' || char === ':' || isAlphaNumeric(char)) {
-                if (value.length === 0 && isNumeric(char)) {
+            if (char === '-' || char === '_' || char === '.' || char === ':' || isAlphaNumeric(char)) {
+                if (value.length === 0 && isNumeric(char) || char === '-') {
                     is_literal = 5;
                 }
                 else if (is_literal === 5 || is_literal === 6) {

@@ -42,17 +42,23 @@
 ` }
 ` 
 ` comp string = arr<u8>;
-` 
-` #req("math.h") #bind("abs") 
-sub abs(n: int) -> int {
-    if (n >= 0) {
-        ret n;
-    } else {
-        ret (n * (0 - 1));
-    };
+
+comp Abc<T> {
+    a: T,
+    b: int,
 }
 
-sub main() -> i32 {
-    a: int = abs((0 - 1) * 42);
-    printf("Hello Cup: %i\n", a);
-}
+` comp,enum,prop,def,sub_def
+`1. When generating generate a version for every generic combination used 
+
+` #req("stdint.h") #req("stdio.h") mod _ {};
+
+` sub main() -> int {
+    ` generics
+    ` casting
+
+    a: Abc<i32>;
+
+    ` a: int = 123;
+    ` printf("Hello Cup: %i\n", a);
+` }

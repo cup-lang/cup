@@ -1,5 +1,6 @@
 - fix bad parsing of flow control
 - fix left to right for assign
+- fix '`'
 - comp inst
 - tuples
 - cond op
