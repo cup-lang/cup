@@ -1,58 +1,107 @@
 const tokenKind = require('./lexer.js').tokenKind;
 const exprKind = require('./parser.js').exprKind;
+const gens = require('./analyzer.js').gens;
 
 let output;
 let mods;
-let gens;
+let genNames;
 let reqs;
 let binds;
 
-function generateType(type) {
+function generateType(type, raw) {
+    const gen = genNames[type.path.join('_')];
+    type = gen ? gen : type;
+
     if (type === undefined) {
         output += 'void';
         return;
     }
 
-    type = type.path[0];
-    if (type === 'i32') {
-        output += 'int32_t';
+    let path = type.path[0];
+    if (!raw) {
+        if (path === 'i32') {
+            output += 'int32_t';
+            return;
+        }
+        else if (path === 'f32') {
+            output += 'float';
+            return;
+        }
+        else if (path === 'i8') {
+            output += 'int8_t';
+            return;
+        }
+        else if (path === 'f64') {
+            output += 'double';
+            return;
+        }
+        else if (path === 'u32') {
+            output += 'uint32_t';
+            return;
+        }
+        else if (path === 'i64') {
+            output += 'int64_t';
+            return;
+        }
+        else if (path === 'i16') {
+            output += 'int16_t';
+            return;
+        }
+        else if (path === 'u8') {
+            output += 'uint8_t';
+            return;
+        }
+        else if (path === 'u64') {
+            output += 'uint64_t';
+            return;
+        }
+        else if (path === 'u16') {
+            output += 'uint16_t';
+            return;
+        }
     }
-    else if (type === 'f32') {
-        output += 'float';
-    }
-    else if (type === 'i8') {
-        output += 'int8_t';
-    }
-    else if (type === 'f64') {
-        output += 'double';
-    }
-    else if (type === 'u32') {
-        output += 'uint32_t';
-    }
-    else if (type === 'i64') {
-        output += 'int64_t';
-    }
-    else if (type === 'i16') {
-        output += 'int16_t';
-    }
-    else if (type === 'u8') {
-        output += 'uint8_t';
-    }
-    else if (type === 'u64') {
-        output += 'uint64_t';
-    }
-    else if (type === 'u16') {
-        output += 'uint16_t';
-    }
-    else {
-        output += type;
+    output += type.path.join('_');
+    for (let i = 0; i < type.gens.length; ++i) {
+        output += '_';
+        generateType(type.gens[i], true);
     }
 }
 
-function registerGenericUse(type) {
-    if (type.gens.length) {
-        gens[type.path.join('_')] = type.gens;
+function generateGeneric(expr, gen, how) {
+    if (expr.gen.length) {
+        gen = gen || [];
+        for (let i = 0; i < gen.length; ++i) {
+            let oldGens = Object.assign({}, genNames);
+            for (let ii = 0; ii < expr.gen.length; ++ii) {
+                genNames[expr.gen[ii].name] = gen[i][ii];
+            }
+            how(gen[i]);
+            genNames = oldGens;
+        }
+    } else {
+        how();
     }
+}
+
+function generateGenericNamePart(type) {
+    let name = type.path.join('_');
+    for (let i = 0; i < type.gens.length; ++i) {
+        name += '_';
+        name += generateGenericNamePart(type.gens[i]);
+    }
+    return name;
+}
+
+function generateGenericName(gens) {
+    if (!gens) {
+        return '';
+    }
+    let name = '';
+    for (let i = 0; i < gens.length; ++i) {
+        name += '_';
+        name += generateGenericNamePart(gens[i]);
+    }
+    return name;
 }
 
 function generateExpr(expr, last, semicolon, parenths) {
@@ -77,35 +126,38 @@ function generateExpr(expr, last, semicolon, parenths) {
             break;
         case exprKind.MOD:
             mods.push(expr.name);
-            generateVector(expr.body, 0, 0);
+            generateBlock(expr.body, 0, 0);
             mods.pop();
             break;
         case exprKind.COMP: {
             let name = mods.concat(expr.name).join('_');
-            let gen = gens[name];
-            console.log(gen);
-            output += 'typedef struct {';
-            generateVector(expr.body, 1, 0);
-            output += `} ${name};`;
+            generateGeneric(expr, gens[name], (gen) => {
+                output += 'typedef struct {';
+                generateBlock(expr.body, 1, 0);
+                output += `} ${name + generateGenericName(gen)};`;
+            });
             break;
         }
         case exprKind.ENUM: {
-            generateVector(expr.body, 1, 0);
             let name = mods.concat(expr.name).join('_');
-            output += `union ${name} {`;
-            for (let i = 0; i < expr.body.length; ++i) {
-                output += `struct ${expr.body[i].name} u${i};`;
-            }
-            output += `};\n`;
-            output += 'typedef struct {\n';
-            output += '    int type;\n';
-            output += `    union ${name} u;\n`;
-            output += `} ${name};`;
+            generateGeneric(expr, gens[name], (gen) => {
+                let gname = name + generateGenericName(gen);
+                generateBlock(expr.body, 1, 0);
+                output += `union ${gname} {`;
+                for (let i = 0; i < expr.body.length; ++i) {
+                    output += `struct ${gname + '_' + expr.body[i].name} u${i};`;
+                }
+                output += `};\n`;
+                output += 'typedef struct {\n';
+                output += '    int type;\n';
+                output += `    union ${gname} u;\n`;
+                output += `} ${gname};`;
+            });
             break;
         }
         case exprKind.OPTION:
             output += `struct ${expr.name} {`;
-            generateVector(expr.body, 1, 0);
+            generateBlock(expr.body, 1, 0);
             output += '}';
             break;
         case exprKind.OPTION_FIELD:
@@ -119,17 +171,18 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.SUB_DEF: {
             let name = mods.concat(expr.name).join('_');
             if (binds[name]) { break; }
-            generateType(expr.retTypes[0]);
-            output += ` ${name}(`;
-            generateVector(expr.args, 0, 0);
-            output += ') {';
-            generateVector(expr.body, 1, 0);
-            output += '};';
+            generateGeneric(expr, gens[name], (gen) => {
+                generateType(expr.retTypes[0]);
+                output += ` ${name + generateGenericName(gen)}(`;
+                generateBlock(expr.args, 0, 0);
+                output += ') {';
+                generateBlock(expr.body, 1, 0);
+                output += '};';
+            });
             break;
         }
         case exprKind.FIELD:
         case exprKind.ARG:
-            registerGenericUse(expr.type);
             generateType(expr.type);
             output += ` ${expr.name}`;
             if (semicolon) {
@@ -141,7 +194,6 @@ function generateExpr(expr, last, semicolon, parenths) {
             break;
         case exprKind.VAR_DEF:
         case exprKind.LOCAL_VAR_DEF:
-            registerGenericUse(expr.type);
             generateType(expr.type);
             output += ` ${mods.concat(expr.name).join('_')}`;
             if (expr.value) {
@@ -154,7 +206,7 @@ function generateExpr(expr, last, semicolon, parenths) {
             let path = expr.path.join('_');
             let bind = binds[path];
             output += `${bind ? bind : path}(`;
-            generateVector(expr.args, 0, 1);
+            generateBlock(expr.args, 0, 1);
             output += ')';
             if (semicolon) {
                 output += ';';
@@ -188,37 +240,37 @@ function generateExpr(expr, last, semicolon, parenths) {
             break;
         case exprKind.BLOCK:
             output += '{';
-            generateVector(expr.body, 1, 0);
+            generateBlock(expr.body, 1, 0);
             output += '}';
             break;
         case exprKind.LOOP:
             output += 'for(;;) {';
-            generateVector(expr.body, 1, 0);
+            generateBlock(expr.body, 1, 0);
             output += '}';
             break;
         case exprKind.WHILE:
             output += 'while(';
             generateExpr(expr.cond, 0, 0, 0);
             output += ') {';
-            generateVector(expr.body, 1, 0);
+            generateBlock(expr.body, 1, 0);
             output += '}';
             break;
         case exprKind.IF:
             output += 'if (';
             generateExpr(expr.if.cond, 0, 0, 0);
             output += ') {';
-            generateVector(expr.if.body, 1, 0);
+            generateBlock(expr.if.body, 1, 0);
             output += '}';
             for (let i = 0; i < expr.elif.length; ++i) {
                 output += ' else if (';
                 generateExpr(expr.elif[i].cond, 0, 0, 0);
                 output += ') {';
-                generateVector(expr.elif[i].body, 1, 0);
+                generateBlock(expr.elif[i].body, 1, 0);
                 output += '}';
             }
             if (expr.else) {
                 output += ' else {';
-                generateVector(expr.else, 1, 0);
+                generateBlock(expr.else, 1, 0);
                 output += '}';
             }
             break;
@@ -228,7 +280,7 @@ function generateExpr(expr, last, semicolon, parenths) {
             output += ';';
             generateExpr(expr.next, 0, 0, 0);
             output += ') {';
-            generateVector(expr.body, 1, 0);
+            generateBlock(expr.body, 1, 0);
             output += '}';
             break;
         case exprKind.EACH:
@@ -344,7 +396,7 @@ function generateExpr(expr, last, semicolon, parenths) {
     }
 }
 
-function generateVector(exprs, semicolon, comma) {
+function generateBlock(exprs, semicolon, comma) {
     for (let i = 0; i < exprs.length; ++i) {
         let is_last = i + 1 === exprs.length;
         generateExpr(exprs[i], is_last, semicolon, 0);
@@ -357,10 +409,10 @@ function generateVector(exprs, semicolon, comma) {
 module.exports.generate = function (ast) {
     output = '';
     mods = [];
-    gens = {};
+    genNames = {};
     reqs = [];
     binds = {};
-    generateVector(ast, 0, 0);
+    generateBlock(ast, 0, 0);
     for (let i = 0; i < reqs.length; ++i) {
         reqs[i] = `#include <${reqs[i]}>\n`;
     }

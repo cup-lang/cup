@@ -2,6 +2,7 @@ const fs = require('fs');
 const { stdout } = require('process');
 const lexer = require('./lexer.js');
 const parser = require('./parser.js');
+const analyzer = require('./analyzer.js');
 const cgen = require('./cgen.js');
 
 function compileRecursive(mods, path) {
@@ -17,6 +18,7 @@ function compileRecursive(mods, path) {
             const contents = fs.readFileSync(file).toString();
             const tokens = lexer.lex(contents);
             let ast = parser.parse(tokens);
+            ast = analyzer.analyze(ast);
             if (mods.length) {
                 ast = {
                     kind: parser.exprKind.MOD,
@@ -36,7 +38,7 @@ function compileRecursive(mods, path) {
     return allAst;
 }
 
-let ast = compileRecursive([], 'tests/main/src');
+let ast = compileRecursive([], 'tests/test/src');
 console.dir(ast, { depth: null });
 const c = cgen.generate(ast);
-fs.writeFileSync('out.c', c);
+fs.writeFileSync('tests/cup/bin/out.c', c);

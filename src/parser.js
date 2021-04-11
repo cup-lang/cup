@@ -672,9 +672,7 @@ function parseGlobal() {
         case tokenKind.USE:
             expr.kind = exprKind.USE;
             token = nextToken();
-            token = expectToken(tokenKind.IDENT, "expected identifier after 'use' keyword", () => {
-                expr.name = token.value;
-            });
+            [expr.path, expr.gens, index] = parsePath(index);
             token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'use' path");
             break;
         case tokenKind.MOD:
@@ -726,6 +724,7 @@ function parseGlobal() {
             token = expectToken(tokenKind.IDENT, "expected identifier after 'enum' keyword", () => {
                 expr.name = token.value;
             });
+            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'enum' name");
             expr.body = [];
             while (1) {
@@ -817,6 +816,7 @@ function parseGlobal() {
             token = expectToken(tokenKind.IDENT, "expected identifier after 'prop' keyword", () => {
                 expr.name = token.value;
             });
+            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'prop' name");
             expr.body = parseBlock();
             break;
@@ -835,6 +835,7 @@ function parseGlobal() {
             token = expectToken(tokenKind.IDENT, "expected identifier after 'sub' keyword", () => {
                 expr.name = token.value;
             });
+            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_PAREN, "expected '(' after 'sub' name");
             expr.args = [];
             args:

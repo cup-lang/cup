@@ -3,7 +3,7 @@
 ```````````````````````````````````````````````` mod
 ` mod foo { };
 ```````````````````````````````````````````````` comp, field
-` comp SomeComp<T, TT, TTT> {
+` comp SomeComp<T, TT> {
 `     foo: i32,
 `     bar: i32,
 ` }
@@ -43,22 +43,27 @@
 ` 
 ` comp string = arr<u8>;
 
-comp Abc<T> {
-    a: T,
-    b: int,
-}
-
-` comp,enum,prop,def,sub_def
-`1. When generating generate a version for every generic combination used 
-
 ` #req("stdint.h") #req("stdio.h") mod _ {};
-
+` 
+` sub a<T>() -> int { }
+` 
 ` sub main() -> int {
-    ` generics
-    ` casting
-
-    a: Abc<i32>;
-
-    ` a: int = 123;
-    ` printf("Hello Cup: %i\n", a);
+`     ` b := a<i32>();
+`     ` c := a<f32>();
+` 
+`     ` d := f32(1);
+`     ` e := i32(1.2);
+` 
+`     printf("hello world \n"); 
 ` }
+
+sub abc() -> int {
+    ` vec<u8>::new(16);
+    ` for i, i < argc, i += 1 { };
+    ` f32(1);
+    ` vec<T> { a = 1, b = 2 };
+    ` match foo { };
+    ` '`'
+    ` fix bad parsing of flow control
+    ` fix left to right for assign
+}
