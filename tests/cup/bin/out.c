@@ -1,1 +1,1 @@
-Command get_command(int argc,ptr_ptr_u8 argv) {vec_u8 vector=vec_new(16);};
+int abc() {a_b;};

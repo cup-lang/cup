@@ -35,8 +35,6 @@ const tokenKind = module.exports.tokenKind = {
 
     SEMICOLON: 'semicolon',
     COLON: 'colon',
-    WALRUS: 'walrus',
-    DOUBLE_COLON: 'double_colon',
     COMMA: 'comma',
     DOT: 'dot',
     ARROW: 'arrow',
@@ -123,7 +121,6 @@ function addToValue(is_literal, value, char) {
 
 function isBinaryOperator(token) {
     return token.kind === tokenKind.LEFT_PAREN ||
-        token.kind === tokenKind.WALRUS ||
         token.kind === tokenKind.DEREF_ASSIGN ||
         token.kind === tokenKind.RANGE ||
         token.kind === tokenKind.RANGE_INCL ||
@@ -157,7 +154,7 @@ module.exports.lex = function (input) {
     for (let i = 0; i <= input.length; ++i) {
         char = input[i] || '\u0000';
 
-        if (char === '`') {
+        if (is_literal !== 1 && is_literal !== 2 && is_literal !== 3 && is_literal !== 4 && char === '`') {
             is_comment = 1;
             continue;
         }
@@ -219,16 +216,7 @@ module.exports.lex = function (input) {
                     kind = tokenKind.SEMICOLON;
                     break;
                 case ':':
-                    if (i + 1 < input.length && input[i + 1] === ':') {
-                        kind = tokenKind.DOUBLE_COLON;
-                        ++i;
-                    } else if (i + 1 < input.length && input[i + 1] === '=') {
-                        kind = tokenKind.WALRUS;
-                        ++i;
-                    }
-                    else {
-                        kind = tokenKind.COLON;
-                    }
+                    kind = tokenKind.COLON;
                     break;
                 case ',':
                     kind = tokenKind.COMMA;

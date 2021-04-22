@@ -18,7 +18,9 @@ function generateType(type, raw) {
     }
 
     let path = type.path[0];
-    if (!raw) {
+    if (path === 'ptr') {
+        output += '*';
+    } else if (!raw) {
         if (path === 'i32') {
             output += 'int32_t';
             return;

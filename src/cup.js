@@ -40,5 +40,5 @@ function compileRecursive(mods, path) {
 
 let ast = compileRecursive([], 'tests/test/src');
 console.dir(ast, { depth: null });
-const c = cgen.generate(ast);
-fs.writeFileSync('tests/cup/bin/out.c', c);
+// const c = cgen.generate(ast);
+// fs.writeFileSync('tests/cup/bin/out.c', c);
