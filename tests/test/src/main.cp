@@ -20,6 +20,7 @@
 ```````````````````````````````````````````````` def
 ` def SomeProp<T, TT> for SomeObject<T, TT> { };
 ```````````````````````````````````````````````` sub_def, arg
+` foo:bar xyz() {};
 ` sub foo<T, TT>(i32 bar) -> i32 {
 `     if 0 { } elif 1 { } else { };
 `     loop { };
@@ -33,30 +34,12 @@
 `     try ~foo bar();
 ` };
 ```````````````````````````````````````````````` var_def
+` foo:bar xyz = 1;
 ` var bar = 1;
 
-comp SomeComp<T, TT> {
-    i32 foo,
-    i32 bar,
+sub foo() {
+    for i, 1 < 1, i += 1 { };
+    `` a<int>; ` var c = std:ptr<int>().a;
+    `` each i, foo { };
+    `` match foo { 0 { }, 1 { }, };
 };
-
-` sub foo (int a, int b) {
-`     bit::and(a, b);
-` };
-
-`sub foo() -> int {
-    ` add 'var'
-
-    ` var c = std:ptr<int>().a;
-    
-    ` if 0 { } elif 1 { } else { };
-    ` loop { };
-    ` while 2 { };
-    ` for i, i < 1, i += 1 { };
-    ` each i, foo { };
-    ` match foo { 0 { }, 1 { }, };
-    ` ret ~foo 1;
-    ` next ~foo;
-    ` jump ~foo;
-    ` try ~foo bar();
-`}
