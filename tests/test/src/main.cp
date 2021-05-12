@@ -1,14 +1,14 @@
 ```````````````````````````````````````````````` use
-` use foo::bar;
+` use foo:bar;
 ```````````````````````````````````````````````` mod
 ` mod foo { };
 ```````````````````````````````````````````````` comp, field
-` comp SomeComp<T, TT> {
+` comp SomeComp {
 `     i32 foo,
 `     i32 bar,
 ` };
 ```````````````````````````````````````````````` enum, option
-` enum SomeEnum<T, TT> {
+` enum SomeEnum {
 `     Option0,
 `     Option1(i32 foo, f32 bar),
 `     Option2,
@@ -16,12 +16,12 @@
 ```````````````````````````````````````````````` tag_def, arg
 ` tag test_tag(string foo, int bar);
 ```````````````````````````````````````````````` prop
-` prop SomeProp<T, TT> { };
+` prop SomeProp { };
 ```````````````````````````````````````````````` def
 ` def SomeProp<T, TT> for SomeObject<T, TT> { };
 ```````````````````````````````````````````````` sub_def, arg
 ` foo:bar xyz() {};
-` sub foo<T, TT>(i32 bar) -> i32 {
+` sub foo(i32 bar) {
 `     if 0 { } elif 1 { } else { };
 `     loop { };
 `     while 2 { };
@@ -37,9 +37,14 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-sub foo() {
-    for i, 1 < 1, i += 1 { };
-    `` a<int>; ` var c = std:ptr<int>().a;
-    `` each i, foo { };
-    `` match foo { 0 { }, 1 { }, };
+int main() {
+    ` int a = b:c<d>();
+    int a = b<c>:d<e>();
 };
+
+a:b:c:d:e:f:g:h<T>;
+
+path: arr<str>
+gen: arr<type>
+
+` FIX: generic parsing fix (a<b>:c<d>)

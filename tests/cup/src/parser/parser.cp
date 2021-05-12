@@ -1,5 +1,5 @@
 comp Expr { }
 
-sub parse(tokens: vec<Token>) -> vec<Expr> {
-    ret vec<Expr>::new(1);
+sub parse(vec<Token> tokens) {
+    ret vec<Expr>:new(1);
 }

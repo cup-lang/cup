@@ -170,28 +170,6 @@ function parseLabel(optional) {
     return label;
 }
 
-function parseGenerics() {
-    let gens = [];
-    if (tokens[index].kind === tokenKind.LESS) {
-        nextToken();
-        while (1) {
-            let should_break;
-            optionalToken(tokenKind.GREATER, () => {
-                should_break = true;
-            }, null);
-            if (should_break) { break; }
-            expectToken(tokenKind.IDENT, "expected a ident for a generic thing", () => {
-                gens.push({
-                    kind: exprKind.CONSTR_TYPE,
-                    name: tokens[index].value,
-                });
-            });
-            optionalToken(tokenKind.COMMA, null, null);
-        }
-    }
-    return gens;
-}
-
 function parsePath(start) {
     let path = [];
     let gens = [];
@@ -364,40 +342,51 @@ function parseLocal(endTokenKind, start = index, end) {
             case tokenKind.MULTIPLY_ASSIGN:
             case tokenKind.DIVIDE_ASSIGN:
             case tokenKind.MODULO_ASSIGN:
-                if (opLevel < 7) {
-                    opLevel = 7;
-                    opIndex = i;
-                    opKind = token.kind;
-                }
-                break;
-            case tokenKind.AND:
-            case tokenKind.OR:
-                if (opLevel < 6) {
-                    opLevel = 6;
-                }
-                if (opLevel == 6) {
-                    opKind = token.kind;
-                    opIndex = i;
-                }
-                break;
-            case tokenKind.EQUAL:
-            case tokenKind.NOT_EQUAL:
                 if (opLevel < 5) {
                     opLevel = 5;
-                }
-                if (opLevel == 5) {
-                    opKind = token.kind;
                     opIndex = i;
+                    opKind = token.kind;
                 }
                 break;
             case tokenKind.LESS:
+                if (opLevel != 4) {
+                    let genericCount = 1;
+                    let tryEnd = end ? end : tokens.length + 1;
+                    f: for (let ii = i + 1; ii < tryEnd; ++ii) {
+                        if (!end && tokens[ii].kind === tokenKind.SEMICOLON || tokens[ii].kind === endTokenKind) {
+                            break;
+                        }
+                        switch (tokens[ii].kind) {
+                            case tokenKind.LESS:
+                                ++genericCount;
+                                break;
+                            case tokenKind.IDENT:
+                            case tokenKind.COLON:
+                            case tokenKind.COMMA:
+                                break;
+                            case tokenKind.GREATER:
+                                if (--genericCount == 0) {
+                                    i = ii;
+                                    continue w;
+                                }
+                                break;
+                            default:
+                                break f;
+                        }
+                    }
+                }
+            case tokenKind.AND:
+            case tokenKind.OR:
             case tokenKind.LESS_EQUAL:
             case tokenKind.GREATER:
             case tokenKind.GREATER_EQUAL:
+            case tokenKind.EQUAL:
+            case tokenKind.NOT_EQUAL:
+                if (opLevel == 4) {
+                    throw 'dont mix these';
+                }
                 if (opLevel < 4) {
                     opLevel = 4;
-                }
-                if (opLevel == 4) {
                     opKind = token.kind;
                     opIndex = i;
                 }
@@ -446,6 +435,10 @@ function parseLocal(endTokenKind, start = index, end) {
         } else {
             expr.kind = exprKind.BINARY_OP;
             expr.lhs = parseLocal(null, start, opIndex);
+            if (expr.lhs.kind === exprKind.LOCAL_VAR_DEF) {
+                index = end + 1;
+                return expr.lhs;
+            }
             switch (opKind) {
                 case tokenKind.ASSIGN:
                 case tokenKind.ADD_ASSIGN:
@@ -537,16 +530,14 @@ function parseLocal(endTokenKind, start = index, end) {
                     expr.loop_var = token.value;
                 });
                 token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable name");
-                expr.iter = parseValue(tokenKind.LEFT_BRACE);
-                token = nextToken();
+                expr.iter = parseLocal(tokenKind.LEFT_BRACE);
                 expr.body = parseBlock(true);
                 token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'each' body");
                 break;
             case tokenKind.MATCH:
                 expr.kind = exprKind.MATCH;
                 token = nextToken();
-                expr.value = parseValue(tokenKind.LEFT_BRACE);
-                token = nextToken();
+                expr.value = parseLocal(tokenKind.LEFT_BRACE);
                 expr.body = [];
                 while (1) {
                     let should_end;
@@ -558,8 +549,7 @@ function parseLocal(endTokenKind, start = index, end) {
                         kind: exprKind.CASE,
                         tags: parseTags()
                     };
-                    _case.value = parseValue(tokenKind.LEFT_BRACE);
-                    token = nextToken();
+                    _case.value = parseLocal(tokenKind.LEFT_BRACE);
                     _case.body = parseBlock(true);
                     expr.body.push(_case);
                     let should_break;
@@ -640,7 +630,6 @@ function parseLocal(endTokenKind, start = index, end) {
                         throw "expected ')' after '('";
                     }
                     if (paren !== i) {
-                        expr.args = [];
                         let comma = nextOfKind(tokenKind.COMMA, i + 1, paren);
                         while (comma !== undefined && comma + 1 < paren) {
                             expr.args.push(parseLocal(null, i, comma));
@@ -650,11 +639,56 @@ function parseLocal(endTokenKind, start = index, end) {
                         expr.args.push(parseLocal(null, i, paren));
                     }
                     i = paren + 1;
+                } else if (tokens[i].kind === tokenKind.LEFT_BRACE) {
+                    expr.kind = exprKind.COMP_INST;
+                    expr.args = [];
+                    const brace = nextOfKind(tokenKind.RIGHT_BRACE, ++i);
+                    if (brace === undefined) {
+                        throw "expected '}' after '{'";
+                    }
+                    if (brace !== i) {
+                        let comma = nextOfKind(tokenKind.COMMA, i + 1, brace);
+                        index = i;
+                        while (1) {
+                            let arg = { kind: exprKind.FIELD_VAL };
+                            token = expectToken(tokenKind.IDENT, "expected field name", () => {
+                                arg.name = tokens[index].value;
+                            });
+                            token = expectToken(tokenKind.ASSIGN, "expected '=' after field name");
+                            i = index;
+                            arg.value = parseLocal(null, i, comma);
+                            expr.args.push(arg);
+                            if (comma == brace) {
+                                break;
+                            }
+                            i = comma + 1;
+                            comma = nextOfKind(tokenKind.COMMA, i, brace);
+                            comma = comma ? comma : brace;
+                        }
+                    }
+                    i = brace + 1;
+                } else if (tokens[i].kind === tokenKind.IDENT) {
+                    expr.kind = exprKind.LOCAL_VAR_DEF;
+                    expr.name = tokens[i].value;
+                    expr.type = {
+                        kind: exprKind.TYPE,
+                        path: expr.path,
+                        gens: expr.gens,
+                    };
+                    delete expr.path;
+                    delete expr.gens;
+                    index = i + 1;
+                    token = optionalToken(tokenKind.SEMICOLON, null, () => {
+                        token = expectToken(tokenKind.ASSIGN, "expected '=' or ';' after 'var' name");
+                        expr.value = parseLocal(null);
+                    });
+                    i = index;
                 } else {
                     expr.kind = exprKind.VAR_USE;
                 }
 
                 if (i < end) {
+                    console.log(tokens[i - 1], tokens[i], tokens[i + 1]);
                     throw "expected operator or ';'";
                 }
                 break;
@@ -703,9 +737,8 @@ function parseGlobal() {
             expr.kind = exprKind.COMP;
             token = nextToken();
             token = expectToken(tokenKind.IDENT, "expected identifier after 'comp' keyword", () => {
-                expr.name = token.value;
+                expr.name = tokens[index].value;
             });
-            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'comp' name");
             expr.body = [];
             while (1) {
@@ -721,7 +754,7 @@ function parseGlobal() {
                 };
                 field.type = parseType();
                 token = expectToken(tokenKind.IDENT, "expected field name in 'comp' body", () => {
-                    field.name = token.value;
+                    field.name = tokens[index].value;
                 });
                 expr.body.push(field);
                 let should_break;
@@ -737,9 +770,8 @@ function parseGlobal() {
             expr.kind = exprKind.ENUM;
             token = nextToken();
             token = expectToken(tokenKind.IDENT, "expected identifier after 'enum' keyword", () => {
-                expr.name = token.value;
+                expr.name = tokens[index].value;
             });
-            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'enum' name");
             expr.body = [];
             while (1) {
@@ -755,7 +787,7 @@ function parseGlobal() {
                     body: []
                 };
                 token = expectToken(tokenKind.IDENT, "expected option name in 'enum' body", () => {
-                    opt.name = token.value;
+                    opt.name = tokens[index].value;
                 });
                 token = optionalToken(tokenKind.LEFT_PAREN, () => {
                     while (1) {
@@ -830,9 +862,8 @@ function parseGlobal() {
             expr.kind = exprKind.PROP;
             token = nextToken();
             token = expectToken(tokenKind.IDENT, "expected identifier after 'prop' keyword", () => {
-                expr.name = token.value;
+                expr.name = tokens[index].value;
             });
-            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'prop' name");
             expr.body = parseBlock();
             token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'prop' body");
@@ -841,8 +872,8 @@ function parseGlobal() {
             expr.kind = exprKind.DEF;
             token = nextToken();
             expr.prop = parseType();
-            token = expectToken(tokenKind.FOR, "expected 'for' after 'def' property");
-            expr.target = parseType();
+            // token = expectToken(tokenKind.FOR, "expected 'for' after 'def' property");
+            // expr.target = parseType();
             token = expectToken(tokenKind.LEFT_BRACE, "expected '{' after 'def' target");
             expr.body = parseBlock();
             token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'def' body");
@@ -851,9 +882,8 @@ function parseGlobal() {
             expr.kind = exprKind.SUB_DEF;
             token = nextToken();
             token = expectToken(tokenKind.IDENT, "expected identifier after 'sub' keyword", () => {
-                expr.name = token.value;
+                expr.name = tokens[index].value;
             });
-            expr.gen = parseGenerics();
             token = expectToken(tokenKind.LEFT_PAREN, "expected '(' after 'sub' name");
             expr.args = [];
             args:
@@ -903,7 +933,7 @@ function parseGlobal() {
             if (token = tokenKind.IDENT) {
                 expr.name = tokens[index].value;
                 token = nextToken();
-                if (token.kind === tokenKind.ASSIGN | tokenKind.kind === tokenKind.SEMICOLON) {
+                if (token.kind === tokenKind.ASSIGN || tokenKind.kind === tokenKind.SEMICOLON) {
                     expr.kind = exprKind.VAR_DEF;
                     expr.type = type;
                     if (token.kind === tokenKind.ASSIGN) {
@@ -911,8 +941,8 @@ function parseGlobal() {
                         expr.value = parseLocal(null);
                     }
                 } else {
+                    expr.kind = exprKind.SUB_DEF;
                     expr.retType = type;
-                    expr.gen = parseGenerics();
                     token = expectToken(tokenKind.LEFT_PAREN, "expected '(' after 'sub' name");
                     expr.args = [];
                     args:
@@ -969,7 +999,9 @@ function parseBlock(local) {
         let expr;
         if (local) {
             let label = parseLabel(true);
+            let tags = parseTags();
             expr = parseLocal(null);
+            expr.tags = tags;
             if (label) {
                 expr.label = label;
             }

@@ -9,6 +9,12 @@ let reqs;
 let binds;
 
 function generateType(type, raw) {
+    const path = type.path[0];
+    if (path === 'ptr') {
+        output += '*';
+        type = type.gens[0];
+    }
+    
     const gen = genNames[type.path.join('_')];
     type = gen ? gen : type;
 
@@ -17,10 +23,7 @@ function generateType(type, raw) {
         return;
     }
 
-    let path = type.path[0];
-    if (path === 'ptr') {
-        output += '*';
-    } else if (!raw) {
+    if (!raw) {
         if (path === 'i32') {
             output += 'int32_t';
             return;
@@ -70,7 +73,7 @@ function generateType(type, raw) {
 }
 
 function generateGeneric(expr, gen, how) {
-    if (expr.gen.length) {
+    if (expr.gen) {
         gen = gen || [];
         for (let i = 0; i < gen.length; ++i) {
             let oldGens = Object.assign({}, genNames);
@@ -118,6 +121,15 @@ function generateExpr(expr, last, semicolon, parenths) {
                     break;
                 case 'bind':
                     binds[mods.concat(expr.name).join('_')] = tag.args[0].value;
+                    break;
+                case 'gen':
+                    if (!expr.gen) {
+                        expr.gen = [];
+                    }
+                    expr.gen.push({
+                        kind: exprKind.CONSTR_TYPE,
+                        name: tag.args[0].value,
+                    });
                     break;
             }
         }
@@ -174,7 +186,7 @@ function generateExpr(expr, last, semicolon, parenths) {
             let name = mods.concat(expr.name).join('_');
             if (binds[name]) { break; }
             generateGeneric(expr, gens[name], (gen) => {
-                generateType(expr.retTypes[0]);
+                generateType(expr.retType);
                 output += ` ${name + generateGenericName(gen)}(`;
                 generateBlock(expr.args, 0, 0);
                 output += ') {';

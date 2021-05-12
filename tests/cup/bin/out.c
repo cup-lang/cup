@@ -1,1 +1,1 @@
-int abc() {a_b;};
+int main() {int a=b_c();};

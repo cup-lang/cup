@@ -1,5 +1,5 @@
 comp Token { }
 
-sub lex() -> vec<Token> {
-
+sub lex() {
+    ret vec<Token>:new(1);
 }

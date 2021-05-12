@@ -1,21 +1,21 @@
-sub command_help(n: str, d: str, o: str) -> int {
+sub command_help(str n, str d, str o) {
     printf(d);
     printf("\n\nUSAGE:\n    cup ");
     printf(n);
     printf(" [OPTIONS]\n\nOPTIONS:");
     printf(o);
     printf("\n");
-}
+};
 
 #inl mod command_options {
-    ` none := "\n    No options are available for this command";
+    var _none = "\n    No options are available for this command";
 
-    ` compile := "\n    -i, --input     Specify the input file name" +
-    `                         "\n    -o, --output    Specify the output file name" +
-    `                         "\n    -cg, --gcc     Use GCC as a compiler" +
-    `                         "\n    -cm, --msvc    Use MSVC as a compiler" +
-    `                         "\n    -cc, --clang   use Clang as a compiler" =
-    `                         "\n    -ct, --tcc     Use TinyCC as a compiler";
+    var compile = "\n    -i, --input     Specify the input file name" +
+                   "\n    -o, --output    Specify the output file name" +
+                   "\n    -cg, --gcc     Use GCC as a compiler" +
+                   "\n    -cm, --msvc    Use MSVC as a compiler" +
+                   "\n    -cc, --clang   use Clang as a compiler" +
+                   "\n    -ct, --tcc     Use TinyCC as a compiler";
 };
 
 enum Command {
@@ -45,15 +45,15 @@ enum Command {
     SelfUpdate,
     SelfInstall,
     SelfUninstall,
-}
+};
 
-sub get_command(argc: int, argv: ptr<ptr<u8>>) -> Command {
+sub get_command(int argc, ptr<ptr<u8>> argv) {
     if argc == 1 {
-        ret Command::None;
+        ret Command:None;
     };
 
-    is_command: bool = false;
-    vector: vec<u8> = vec<u8>::new(16);
+    var is_command = false;
+    var vector = vec<u8>:new(16);
     ~l for i = 1, i < argc, i += 1 {
         if i == 4 {
             ret ~l;
@@ -67,62 +67,62 @@ sub get_command(argc: int, argv: ptr<ptr<u8>>) -> Command {
         };
         is_command = true;
 
-        length: int = strlen(argv[i]);
+        var length = strlen(argv[i]);
         for c = 0, c < length, c += 1 {
             vector.push(argv[i][c]);
         };
     };
 
     vector.push('\0');
-    input: ptr<u8> = vector.buf;
+    ptr<u8> input = vector.buf;
 
     if strcmp(input, "help") == 0 {
-        ret Command::Help;
+        ret Command:Help;
     } elif strcmp(input, "helprun") == 0 {
-        ret Command::HelpRun;
+        ret Command:HelpRun;
     } elif strcmp(input, "helpbuild") == 0 {
-        ret Command::HelpBuild;
+        ret Command:HelpBuild;
     } elif strcmp(input, "helpcheck") == 0 {
-        ret Command::HelpCheck;
+        ret Command:HelpCheck;
     } elif strcmp(input, "helpupdate") == 0 {
-        ret Command::HelpUpdatePackage;
+        ret Command:HelpUpdatePackage;
     } elif strcmp(input, "helpadd") == 0 {
-        ret Command::HelpAddPackage;
+        ret Command:HelpAddPackage;
     } elif strcmp(input, "helpremove") == 0 {
-        ret Command::HelpRemovePackage;
+        ret Command:HelpRemovePackage;
     } elif strcmp(input, "helpgendocs") == 0 {
-        ret Command::HelpGenDocs;
+        ret Command:HelpGenDocs;
     } elif strcmp(input, "helpgenbinds") == 0 {
-        ret Command::HelpGenBinds;
+        ret Command:HelpGenBinds;
     } elif strcmp(input, "helpselfupdate") == 0 {
-        ret Command::HelpSelfUpdate;
+        ret Command:HelpSelfUpdate;
     } elif strcmp(input, "helpselfinstall") == 0 {
-        ret Command::HelpSelfInstall;
+        ret Command:HelpSelfInstall;
     } elif strcmp(input, "helpselfuninstall") == 0 {
-        ret Command::HelpSelfUninstall;
+        ret Command:HelpSelfUninstall;
     } elif strcmp(input, "run") == 0 {
-        ret Command::Run;
+        ret Command:Run;
     } elif strcmp(input, "build") == 0 {
-        ret Command::Build;
+        ret Command:Build;
     } elif strcmp(input, "check") == 0 {
-        ret Command::Check;
+        ret Command:Check;
     } elif strcmp(input, "update") == 0 {
-        ret Command::UpdatePackage;
+        ret Command:UpdatePackage;
     } elif strcmp(input, "add") == 0 {
-        ret Command::AddPackage;
+        ret Command:AddPackage;
     } elif strcmp(input, "remove") == 0 {
-        ret Command::RemovePackage;
+        ret Command:RemovePackage;
     } elif strcmp(input, "gendocs") == 0 {
-        ret Command::GenDocs;
+        ret Command:GenDocs;
     } elif strcmp(input, "genbinds") == 0 {
-        ret Command::GenBinds;
+        ret Command:GenBinds;
     } elif strcmp(input, "selfupdate") == 0 {
-        ret Command::SelfUpdate;
+        ret Command:SelfUpdate;
     } elif strcmp(input, "selfinstall") == 0 {
-        ret Command::SelfInstall;
+        ret Command:SelfInstall;
     } elif strcmp(input, "selfuninstall") == 0 {
-        ret Command::SelfUninstall;
+        ret Command:SelfUninstall;
     };
 
-    ret Command::None;
+    ret Command:None;
 }

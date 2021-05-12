@@ -71,8 +71,8 @@ function analyzeExpr(expr) {
         case exprKind.DEF:
             break;
         case exprKind.SUB_DEF:
-            registerGenericUse(expr.retTypes[0]);
-            // generateType(expr.retTypes[0]);
+            registerGenericUse(expr.retType);
+            // generateType(expr.retType);
             analyzeBlock(expr.args);
             analyzeBlock(expr.body);
             break;

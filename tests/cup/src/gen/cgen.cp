@@ -1,3 +1,3 @@
-sub generate_vector(ast: vec<Expr>) -> int {
+sub generate_vector(vec<Expr> ast) {
     ret 0;
 }
