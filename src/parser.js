@@ -1,6 +1,7 @@
 const tokenKind = require('./lexer.js').tokenKind;
 
 const exprKind = module.exports.exprKind = {
+    PATH_PART: 'path_part',
     TAG: 'tag',
     TYPE: 'type',
     CONSTR_TYPE: 'constr_type',
@@ -172,7 +173,6 @@ function parseLabel(optional) {
 
 function parsePath(start) {
     let path = [];
-    let gens = [];
     let need_colon = false;
     let i = start;
     while (1) {
@@ -180,32 +180,36 @@ function parsePath(start) {
         if (need_colon) {
             if (token.kind === tokenKind.COLON) {
                 need_colon = false;
-            } else if (token.kind === tokenKind.LESS) {
-                index = i;
-                nextToken();
-                while (1) {
-                    let should_break;
-                    optionalToken(tokenKind.GREATER, () => {
-                        should_break = true;
-                    }, null);
-                    if (should_break) { break; }
-                    gens.push(parseType());
-                    optionalToken(tokenKind.COMMA, null, null);
-                }
-                i = index;
-                return [path, gens, i];
-            }
-            else {
-                return [path, gens, i];
+            } else {
+                return [path, i];
             }
         } else {
             if (token.kind === tokenKind.IDENT) {
-                path.push(token.value);
+                let part = {
+                    kind: exprKind.PATH_PART,
+                    name: token.value,
+                    gens: [],
+                };
+                if (tokens[i + 1].kind === tokenKind.LESS) {
+                    index = i + 1;
+                    nextToken();
+                    while (1) {
+                        let should_break;
+                        optionalToken(tokenKind.GREATER, () => {
+                            should_break = true;
+                        }, null);
+                        if (should_break) { break; }
+                        part.gens.push(parseType());
+                        optionalToken(tokenKind.COMMA, null, null);
+                    }
+                    i = index - 1;
+                }
+                path.push(part);
                 need_colon = true;
-            } else if (path.length) {
-                throw "expected identifier after '::'";
+            } else if (path.length > 0) {
+                throw "expected identifier after ':'";
             } else {
-                return [path, gens, i];
+                return [path, i];
             }
         }
         ++i;
@@ -214,12 +218,11 @@ function parsePath(start) {
 
 function parseType() {
     if (tokens[index].kind === tokenKind.IDENT) {
-        const [path, gens, i] = parsePath(index);
+        const [path, i] = parsePath(index);
         index = i;
         return {
             kind: exprKind.TYPE,
             path: path,
-            gens: gens,
         };
     } else {
         throw `at ${tokens[index].index} expected a type`;
@@ -302,7 +305,7 @@ function parseLocal(endTokenKind, start = index, end) {
 
         if (token.kind === tokenKind.LEFT_BRACKET) {
             ++scopes[2]; continue;
-        } else if (token.kind === tokenKind.RIGHT_BRACKET) {
+        } else if (endTokenKind !== tokenKind.RIGHT_BRACKET && token.kind === tokenKind.RIGHT_BRACKET) {
             if (scopes[2]-- === 0) {
                 throw "unexpected ']'";
             } continue;
@@ -383,7 +386,7 @@ function parseLocal(endTokenKind, start = index, end) {
             case tokenKind.EQUAL:
             case tokenKind.NOT_EQUAL:
                 if (opLevel == 4) {
-                    throw 'dont mix these';
+                    throw 'dont mix these (you mixed ' + token.kind + ' with ' + opKind + ')';
                 }
                 if (opLevel < 4) {
                     opLevel = 4;
@@ -564,7 +567,9 @@ function parseLocal(endTokenKind, start = index, end) {
                 expr.kind = exprKind.RET;
                 token = nextToken();
                 expr.target = parseLabel(true);
-                expr.value = parseLocal();
+                token = optionalToken(tokenKind.SEMICOLON, null, () => {
+                    expr.value = parseLocal();
+                });
                 break;
             case tokenKind.NEXT:
                 expr.kind = exprKind.NEXT;
@@ -621,8 +626,10 @@ function parseLocal(endTokenKind, start = index, end) {
                 break;
             case tokenKind.IDENT:
                 let i = start + 1;
-                [expr.path, expr.gens, i] = parsePath(start);
-                if (tokens[i].kind === tokenKind.LEFT_PAREN) {
+                [expr.path, i] = parsePath(start);
+                if (i >= end) {
+                    expr.kind = exprKind.VAR_USE;
+                } else if (tokens[i].kind === tokenKind.LEFT_PAREN) {
                     expr.kind = exprKind.SUB_CALL;
                     expr.args = [];
                     const paren = nextOfKind(tokenKind.RIGHT_PAREN, ++i);
@@ -639,6 +646,10 @@ function parseLocal(endTokenKind, start = index, end) {
                         expr.args.push(parseLocal(null, i, paren));
                     }
                     i = paren + 1;
+                } else if (tokens[i].kind === tokenKind.LEFT_BRACKET) {
+                    index = i + 1;
+                    let inside = parseLocal(tokenKind.RIGHT_BRACKET);
+                    i = index;
                 } else if (tokens[i].kind === tokenKind.LEFT_BRACE) {
                     expr.kind = exprKind.COMP_INST;
                     expr.args = [];
@@ -658,7 +669,7 @@ function parseLocal(endTokenKind, start = index, end) {
                             i = index;
                             arg.value = parseLocal(null, i, comma);
                             expr.args.push(arg);
-                            if (comma == brace) {
+                            if (comma == brace || comma + 1 == brace) {
                                 break;
                             }
                             i = comma + 1;
@@ -673,10 +684,8 @@ function parseLocal(endTokenKind, start = index, end) {
                     expr.type = {
                         kind: exprKind.TYPE,
                         path: expr.path,
-                        gens: expr.gens,
                     };
                     delete expr.path;
-                    delete expr.gens;
                     index = i + 1;
                     token = optionalToken(tokenKind.SEMICOLON, null, () => {
                         token = expectToken(tokenKind.ASSIGN, "expected '=' or ';' after 'var' name");
@@ -688,11 +697,11 @@ function parseLocal(endTokenKind, start = index, end) {
                 }
 
                 if (i < end) {
-                    console.log(tokens[i - 1], tokens[i], tokens[i + 1]);
                     throw "expected operator or ';'";
                 }
                 break;
             default:
+                console.log(tokens[start]);
                 throw "expected a value";
         }
         index = end + 1;

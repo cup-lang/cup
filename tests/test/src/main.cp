@@ -37,14 +37,7 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-int main() {
-    ` int a = b:c<d>();
-    int a = b<c>:d<e>();
-};
-
-a:b:c:d:e:f:g:h<T>;
-
-path: arr<str>
-gen: arr<type>
-
-` FIX: generic parsing fix (a<b>:c<d>)
+` FIX: accept 'this' as a value
+` FIX: take for loop var value
+` FIX: match multiple case values
+` TODO: add deref counterpart assign operators 

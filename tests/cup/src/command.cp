@@ -8,7 +8,7 @@ sub command_help(str n, str d, str o) {
 };
 
 #inl mod command_options {
-    var _none = "\n    No options are available for this command";
+    var empty = "\n    No options are available for this command";
 
     var compile = "\n    -i, --input     Specify the input file name" +
                    "\n    -o, --output    Specify the output file name" +
@@ -47,31 +47,31 @@ enum Command {
     SelfUninstall,
 };
 
-sub get_command(int argc, ptr<ptr<u8>> argv) {
+Command get_command(int argc, ptr<ptr<u8>> argv) {
     if argc == 1 {
         ret Command:None;
     };
 
     var is_command = false;
     var vector = vec<u8>:new(16);
-    ~l for i = 1, i < argc, i += 1 {
-        if i == 4 {
-            ret ~l;
-        };
-
-        if argv[i][0] == '-' {
-            if is_command {
-                ret ~l;
-            };
-            next;
-        };
-        is_command = true;
-
-        var length = strlen(argv[i]);
-        for c = 0, c < length, c += 1 {
-            vector.push(argv[i][c]);
-        };
-    };
+    ` ~l for i = 1, i < argc, i += 1 {
+    `     if i == 4 {
+    `         ret ~l;
+    `     };
+    ` 
+    `     if argv[i][0] == '-' {
+    `         if is_command {
+    `             ret ~l;
+    `         };
+    `         next;
+    `     };
+    `     is_command = true;
+    ` 
+    `     var length = strlen(argv[i]);
+    `     for c = 0, c < length, c += 1 {
+    `         vector.push(argv[i][c]);
+    `     };
+    ` };
 
     vector.push('\0');
     ptr<u8> input = vector.buf;
@@ -125,4 +125,4 @@ sub get_command(int argc, ptr<ptr<u8>> argv) {
     };
 
     ret Command:None;
-}
+};

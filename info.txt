@@ -2,9 +2,9 @@
     add 'as' keyword for casting
     add 'has' keyword
     def a for b -> def a, b
-
-# Ideas
+    remove "def x" 
     comp foo {}; -> comp foo ();
+    SomeComp {} -> SomeComp ()
 
 # Operator presedence
     foo[], (), foo()

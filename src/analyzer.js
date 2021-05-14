@@ -26,8 +26,18 @@ function deepEqual(a, b) {
 }
 
 function registerGenericUse(type) {
-    if (type.gens.length) {
-        let name = type.path.join('_');
+    if (!type) return;
+
+    let hasGenerics = false;
+    for (let i = 0; i < type.path.length; ++i) {
+        if (type.path[i].gens.length > 0) {
+            hasGenerics = true;
+            break;
+        }
+    }
+    if (hasGenerics) {
+        let name = type.path.map(p => p.name).join(':');
+        console.log(name);
         if (!module.exports.gens[name]) {
             module.exports.gens[name] = [type.gens];
         }
@@ -64,7 +74,6 @@ function analyzeExpr(expr) {
             analyzeBlock(expr.body);
             break;
         case exprKind.OPTION_FIELD:
-            // generateType(expr.type);
             break;
         case exprKind.PROP:
             break;
@@ -72,19 +81,16 @@ function analyzeExpr(expr) {
             break;
         case exprKind.SUB_DEF:
             registerGenericUse(expr.retType);
-            // generateType(expr.retType);
             analyzeBlock(expr.args);
             analyzeBlock(expr.body);
             break;
         case exprKind.FIELD:
         case exprKind.ARG:
             registerGenericUse(expr.type);
-            // generateType(expr.type);
             break;
         case exprKind.VAR_DEF:
         case exprKind.LOCAL_VAR_DEF:
             registerGenericUse(expr.type);
-            // generateType(expr.type);
             if (expr.value) {
                 analyzeExpr(expr.value, 0, 0, 0);
             }
