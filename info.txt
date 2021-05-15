@@ -1,11 +1,3 @@
-# To do
-    add 'as' keyword for casting
-    add 'has' keyword
-    def a for b -> def a, b
-    remove "def x" 
-    comp foo {}; -> comp foo ();
-    SomeComp {} -> SomeComp ()
-
 # Operator presedence
     foo[], (), foo()
     foo.bar, foo@, foo$, foo!, foo!! 

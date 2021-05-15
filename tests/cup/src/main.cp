@@ -221,12 +221,12 @@ def vec<T> {
 
     #self
     sub push(T item) {
-        ` this.buf[this.size] = item;
-        ` this.size += 1;
-        `
-        ` if this.size == this.capacity {
-        `     this.capacity *= 2;
-        `     this.buf = mem:realloc(v.buf, mem:size<T>() * this.capacity);
-        ` };
+        this.buf[this.size] = item;
+        this.size += 1;
+
+        if this.size == this.capacity {
+            this.capacity *= 2;
+            this.buf = mem:realloc(v.buf, mem:size<T>() * this.capacity);
+        };
     };
 };

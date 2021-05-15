@@ -1,1 +1,1 @@
-int main() {int a=b_c();};
+typedef struct {int a;int b;f32 c;} vec_f32;vec_f32 new(int cap) {return ;};int main() {vec_f32 a=[object Object](1);};

@@ -9,13 +9,13 @@ let reqs;
 let binds;
 
 function generateType(type, raw) {
-    const path = type.path[0];
-    if (path === 'ptr') {
+    const path = type.path[0].name;
+    if (type.path.length === 1 && path === 'ptr') {
         output += '*';
-        type = type.gens[0];
+        type = type.path[0].gens[0];
     }
-    
-    const gen = genNames[type.path.join('_')];
+
+    const gen = genNames[type.path.map(p => p.name).join('_')];
     type = gen ? gen : type;
 
     if (type === undefined) {
@@ -65,10 +65,15 @@ function generateType(type, raw) {
             return;
         }
     }
-    output += type.path.join('_');
-    for (let i = 0; i < type.gens.length; ++i) {
-        output += '_';
-        generateType(type.gens[i], true);
+    for (let i = 0; i < type.path.length; ++i) {
+        if (i != 0) {
+            output += '_';
+        }
+        output += type.path[i].name;
+        for (let ii = 0; ii < type.path[i].gens.length; ++ii) {
+            output += '_';
+            generateType(type.path[i].gens[ii], true);
+        }
     }
 }
 
@@ -76,9 +81,9 @@ function generateGeneric(expr, gen, how) {
     if (expr.gen) {
         gen = gen || [];
         for (let i = 0; i < gen.length; ++i) {
-            let oldGens = Object.assign({}, genNames);
+            let oldGens = Object.assign({}, genNames); // make a clone
             for (let ii = 0; ii < expr.gen.length; ++ii) {
-                genNames[expr.gen[ii].name] = gen[i][ii];
+                genNames[expr.gen[ii].name] = gen[i][ii][0];
             }
             how(gen[i]);
             genNames = oldGens;
@@ -89,24 +94,32 @@ function generateGeneric(expr, gen, how) {
 }
 
 function generateGenericNamePart(type) {
-    let name = type.path.join('_');
-    for (let i = 0; i < type.gens.length; ++i) {
-        name += '_';
-        name += generateGenericNamePart(type.gens[i]);
+    let name = '';
+    for (let i = 0; i < type.path.length; ++i) {
+        if (i != 0) {
+            name += '_';
+        }
+        name += type.path[i].name;
+        for (let ii = 0; ii < type.path[i].gens.length; ++ii) {
+            name += '_';
+            name += generateGenericNamePart(type.path[i].gens[ii]);
+        }
     }
     return name;
 }
 
-function generateGenericName(gens) {
-    if (!gens) {
-        return '';
+function generateGenericName(name, gens) {
+    let out = '';
+    for (let i = 0; i < name.length; ++i) {
+        out += name[i];
+        if (gens && gens[i]) {
+            for (let ii = 0; ii < gens[i].length; ++ii) {
+                out += '_';
+                out += generateGenericNamePart(gens[i][ii]);
+            }
+        }
     }
-    let name = '';
-    for (let i = 0; i < gens.length; ++i) {
-        name += '_';
-        name += generateGenericNamePart(gens[i]);
-    }
-    return name;
+    return out;
 }
 
 function generateExpr(expr, last, semicolon, parenths) {
@@ -144,18 +157,18 @@ function generateExpr(expr, last, semicolon, parenths) {
             mods.pop();
             break;
         case exprKind.COMP: {
-            let name = mods.concat(expr.name).join('_');
-            generateGeneric(expr, gens[name], (gen) => {
+            let name = mods.concat(expr.name);
+            generateGeneric(expr, gens[name.join('_')], (gen) => {
                 output += 'typedef struct {';
                 generateBlock(expr.body, 1, 0);
-                output += `} ${name + generateGenericName(gen)};`;
+                output += `} ${generateGenericName(name, gen)};`;
             });
             break;
         }
         case exprKind.ENUM: {
-            let name = mods.concat(expr.name).join('_');
-            generateGeneric(expr, gens[name], (gen) => {
-                let gname = name + generateGenericName(gen);
+            let name = mods.concat(expr.name);
+            generateGeneric(expr, gens[name.join('_')], (gen) => {
+                let gname = generateGenericName(name, gen);
                 generateBlock(expr.body, 1, 0);
                 output += `union ${gname} {`;
                 for (let i = 0; i < expr.body.length; ++i) {
@@ -183,11 +196,11 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.DEF:
             break;
         case exprKind.SUB_DEF: {
-            let name = mods.concat(expr.name).join('_');
-            if (binds[name]) { break; }
-            generateGeneric(expr, gens[name], (gen) => {
+            let name = mods.concat(expr.name);
+            if (binds[name.join('_')]) { break; }
+            generateGeneric(expr, gens[name.join('_')], (gen) => {
                 generateType(expr.retType);
-                output += ` ${name + generateGenericName(gen)}(`;
+                output += ` ${generateGenericName(name, gen)}(`;
                 generateBlock(expr.args, 0, 0);
                 output += ') {';
                 generateBlock(expr.body, 1, 0);

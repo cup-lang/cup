@@ -37,7 +37,32 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-` FIX: accept 'this' as a value
-` FIX: take for loop var value
-` FIX: match multiple case values
-` TODO: add deref counterpart assign operators 
+#gen("T")
+comp vec {
+    int a,
+    int b,
+    T c,
+};
+
+vec<f32> new(int cap) {
+    ret vec<f32> {
+        buf = mem:alloc(mem:size<f32>() * cap),
+        size = 0,
+        cap = cap,
+    };
+};
+
+int main() {
+    vec<f32> a = new(1);
+};
+
+` TODO: CompInst generation
+` FIX: match multiple case values (op chaining)
+` TODO: add deref counterpart assign operators
+` TODO: add 'as' keyword for casting
+` TODO: def a for b -> def a, b
+
+` TODO: comp foo {}; -> comp foo ();
+` TODO: SomeComp {} -> SomeComp ()
+` TODO: remove "def x" 
+` TODO: add 'has' keyword

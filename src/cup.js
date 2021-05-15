@@ -36,7 +36,7 @@ function compileRecursive(mods, path) {
     return allAst;
 }
 
-let ast = compileRecursive([], 'tests/cup/src');
-console.dir(ast, { depth: null });
+let ast = compileRecursive([], 'tests/test/src');
+// console.dir(ast, { depth: null });
 const c = cgen.generate(ast);
 fs.writeFileSync('tests/cup/bin/out.c', c);

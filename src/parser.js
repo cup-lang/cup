@@ -518,9 +518,13 @@ function parseLocal(endTokenKind, start = index, end) {
                 expr.kind = exprKind.FOR;
                 token = nextToken();
                 token = expectToken(tokenKind.IDENT, "expected 'for' iteration variable name", () => {
-                    expr.loop_var = token.value;
+                    expr.loop_var = { name: tokens[index].value };
                 });
-                token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable name");
+                token = optionalToken(tokenKind.ASSIGN, () => {
+                    expr.loop_var.value = parseLocal(tokenKind.COMMA);
+                }, () => {
+                    token = expectToken(tokenKind.COMMA, "expected ',' after iteration variable");
+                });
                 expr.cond = parseLocal(tokenKind.COMMA);
                 expr.next = parseLocal(tokenKind.LEFT_BRACE);
                 expr.body = parseBlock(true);
@@ -612,6 +616,9 @@ function parseLocal(endTokenKind, start = index, end) {
                 break;
             case tokenKind.NONE:
                 expr.kind = exprKind.NONE_LIT;
+                break;
+            case tokenKind.THIS:
+                expr.kind = exprKind.THIS_LIT;
                 break;
             case tokenKind.VAR:
                 expr.kind = exprKind.LOCAL_VAR_DEF;

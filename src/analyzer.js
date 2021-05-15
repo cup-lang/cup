@@ -36,22 +36,22 @@ function registerGenericUse(type) {
         }
     }
     if (hasGenerics) {
-        let name = type.path.map(p => p.name).join(':');
-        console.log(name);
+        let name = type.path.map(p => p.name).join('_');
         if (!module.exports.gens[name]) {
-            module.exports.gens[name] = [type.gens];
+            module.exports.gens[name] = [type.path.map(p => p.gens)];
         }
         else {
             let gen = module.exports.gens[name];
             let exists;
+            let typeGens = type.path.map(p => p.gens);
             for (let i = 0; i < gen.length; ++i) {
-                if (deepEqual(gen[i], type.gens)) {
+                if (deepEqual(gen[i], typeGens)) {
                     exists = true;
                     break;
                 }
             }
             if (!exists) {
-                module.exports.gens[name].push(type.gens);
+                module.exports.gens[name].push(typeGens);
             }
         }
     }
