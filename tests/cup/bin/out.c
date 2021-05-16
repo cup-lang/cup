@@ -1,1 +1,1 @@
-typedef struct {int a;int b;f32 c;} vec_f32;vec_f32 new(int cap) {return ;};int main() {vec_f32 a=[object Object](1);};
+typedef struct {i32* buf;int size;int cap;} vec_i32;typedef struct {f32* buf;int size;int cap;} vec_f32;vec_i32 vec_i32_new(int cap) {return {.buf=mem_alloc(mem_size_T()*cap),.size=0,.cap=cap,};};vec_f32 vec_f32_new(int cap) {return {.buf=mem_alloc(mem_size_T()*cap),.size=0,.cap=cap,};};int main() {vec_i32 abc=vec_i32_new();vec_f32 abc=vec_f32_new();};

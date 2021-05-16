@@ -92,10 +92,11 @@ function analyzeExpr(expr) {
         case exprKind.LOCAL_VAR_DEF:
             registerGenericUse(expr.type);
             if (expr.value) {
-                analyzeExpr(expr.value, 0, 0, 0);
+                analyzeExpr(expr.value);
             }
             break;
         case exprKind.SUB_CALL:
+            registerGenericUse(expr);
             analyzeBlock(expr.args);
             break;
         case exprKind.VAR_USE:
@@ -122,14 +123,14 @@ function analyzeExpr(expr) {
             analyzeBlock(expr.body);
             break;
         case exprKind.WHILE:
-            analyzeExpr(expr.cond, 0, 0, 0);
+            analyzeExpr(expr.cond);
             analyzeBlock(expr.body);
             break;
         case exprKind.IF:
-            analyzeExpr(expr.if.cond, 0, 0, 0);
+            analyzeExpr(expr.if.cond);
             analyzeBlock(expr.if.body);
             for (let i = 0; i < expr.elif.length; ++i) {
-                analyzeExpr(expr.elif[i].cond, 0, 0, 0);
+                analyzeExpr(expr.elif[i].cond);
                 analyzeBlock(expr.elif[i].body);
             }
             if (expr.else) {
@@ -137,8 +138,8 @@ function analyzeExpr(expr) {
             }
             break;
         case exprKind.FOR:
-            analyzeExpr(expr.cond, 0, 0, 0);
-            analyzeExpr(expr.next, 0, 0, 0);
+            analyzeExpr(expr.cond);
+            analyzeExpr(expr.next);
             analyzeBlock(expr.body);
             break;
         case exprKind.EACH:
@@ -151,15 +152,16 @@ function analyzeExpr(expr) {
             break;
         case exprKind.RET:
             if (expr.value) {
-                analyzeExpr(expr.value, 0, 0, 0);
+                analyzeExpr(expr.value);
             }
             break;
         case exprKind.TRY:
             break;
         case exprKind.UNARY_OP:
-            analyzeExpr(expr.value, 0, 0, parenths + 1);
+            analyzeExpr(expr.value);
             break;
         case exprKind.BINARY_OP:
+            break;
     }
 }
 

@@ -52,8 +52,8 @@ Command get_command(int argc, ptr<ptr<u8>> argv) {
         ret Command:None;
     };
 
-    var is_command = false;
-    var vector = vec<u8>:new(16);
+    bool is_command = false;
+    vec<u8> vector = vec<u8>:new(16);
     ` ~l for i = 1, i < argc, i += 1 {
     `     if i == 4 {
     `         ret ~l;

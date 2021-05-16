@@ -37,26 +37,11 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-#gen("T")
-comp vec {
-    int a,
-    int b,
-    T c,
-};
+`` treat simple enums as C-enums
+` return Command_None;
+`` 'as' casting
+` int32(0)
 
-vec<f32> new(int cap) {
-    ret vec<f32> {
-        buf = mem:alloc(mem:size<f32>() * cap),
-        size = 0,
-        cap = cap,
-    };
-};
-
-int main() {
-    vec<f32> a = new(1);
-};
-
-` TODO: CompInst generation
 ` FIX: match multiple case values (op chaining)
 ` TODO: add deref counterpart assign operators
 ` TODO: add 'as' keyword for casting

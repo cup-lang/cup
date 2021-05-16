@@ -1,6 +1,6 @@
 ` TODO: use errors
 
-sub main(int argc, ptr<ptr<u8>> argv) {
+int main(int argc, ptr<ptr<u8>> argv) {
     #os("win") console = GetStdHandle(STD_OUTPUT_HANDLE);
 
     var command = get_command(argc, argv);
@@ -35,87 +35,87 @@ sub main(int argc, ptr<ptr<u8>> argv) {
         ret 1;
     };
 
-    ` ~m match command {
-    `     Command:Run |
-    `     Command:Build {
-    `         ret ~m;
-    `     },  
-    `     Command:Check |
-    `     Command:NewPackage |
-    `     Command:UpdatePackage |
-    `     Command:AddPackage |
-    `     Command:RemovePackage |
-    `     Command:GenDocs |
-    `     Command:GenBinds |
-    `     Command:SelfUpdate |
-    `     Command:SelfInstall |
-    `     Command:SelfUninstall {
-    `         ret 1;
-    `     },
-    `     Command:HelpRun {
-    `         command_help("run", "Compile and run the current package", command_options:compile);
-    `         ret 0;
-    `     },
-    `     Command:HelpBuild {
-    `         command_help("build", "Compile the current package", command_options:compile);
-    `         ret 0;
-    `     },
-    `     Command:HelpCheck {
-    `         command_help("check", "Analyze the current package", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpNewPackage {
-    `         command_help("new", "Create a new package", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpUpdatePackage {
-    `         command_help("update", "Update given dependency", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpAddPackage {
-    `         command_help("add", "Adds given dependency", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpRemovePackage {
-    `         command_help("remove", "Removes given dependency", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpGenDocs {
-    `         command_help("gen docs", "Generate documentation for the current package", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpGenBinds {
-    `         command_help("gen binds", "Generate bindings for a given C header file", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpSelfUpdate {
-    `         command_help("self update", "Update the Cup Toolkit", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpSelfInstall {
-    `         command_help("self install", "Install the Cup Toolkit", command_options:empty);
-    `         ret 0;
-    `     },
-    `     Command:HelpSelfUninstall {
-    `         command_help("self uninstall", "Uninstall the Cup Toolkite", command_options:empty);
-    `         ret 0;
-    `     },
-    ` };
+    ~m match command {
+        Command:Run { ret ~m; },
+        Command:Build { ret ~m; },
+        Command:Check { ret 1; },
+        Command:Check { ret 1; },
+        Command:NewPackage { ret 1; },
+        Command:NewPackage { ret 1; },
+        Command:UpdatePackage { ret 1; },
+        Command:UpdatePackage { ret 1; },
+        Command:AddPackage { ret 1; },
+        Command:AddPackage { ret 1; },
+        Command:RemovePackage { ret 1; },
+        Command:GenDocs { ret 1; },
+        Command:GenBinds { ret 1; },
+        Command:SelfUpdate { ret 1; },
+        Command:SelfInstall { ret 1; },
+        Command:SelfUninstall { ret 1; },
+        Command:HelpRun {
+            command_help("run", "Compile and run the current package", command_options:compile);
+            ret 0;
+        },
+        Command:HelpBuild {
+            command_help("build", "Compile the current package", command_options:compile);
+            ret 0;
+        },
+        Command:HelpCheck {
+            command_help("check", "Analyze the current package", command_options:empty);
+            ret 0;
+        },
+        Command:HelpNewPackage {
+            command_help("new", "Create a new package", command_options:empty);
+            ret 0;
+        },
+        Command:HelpUpdatePackage {
+            command_help("update", "Update given dependency", command_options:empty);
+            ret 0;
+        },
+        Command:HelpAddPackage {
+            command_help("add", "Adds given dependency", command_options:empty);
+            ret 0;
+        },
+        Command:HelpRemovePackage {
+            command_help("remove", "Removes given dependency", command_options:empty);
+            ret 0;
+        },
+        Command:HelpGenDocs {
+            command_help("gen docs", "Generate documentation for the current package", command_options:empty);
+            ret 0;
+        },
+        Command:HelpGenBinds {
+            command_help("gen binds", "Generate bindings for a given C header file", command_options:empty);
+            ret 0;
+        },
+        Command:HelpSelfUpdate {
+            command_help("self update", "Update the Cup Toolkit", command_options:empty);
+            ret 0;
+        },
+        Command:HelpSelfInstall {
+            command_help("self install", "Install the Cup Toolkit", command_options:empty);
+            ret 0;
+        },
+        Command:HelpSelfUninstall {
+            command_help("self uninstall", "Uninstall the Cup Toolkite", command_options:empty);
+            ret 0;
+        },
+    };
 
-    ptr<u8> output = null;
+    ptr<u8> output = none;
     ` for i = 2; i < argc; i += 1 {
     `     if (argv[i])[0] == '-' {
     `         match (argv[i])[1] {
-                'i' {
-                    if file_name == null {
+    `             'i' {
+    `                 if file_name == none {
                         file_name = get_option(i$, argc, argv);
-                    };
-                },
-                'o' {
-                    if output == null {
+    `                 };
+    `             },
+    `             'o' {
+    `                 if output == none {
                         output = get_option(i$, argc, argv);
-                    };
-                },
+    `                 };
+    `             },
     `         };
     `     } else {
     `         set_color(Color:Red);
@@ -149,10 +149,10 @@ sub main(int argc, ptr<ptr<u8>> argv) {
     var tokens = lexer:lex();
 
     `` Parse the tokens
-    var ast = parser:parse(tokens);
+    vec<Token> ast = parser:parse(tokens);
 
     `` Generate output file
-    if output != NULL {
+    if output != none {
         fopen_s(file_point$, output, "w");
     } else {
         fopen_s(file_point$, "out.c", "w");
@@ -168,13 +168,13 @@ sub main(int argc, ptr<ptr<u8>> argv) {
     ret 0;
 };
 
-sub get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
-    `if strlen(argv[index@]) > 2 {
-    `    ret argv[index@] + 1;
-    `} elif (argc > index@) {
-    `    ret argv[index @+= 1];
-    `};
-    ret null;
+ptr<u8> get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
+    ` if strlen(argv[index@]) > 2 {
+    `     ret argv[index@] + 1;
+    ` } elif (argc > index@) {
+    `     ret argv[index @+= 1];
+    ` };
+    ret none;
 };
 
 enum Color {
@@ -211,7 +211,7 @@ comp vec {
 
 #gen("T")
 def vec<T> {
-    sub new(int cap) {
+    vec<T> new(int cap) {
         ret vec<T> {
             buf = mem:alloc(mem:size<T>() * cap),
             size = 0,

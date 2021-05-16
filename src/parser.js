@@ -442,18 +442,18 @@ function parseLocal(endTokenKind, start = index, end) {
                 index = end + 1;
                 return expr.lhs;
             }
-            switch (opKind) {
-                case tokenKind.ASSIGN:
-                case tokenKind.ADD_ASSIGN:
-                case tokenKind.SUBTRACT_ASSIGN:
-                case tokenKind.MULTIPLY_ASSIGN:
-                case tokenKind.DIVIDE_ASSIGN:
-                case tokenKind.MODULO_ASSIGN:
-                    if (expr.lhs.kind !== exprKind.LOCAL_VAR_DEF && expr.lhs.kind !== exprKind.VAR_USE) {
-                        throw "expected a mutable variable";
-                    }
-                    break;
-            }
+            // switch (opKind) {
+            //     case tokenKind.ASSIGN:
+            //     case tokenKind.ADD_ASSIGN:
+            //     case tokenKind.SUBTRACT_ASSIGN:
+            //     case tokenKind.MULTIPLY_ASSIGN:
+            //     case tokenKind.DIVIDE_ASSIGN:
+            //     case tokenKind.MODULO_ASSIGN:
+            //         if (expr.lhs.kind !== exprKind.LOCAL_VAR_DEF && expr.lhs.kind !== exprKind.VAR_USE) {
+            //             throw "expected a mutable variable";
+            //         }
+            //         break;
+            // }
             expr.rhs = parseLocal(null, opIndex + 1, end);
         }
         return expr;
