@@ -33,6 +33,7 @@ const tokenKind = module.exports.tokenKind = {
     NEXT: 'next',
     JUMP: 'jump',
     TRY: 'try',
+    AS: 'as',
 
     SEMICOLON: 'semicolon',
     COLON: 'colon',
@@ -104,6 +105,7 @@ keywords = {
     'next': tokenKind.NEXT,
     'jump': tokenKind.JUMP,
     'try': tokenKind.TRY,
+    'as': tokenKind.AS,
 };
 
 function isWhitespace(c) { return c.charCodeAt() === 0 || /\s/.test(c); }
@@ -144,7 +146,8 @@ function isBinaryOperator(token) {
         token.kind === tokenKind.DIVIDE ||
         token.kind === tokenKind.DIVIDE_ASSIGN ||
         token.kind === tokenKind.MODULO ||
-        token.kind === tokenKind.MODULO_ASSIGN;
+        token.kind === tokenKind.MODULO_ASSIGN ||
+        token.kind === tokenKind.AS;
 }
 
 module.exports.lex = function (input) {

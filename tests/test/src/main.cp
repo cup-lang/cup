@@ -37,17 +37,32 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-`` treat simple enums as C-enums
-` return Command_None;
-`` 'as' casting
-` int32(0)
+#gen("T")
+comp vec {
+    ptr<T> buf,
+};
 
-` FIX: match multiple case values (op chaining)
-` TODO: add deref counterpart assign operators
-` TODO: add 'as' keyword for casting
-` TODO: def a for b -> def a, b
+#gen("T")
+def vec<T> {
+    vec<T> new(int cap) {
+        ret vec<T> {
+            buf = malloc(10),
+        };
+    };
+};
 
-` TODO: comp foo {}; -> comp foo ();
+int main() {
+    vec<i32> a = vec<i32>:new(1);
+    vec<f64> a = vec<f64>:new(1);
+};
+
+`` gen
+` TODO: merge analyzer with generator
+` TODO: treat simple enums as C-enums
+` TODO: 'match' generation
+
+`` v0.2
 ` TODO: SomeComp {} -> SomeComp ()
-` TODO: remove "def x" 
+` TODO: comp foo {}; -> comp foo ();
 ` TODO: add 'has' keyword
+` TODO: def a for b -> def a, b

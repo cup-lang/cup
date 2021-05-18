@@ -22,7 +22,6 @@ function compileRecursive(mods, path) {
             let ast = parser.parse(tokens);
             stdout.write('AST: ');
             console.dir(ast, { depth: null });
-            ast = analyzer.analyze(ast);
             if (mods.length) {
                 ast = {
                     kind: parser.exprKind.MOD,
@@ -37,6 +36,7 @@ function compileRecursive(mods, path) {
 }
 
 let ast = compileRecursive([], 'tests/test/src');
+analyzer.analyze(ast);
 // console.dir(ast, { depth: null });
-const c = cgen.generate(ast);
-fs.writeFileSync('tests/cup/bin/out.c', c);
+// const c = cgen.generate(ast);
+// fs.writeFileSync('tests/cup/bin/out.c', c);

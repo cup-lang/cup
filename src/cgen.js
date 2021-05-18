@@ -1,6 +1,6 @@
 const tokenKind = require('./lexer.js').tokenKind;
 const exprKind = require('./parser.js').exprKind;
-const gens = require('./analyzer.js').gens;
+const genExprs = require('./analyzer.js').genExprs;
 
 let output;
 let mods;
@@ -29,19 +29,22 @@ function generateType(type, raw) {
     nothing = true;
     if (!raw) {
         nothing = false;
-        if (path === 'i32') {
+        if (path === 'int' || path === 'i32') {
             output += 'int32_t';
         }
         else if (path === 'f32') {
             output += 'float';
         }
+        else if (path === 'bool' || path === 'b8') {
+            output += 'char';
+        }
         else if (path === 'i8') {
             output += 'int8_t';
         }
-        else if (path === 'f64') {
+        else if (path === 'float' || path === 'f64') {
             output += 'double';
         }
-        else if (path === 'u32') {
+        else if (path === 'int' || path === 'u32') {
             output += 'uint32_t';
         }
         else if (path === 'i64') {
@@ -129,10 +132,6 @@ function generateGenericName(name, gens) {
 }
 
 function generateExpr(expr, last, semicolon, parenths) {
-    if (scopeGens.length > 0) {
-        expr.gen = (expr.gen || []).concat(scopeGens);
-    }
-
     if (expr.tags) {
         for (let i = 0; i < expr.tags.length; ++i) {
             const tag = expr.tags[i];
@@ -172,10 +171,12 @@ function generateExpr(expr, last, semicolon, parenths) {
         }
     }
 
+    let oldScopeGens = [].concat(scopeGens);
     if (expr.gen) {
         for (let i = 0; i < expr.gen.length; ++i) {
             scopeGens.push(expr.gen[i]);
         }
+        expr.gen = oldScopeGens.concat(expr.gen);
     }
 
     switch (expr.kind) {
@@ -189,9 +190,9 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.COMP: {
             let name = mods.concat(expr.name);
             generateGeneric(expr, gens[name.join('_')], (gen) => {
-                output += 'typedef struct {';
+                output += 'typedef struct{';
                 generateBlock(expr.body, 1, 0);
-                output += `} ${generateGenericName(name, gen)};`;
+                output += `}${generateGenericName(name, gen)};`;
             });
             break;
         }
@@ -199,21 +200,19 @@ function generateExpr(expr, last, semicolon, parenths) {
             let name = mods.concat(expr.name);
             generateGeneric(expr, gens[name.join('_')], (gen) => {
                 let gname = generateGenericName(name, gen);
+                mods.push(expr.name);
                 generateBlock(expr.body, 1, 0);
-                output += `union ${gname} {`;
+                mods.pop();
+                output += `union ${gname}{`;
                 for (let i = 0; i < expr.body.length; ++i) {
                     output += `struct ${gname + '_' + expr.body[i].name} u${i};`;
                 }
-                output += `};\n`;
-                output += 'typedef struct {\n';
-                output += '    int type;\n';
-                output += `    union ${gname} u;\n`;
-                output += `} ${gname};`;
+                output += `};typedef struct{int type;union ${gname} u;}${gname};`;
             });
             break;
         }
         case exprKind.OPTION:
-            output += `struct ${expr.name} {`;
+            output += `struct ${mods.concat(expr.name).join('_')}{`;
             generateBlock(expr.body, 1, 0);
             output += '}';
             break;
@@ -235,7 +234,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                 generateType(expr.retType);
                 output += ` ${generateGenericName(name, gen)}(`;
                 generateBlock(expr.args, 0, 0);
-                output += ') {';
+                output += '){';
                 generateBlock(expr.body, 1, 0);
                 output += '};';
             });
@@ -279,13 +278,15 @@ function generateExpr(expr, last, semicolon, parenths) {
             }
             break;
         case exprKind.COMP_INST:
-            output += '{';
-            for (let i = 0; i < expr.args.length; ++i) {
-                output += '.' + expr.args[i].name + '=';
-                generateExpr(expr.args[i].value);
-                output += ',';
-            }
-            output += '}';
+            const name = expr.path.map(p => p.name);
+            generateGeneric(expr, gens[name.join('_')], (gen) => {
+                output += `(${generateGenericName(name, gen)}){`;
+                for (let i = 0; i < expr.args.length; ++i) {
+                    generateExpr(expr.args[i].value);
+                    output += ',';
+                }
+                output += '}';
+            });
             break;
         case exprKind.STRING_LIT:
             output += `"${expr.value}"`;
@@ -394,70 +395,77 @@ function generateExpr(expr, last, semicolon, parenths) {
             if (parenths) {
                 output += '(';
             }
-            generateExpr(expr.lhs, 0, 0, parenths + 1);
-            switch (expr.type) {
-                case tokenKind.ASSIGN:
-                    output += '=';
-                    break;
-                case tokenKind.EQUAL:
-                    output += '==';
-                    break;
-                case tokenKind.AND:
-                    output += '&&';
-                    break;
-                case tokenKind.OR:
-                    output += '||';
-                    break;
-                case tokenKind.LESS:
-                    output += '<';
-                    break;
-                case tokenKind.LESS_EQUAL:
-                    output += '<=';
-                    break;
-                case tokenKind.GREATER:
-                    output += '>';
-                    break;
-                case tokenKind.GREATER_EQUAL:
-                    output += '>=';
-                    break;
-                case tokenKind.ADD:
-                    output += '+';
-                    break;
-                case tokenKind.ADD_ASSIGN:
-                    output += '+=';
-                    break;
-                case tokenKind.SUBTRACT:
-                    output += '-';
-                    break;
-                case tokenKind.SUBTRACT_ASSIGN:
-                    output += '-=';
-                    break;
-                case tokenKind.MULTIPLY:
-                    output += '*';
-                    break;
-                case tokenKind.MULTIPLY_ASSIGN:
-                    output += '*=';
-                    break;
-                case tokenKind.DIVIDE:
-                    output += '/';
-                    break;
-                case tokenKind.DIVIDE_ASSIGN:
-                    output += '/=';
-                    break;
-                case tokenKind.MODULO:
-                    output += '%';
-                    break;
-                case tokenKind.MODULO_ASSIGN:
-                    output += '%=';
-                    break;
-                case tokenKind.NOT_EQUAL:
-                    output += '!=';
-                    break;
-                case tokenKind.DOT:
-                    output += '.';
-                    break;
+            if (expr.type === tokenKind.AS) {
+                output += '(';
+                generateType(expr.rhs);
+                output += ')';
+                generateExpr(expr.lhs, 0, 0, parenths + 1);
+            } else {
+                generateExpr(expr.lhs, 0, 0, parenths + 1);
+                switch (expr.type) {
+                    case tokenKind.ASSIGN:
+                        output += '=';
+                        break;
+                    case tokenKind.EQUAL:
+                        output += '==';
+                        break;
+                    case tokenKind.AND:
+                        output += '&&';
+                        break;
+                    case tokenKind.OR:
+                        output += '||';
+                        break;
+                    case tokenKind.LESS:
+                        output += '<';
+                        break;
+                    case tokenKind.LESS_EQUAL:
+                        output += '<=';
+                        break;
+                    case tokenKind.GREATER:
+                        output += '>';
+                        break;
+                    case tokenKind.GREATER_EQUAL:
+                        output += '>=';
+                        break;
+                    case tokenKind.ADD:
+                        output += '+';
+                        break;
+                    case tokenKind.ADD_ASSIGN:
+                        output += '+=';
+                        break;
+                    case tokenKind.SUBTRACT:
+                        output += '-';
+                        break;
+                    case tokenKind.SUBTRACT_ASSIGN:
+                        output += '-=';
+                        break;
+                    case tokenKind.MULTIPLY:
+                        output += '*';
+                        break;
+                    case tokenKind.MULTIPLY_ASSIGN:
+                        output += '*=';
+                        break;
+                    case tokenKind.DIVIDE:
+                        output += '/';
+                        break;
+                    case tokenKind.DIVIDE_ASSIGN:
+                        output += '/=';
+                        break;
+                    case tokenKind.MODULO:
+                        output += '%';
+                        break;
+                    case tokenKind.MODULO_ASSIGN:
+                        output += '%=';
+                        break;
+                    case tokenKind.NOT_EQUAL:
+                        output += '!=';
+                        break;
+                    case tokenKind.DOT:
+                        output += '.';
+                        break;
+                }
+                generateExpr(expr.rhs, 0, 0, parenths + 1);
             }
-            generateExpr(expr.rhs, 0, 0, parenths + 1);
             if (parenths) {
                 output += ')';
             }
@@ -467,11 +475,7 @@ function generateExpr(expr, last, semicolon, parenths) {
             break;
     }
 
-    if (expr.gen) {
-        for (let i = 0; i < expr.gen.length; ++i) {
-            scopeGens.pop();
-        }
-    }
+    scopeGens = oldScopeGens;
 }
 
 function generateBlock(exprs, semicolon, comma) {

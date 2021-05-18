@@ -43,6 +43,7 @@ const exprKind = module.exports.exprKind = {
     FOR: 'for',
     EACH: 'each',
     MATCH: 'match',
+    CASES: 'cases',
     CASE: 'case',
     RET: 'ret',
     NEXT: 'next',
@@ -345,10 +346,19 @@ function parseLocal(endTokenKind, start = index, end) {
             case tokenKind.MULTIPLY_ASSIGN:
             case tokenKind.DIVIDE_ASSIGN:
             case tokenKind.MODULO_ASSIGN:
-                if (opLevel < 5) {
-                    opLevel = 5;
+                if (opLevel < 6) {
+                    opLevel = 6;
                     opIndex = i;
                     opKind = token.kind;
+                }
+                break;
+            case tokenKind.AS:
+                if (opLevel < 5) {
+                    opLevel = 5;
+                }
+                if (opLevel == 5) {
+                    opKind = token.kind;
+                    opIndex = i;
                 }
                 break;
             case tokenKind.LESS:
@@ -454,7 +464,13 @@ function parseLocal(endTokenKind, start = index, end) {
             //         }
             //         break;
             // }
-            expr.rhs = parseLocal(null, opIndex + 1, end);
+            if (opKind === tokenKind.AS) {
+                index = opIndex + 1;
+                expr.rhs = parseType();
+                index = end + 1;
+            } else {
+                expr.rhs = parseLocal(null, opIndex + 1, end);
+            }
         }
         return expr;
     } else {
@@ -474,7 +490,7 @@ function parseLocal(endTokenKind, start = index, end) {
             return expr;
         }
 
-        switch (token.kind) {
+        end: switch (token.kind) {
             case tokenKind.IF:
                 expr.kind = exprKind.IF;
                 token = nextToken();
@@ -549,23 +565,52 @@ function parseLocal(endTokenKind, start = index, end) {
                 while (1) {
                     let should_end;
                     token = optionalToken(tokenKind.RIGHT_BRACE, () => {
+                        token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'match' body");
                         should_end = true;
                     });
-                    if (should_end) { break; }
+                    if (should_end) { break end; };
+                    let brace = nextOfKind(tokenKind.LEFT_BRACE, index);
                     let _case = {
-                        kind: exprKind.CASE,
-                        tags: parseTags()
-                    };
-                    _case.value = parseLocal(tokenKind.LEFT_BRACE);
+                        kind: exprKind.CASES,
+                        cases: [],
+                    }
+                    while (index < brace) {
+                        _case.cases.push(parseLocal(tokenKind.COMMA, index, brace));
+                    }
+                    index = brace + 1;
                     _case.body = parseBlock(true);
                     expr.body.push(_case);
                     let should_break;
                     token = optionalToken(tokenKind.COMMA, null, () => {
                         should_break = true;
                     });
-                    if (should_break) { break; }
+                    if (should_break) { break; };
                 }
+                token = expectToken(tokenKind.RIGHT_BRACE, "expected '}' after last 'match' option");
                 token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'match' body");
+                // while (1) {
+                //     let should_end;
+                //     token = optionalToken(tokenKind.RIGHT_BRACE, () => {
+                //         token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'match' body");
+                //         should_end = true;
+                //     });
+                //     if (should_end) { break end; }
+                //     let cases = {
+                //         kind: exprKind.CASES,
+                //     };
+                //     while (1) {
+                //         let comma = nextOfKind(tokenKind.COMMA, index, );
+
+                //     }
+                //     _case.value = parseLocal(tokenKind.LEFT_BRACE);
+                //     _case.body = parseBlock(true);
+                //     expr.body.push(_case);
+                //     let should_break;
+                //     token = optionalToken(tokenKind.COMMA, null, () => {
+                //         should_break = true;
+                //     });
+                //     if (should_break) { break; }
+                // }
                 break;
             case tokenKind.RET:
                 expr.kind = exprKind.RET;
