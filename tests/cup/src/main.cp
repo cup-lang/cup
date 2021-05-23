@@ -1,9 +1,23 @@
 ` TODO: use errors
+` FIX: "(a) < 1" -> "a < 1"
+` FIX: "ret (a + 1)" -> "ret a + 1"
+` FIX: use "var"
+
+#req("stdlib.h")
+#req("stdio.h")
+#req("stdint.h")
+#req("string.h")
+#req("ctype.h")
+#req("time.h")
+mod _ {};
+
+ptr<u8> file_name = none;
+int file_size;
 
 int main(int argc, ptr<ptr<u8>> argv) {
     #os("win") console = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    var command = get_command(argc, argv);
+    Command command = get_command(argc, argv);
     
     if (argc == 1) | (command == Command:Help) {
         printf("Cup Toolkit v0.0.1\n\n");
@@ -28,9 +42,9 @@ int main(int argc, ptr<ptr<u8>> argv) {
         printf("error: ");
         set_color(Color:Reset);
         printf("no such command: '%s", argv[1]);
-        ` for i = 2, i < argc, i += 1 {
-        `     printf(" %s", argv[i]);
-        ` };
+        for i = 2, (i) < argc, i += 1 {
+            printf(" %s", argv[i]);
+        };
         printf("'\n\nSee 'cup help' for the list of available commands.\n");
         ret 1;
     };
@@ -39,12 +53,8 @@ int main(int argc, ptr<ptr<u8>> argv) {
         Command:Run { ret ~m; },
         Command:Build { ret ~m; },
         Command:Check { ret 1; },
-        Command:Check { ret 1; },
-        Command:NewPackage { ret 1; },
         Command:NewPackage { ret 1; },
         Command:UpdatePackage { ret 1; },
-        Command:UpdatePackage { ret 1; },
-        Command:AddPackage { ret 1; },
         Command:AddPackage { ret 1; },
         Command:RemovePackage { ret 1; },
         Command:GenDocs { ret 1; },
@@ -103,27 +113,27 @@ int main(int argc, ptr<ptr<u8>> argv) {
     };
 
     ptr<u8> output = none;
-    ` for i = 2; i < argc; i += 1 {
-    `     if (argv[i])[0] == '-' {
-    `         match (argv[i])[1] {
-    `             'i' {
-    `                 if file_name == none {
-                        file_name = get_option(i$, argc, argv);
-    `                 };
-    `             },
-    `             'o' {
-    `                 if output == none {
-                        output = get_option(i$, argc, argv);
-    `                 };
-    `             },
-    `         };
-    `     } else {
-    `         set_color(Color:Red);
-    `         printf("error: ");
-    `         set_color(Color:Reset);
-    `         printf("invalid option '%s'", argv[i]);
-    `     };
-    ` };
+    for i = 2; (i) < argc; i += 1 {
+        if argv[i][0] == '-' {
+            ` match argv[i][1] {
+            `     'i' {
+            `         if file_name == none {
+            `             file_name = get_option(i$, argc, argv);
+            `         };
+            `     },
+            `     'o' {
+            `         if output == none {
+            `             output = get_option(i$, argc, argv);
+            `         };
+            `     },
+            ` };
+        } else {
+            set_color(Color:Red);
+            printf("error: ");
+            set_color(Color:Reset);
+            printf("invalid option '%s'", argv[i]);
+        };
+    };
 
     `` Open the file
     ptr<FILE> file_point;
@@ -136,7 +146,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
     };
 
     `` Get the size of the file
-    fseek(file_point, int32(0), SEEK_END);
+    fseek(file_point, 0 as i32, SEEK_END);
     file_size = ftell(file_point);
     rewind(file_point);
 
@@ -146,10 +156,10 @@ int main(int argc, ptr<ptr<u8>> argv) {
     fclose(file_point);
 
     `` Tokenize the file
-    var tokens = lexer:lex();
+    vec<lexer:Token> tokens = lexer:lex();
 
     `` Parse the tokens
-    vec<Token> ast = parser:parse(tokens);
+    vec<parser:Expr> ast = parser:parse(tokens);
 
     `` Generate output file
     if output != none {
@@ -163,17 +173,17 @@ int main(int argc, ptr<ptr<u8>> argv) {
 
     system("cc test/test0/out.c -o test/test0/out");
 
-    printf("Compilation successful (%.3lfs elapsed)\n", f64(clock()) / CLOCKS_PER_SEC);
+    printf("Compilation successful (%.3lfs elapsed)\n", clock() as f64 / CLOCKS_PER_SEC);
 
     ret 0;
 };
 
 ptr<u8> get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
-    ` if strlen(argv[index@]) > 2 {
-    `     ret argv[index@] + 1;
-    ` } elif (argc > index@) {
-    `     ret argv[index @+= 1];
-    ` };
+    if strlen(argv[index@]) > 2 {
+        ret (argv[index@] + 1);
+    } elif (argc > index@) {
+        ret (argv[index@ += 1]);
+    };
     ret none;
 };
 
@@ -184,22 +194,22 @@ enum Color {
 
 #os("win")
 sub set_color(Color color) {
-    var color_code = match color {
-        Reset { ret 7; },
-        Red { ret 12; },
-    };
+    ` int color_code = match color {
+    `     Reset { ret 7; },
+    `     Red { ret 12; },
+    ` };
 
-    SetConsoleTextAttribute(console, color_code);   
+    ` SetConsoleTextAttribute(console, color_code);   
 };
 
 #os("linux")
-sub set_color() {
-    var color_code = match color {
-        Reset { ret "\033[0m;"; },
-        Red { ret "\033[0;31m"; },
-    };
+sub set_color(Color color) {
+    ` ptr<u8> color_code = match color {
+    `     Reset { ret "\033[0m;"; },
+    `     Red { ret "\033[0;31m"; },
+    ` };
 
-    printf(color_code);
+    ` printf(color_code);
 };
 
 #gen("T")

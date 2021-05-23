@@ -1,5 +1,5 @@
 comp Expr { };
 
-vec<Expr> parse(vec<Token> tokens) {
-    ret vec<Expr>:new(1);
+vec<parser:Expr> parse(vec<lexer:Token> tokens) {
+    ret vec<parser:Expr>:new(1);
 };

@@ -1,6 +1,7 @@
 const tokenKind = require('./lexer.js').tokenKind;
 const exprKind = require('./parser.js').exprKind;
 const genExprs = require('./analyzer.js').genExprs;
+const enumExprs = require('./analyzer.js').enumExprs;
 
 let output;
 let mods;
@@ -8,11 +9,11 @@ let genNames;
 let reqs;
 let binds;
 let scopeGens;
+let headers;
 
 function generateType(type, raw) {
     if (type === undefined) {
-        output += 'void';
-        return;
+        return 'void';
     }
 
     let path = type.path[0].name;
@@ -26,41 +27,42 @@ function generateType(type, raw) {
     const gen = genNames[type.path.map(p => p.name).join('_')];
     type = gen ? gen : type;
 
+    let out = '';
+
+    generateGeneric(type.path.map(p => p.name).join('_'), type.path.map(p => p.gens));
+
     nothing = true;
     if (!raw) {
         nothing = false;
         if (path === 'int' || path === 'i32') {
-            output += 'int32_t';
+            out += 'int32_t';
         }
         else if (path === 'f32') {
-            output += 'float';
+            out += 'float';
         }
-        else if (path === 'bool' || path === 'b8') {
-            output += 'char';
+        else if (path === 'u8' || path === 'bool' || path === 'b8') {
+            out += 'uint8_t';
         }
         else if (path === 'i8') {
-            output += 'int8_t';
+            out += 'int8_t';
         }
         else if (path === 'float' || path === 'f64') {
-            output += 'double';
+            out += 'double';
         }
         else if (path === 'int' || path === 'u32') {
-            output += 'uint32_t';
+            out += 'uint32_t';
         }
         else if (path === 'i64') {
-            output += 'int64_t';
+            out += 'int64_t';
         }
         else if (path === 'i16') {
-            output += 'int16_t';
-        }
-        else if (path === 'u8') {
-            output += 'uint8_t';
+            out += 'int16_t';
         }
         else if (path === 'u64') {
-            output += 'uint64_t';
+            out += 'uint64_t';
         }
         else if (path === 'u16') {
-            output += 'uint16_t';
+            out += 'uint16_t';
         }
         else {
             nothing = true;
@@ -70,35 +72,51 @@ function generateType(type, raw) {
     if (nothing) {
         for (let i = 0; i < type.path.length; ++i) {
             if (i != 0) {
-                output += '_';
+                out += '_';
             }
-            output += type.path[i].name;
+            out += type.path[i].name;
             for (let ii = 0; ii < type.path[i].gens.length; ++ii) {
-                output += '_';
-                generateType(type.path[i].gens[ii], true);
+                out += '_';
+                out += generateType(type.path[i].gens[ii], true);
             }
         }
     }
 
     for (let i = 0; i < pointerCount; ++i) {
-        output += '*';
+        out += '*';
     }
+
+    return out;
 }
 
-function generateGeneric(expr, gen, how) {
-    if (expr.gen) {
-        gen = gen || [];
-        for (let i = 0; i < gen.length; ++i) {
-            let oldGens = Object.assign({}, genNames); // make a clone
-            for (let ii = 0; ii < expr.gen.length; ++ii) {
-                genNames[expr.gen[ii].name] = gen[i][ii][0];
-            }
-            how(gen[i]);
-            genNames = oldGens;
-        }
-    } else {
-        how();
+function generateGeneric(path, gens) {
+    let expr = genExprs[path];
+    if (!expr) {
+        return;
     }
+    const oldGenNames = Object.assign({}, genNames);
+    let gensList = [];
+    for (let i = 0; i < gens.length; ++i) {
+        gensList = gensList.concat(gens[i]);
+    }
+    for (let i = 0; i < expr.gen.length; ++i) {
+        genNames[expr.gen[i]] = gensList[i];
+    }
+    switch (expr.kind) {
+        case exprKind.COMP:
+            output += generateComp(expr, gens);
+            break;
+        case exprKind.ENUM:
+            output += generateEnum(expr, gens);
+            break;
+        case exprKind.SUB_DEF:
+            output += generateSub(expr, gens);
+            break;
+        case exprKind.COMP_INST:
+            output += generateCompInst(expr, gens);
+            break;
+    }
+    genNames = oldGenNames;
 }
 
 function generateGenericNamePart(type) {
@@ -124,14 +142,78 @@ function generateGenericName(name, gens) {
         if (gens && gens[i]) {
             for (let ii = 0; ii < gens[i].length; ++ii) {
                 out += '_';
-                out += generateGenericNamePart(gens[i][ii]);
+                let g = genNames[gens[i][ii].path.map(p => p.name).join('_')];
+                out += generateGenericNamePart(g ? g : gens[i][ii]);
             }
         }
     }
     return out;
 }
 
+function generateComp(expr, gen) {
+    let name = mods.concat(expr.name);
+    if (gen) {
+        name = expr.path;
+    }
+    let gname = generateGenericName(name, gen);
+    let out = `struct ${gname}{`;
+    out += generateBlock(expr.body, 1, 0) + '};';
+    headers.push(`typedef struct ${gname} ${gname};`);
+    return out;
+}
+
+function generateEnum(expr, gen) {
+    let out = '';
+    let name = mods.concat(expr.name);
+    if (gen) {
+        name = expr.path;
+    }
+    let gname = generateGenericName(name, gen);
+    headers.push(`typedef struct ${gname} ${gname};`);
+    mods.push(expr.name);
+    out += generateBlock(expr.body, 1, 0);
+    mods.pop();
+    out += `union ${gname}Union{char _;`;
+    for (let i = 0; i < expr.body.length; ++i) {
+        if (expr.body[i].body.length > 0) {
+            out += `struct ${gname + '_' + expr.body[i].name} u${i};`;
+        }
+    }
+    out += `};struct ${gname}{int type;union ${gname}Union u;};`;
+    return out;
+}
+
+function generateSub(expr, gen) {
+    let out = '';
+    let name = mods.concat(expr.name);
+    if (gen) {
+        name = expr.path;
+    }
+    if (binds[name.join('_')]) { return; }
+    let header = generateType(expr.retType);
+    header += ` ${generateGenericName(name, gen)}(`;
+    header += generateBlock(expr.args, 0, 0) + ')';
+    headers.push(header + ';');
+    out += header + '{' + generateBlock(expr.body, 1, 0) + '};';
+    return out;
+}
+
+function generateCompInst(expr, gen) {
+    const name = expr.path.map(p => p.name);
+    let out = `(${generateGenericName(name, gen)}){`;
+    for (let i = 0; i < expr.args.length; ++i) {
+        out += generateExpr(expr.args[i].value);
+        out += ',';
+    }
+    out += '}';
+    return out;
+}
+
 function generateExpr(expr, last, semicolon, parenths) {
+    if (expr.gen && expr.gen.length > 0) {
+        return '';
+    }
+
     if (expr.tags) {
         for (let i = 0; i < expr.tags.length; ++i) {
             const tag = expr.tags[i];
@@ -140,12 +222,12 @@ function generateExpr(expr, last, semicolon, parenths) {
                     switch (tag.args[0].value) {
                         case 'win':
                             if (process.platform !== 'win32') {
-                                return;
+                                return '';
                             }
                             break;
                         case 'linux':
                             if (process.platform !== 'linux') {
-                                return;
+                                return '';
                             }
                             break;
                     }
@@ -157,15 +239,6 @@ function generateExpr(expr, last, semicolon, parenths) {
                     break;
                 case 'bind':
                     binds[mods.concat(expr.name).join('_')] = tag.args[0].value;
-                    break;
-                case 'gen':
-                    if (!expr.gen) {
-                        expr.gen = [];
-                    }
-                    expr.gen.push({
-                        kind: exprKind.CONSTR_TYPE,
-                        name: tag.args[0].value,
-                    });
                     break;
             }
         }
@@ -179,313 +252,348 @@ function generateExpr(expr, last, semicolon, parenths) {
         expr.gen = oldScopeGens.concat(expr.gen);
     }
 
-    switch (expr.kind) {
+    let out = '';
+
+    s: switch (expr.kind) {
         case exprKind.USE:
             break;
         case exprKind.MOD:
             mods.push(expr.name);
-            generateBlock(expr.body, 0, 0);
+            out += generateBlock(expr.body, 0, 0);
             mods.pop();
             break;
         case exprKind.COMP: {
-            let name = mods.concat(expr.name);
-            generateGeneric(expr, gens[name.join('_')], (gen) => {
-                output += 'typedef struct{';
-                generateBlock(expr.body, 1, 0);
-                output += `}${generateGenericName(name, gen)};`;
-            });
+            out += generateComp(expr);
             break;
         }
         case exprKind.ENUM: {
-            let name = mods.concat(expr.name);
-            generateGeneric(expr, gens[name.join('_')], (gen) => {
-                let gname = generateGenericName(name, gen);
-                mods.push(expr.name);
-                generateBlock(expr.body, 1, 0);
-                mods.pop();
-                output += `union ${gname}{`;
-                for (let i = 0; i < expr.body.length; ++i) {
-                    output += `struct ${gname + '_' + expr.body[i].name} u${i};`;
-                }
-                output += `};typedef struct{int type;union ${gname} u;}${gname};`;
-            });
+            out += generateEnum(expr);
             break;
         }
         case exprKind.OPTION:
-            output += `struct ${mods.concat(expr.name).join('_')}{`;
-            generateBlock(expr.body, 1, 0);
-            output += '}';
+            if (expr.body.length > 0) {
+                const name = mods.concat(expr.name).join('_');
+                out += `struct ${name}{`;
+                out += generateBlock(expr.body, 1, 0);
+                out += '}';
+            }
             break;
         case exprKind.OPTION_FIELD:
-            generateType(expr.type);
-            output += ` ${expr.name};`;
+            out += generateType(expr.type);
+            out += ` ${expr.name};`;
             break;
         case exprKind.PROP:
             break;
         case exprKind.DEF:
-            mods.push(expr.prop.path[0].name);
-            generateBlock(expr.body, 0, 0);
-            mods.pop();
+            const oldMods = mods.length;
+            for (let i = 0; i < expr.prop.path.length; ++i) {
+                mods.push(expr.prop.path[i].name);
+            }
+            out += generateBlock(expr.body, 0, 0);
+            mods = mods.slice(0, oldMods);
             break;
         case exprKind.SUB_DEF: {
-            let name = mods.concat(expr.name);
-            if (binds[name.join('_')]) { break; }
-            generateGeneric(expr, gens[name.join('_')], (gen) => {
-                generateType(expr.retType);
-                output += ` ${generateGenericName(name, gen)}(`;
-                generateBlock(expr.args, 0, 0);
-                output += '){';
-                generateBlock(expr.body, 1, 0);
-                output += '};';
-            });
+            out += generateSub(expr);
             break;
         }
         case exprKind.FIELD:
         case exprKind.ARG:
-            generateType(expr.type);
-            output += ` ${expr.name}`;
+            out += generateType(expr.type);
+            out += ` ${expr.name}`;
             if (semicolon) {
-                output += ';';
+                out += ';';
             }
             else if (!last) {
-                output += ',';
+                out += ',';
             }
             break;
         case exprKind.VAR_DEF:
         case exprKind.LOCAL_VAR_DEF:
-            generateType(expr.type);
-            output += ` ${mods.concat(expr.name).join('_')}`;
+            out += generateType(expr.type);
+            out += ` ${expr.kind === exprKind.VAR_DEF ? mods.concat(expr.name).join('_') : expr.name}`;
             if (expr.value) {
-                output += '=';
-                generateExpr(expr.value, 0, 0, 0);
+                out += '=';
+                out += generateExpr(expr.value, 0, 0, 0);
             }
-            output += ';';
+            out += ';';
             break;
-        case exprKind.SUB_CALL:
-            let path = expr.path.map(p => p.name).join('_');
-            let bind = binds[path];
-            output += `${bind ? bind : generateGenericName(expr.path.map(p => p.name), expr.path.map(p => p.gens))}(`;
-            generateBlock(expr.args, 0, 1);
-            output += ')';
+        case exprKind.SUB_CALL: {
+            const name = expr.path.map(p => p.name);
+            if (name.length > 1) {
+                const enumName = name.slice(0, -1).join('_');
+                let _enum = enumExprs[enumName];
+                if (_enum) {
+                    const index = _enum.body.map(e => e.name).indexOf(expr.path[expr.path.length - 1].name);
+                    out += `(${enumName}){${index}`;
+                    if (expr.args.length > 0) {
+                        out += `,(${name.join('_')}){`;
+                        for (let i = 0; i < expr.args.length; ++i) {
+                            out += generateExpr(expr.args[i]) + ',';
+                        }
+                        out += '}';
+                    }
+                    out += '}';
+                    break s;
+                }
+            }
+            let bind = binds[name.join('_')];
+            generateGeneric(name.join('_'), expr.path.map(p => p.gens));
+            out += `${bind ? bind : generateGenericName(expr.path.map(p => p.name), expr.path.map(p => p.gens))}(`;
+            out += generateBlock(expr.args, 0, 1);
+            out += ')';
             if (semicolon) {
-                output += ';';
+                out += ';';
             }
             break;
+        }
         case exprKind.VAR_USE:
-            output += expr.path.map(p => p.name).join('_');
+            const name = expr.path.map(p => p.name);
+            if (name.length > 1) {
+                const enumName = name.slice(0, -1).join('_');
+                let _enum = enumExprs[enumName];
+                if (_enum) {
+                    const index = _enum.body.map(e => e.name).indexOf(expr.path[expr.path.length - 1].name);
+                    out += `(${enumName}){${index}}`;
+                    break s;
+                }
+            }
+            out += name.join('_');
             if (semicolon) {
-                output += ';';
+                out += ';';
             }
             break;
         case exprKind.COMP_INST:
-            const name = expr.path.map(p => p.name);
-            generateGeneric(expr, gens[name.join('_')], (gen) => {
-                output += `(${generateGenericName(name, gen)}){`;
-                for (let i = 0; i < expr.args.length; ++i) {
-                    generateExpr(expr.args[i].value);
-                    output += ',';
-                }
-                output += '}';
-            });
+            out += generateCompInst(expr, expr.path.map(p => p.gens));
             break;
         case exprKind.STRING_LIT:
-            output += `"${expr.value}"`;
+            out += `"${expr.value}"`;
             break;
         case exprKind.ARRAY_LIT:
             break;
         case exprKind.INT_LIT:
         case exprKind.FLOAT_LIT:
-            output += expr.value;
+            out += expr.value;
             break;
         case exprKind.BOOL_LIT:
-            output += expr.value ? '1' : '0';
+            out += expr.value ? '1' : '0';
             break;
         case exprKind.CHAR_LIT:
-            output += `'${expr.value}'`;
+            out += `'${expr.value}'`;
             break;
         case exprKind.NONE_LIT:
-            output += '(void*)0';
+            out += '(void*)0';
             break;
         case exprKind.SELF_LIT:
             break;
         case exprKind.BLOCK:
-            output += '{';
-            generateBlock(expr.body, 1, 0);
-            output += '}';
+            out += '{';
+            out += generateBlock(expr.body, 1, 0);
+            out += '}';
             break;
         case exprKind.LOOP:
-            output += 'for(;;) {';
-            generateBlock(expr.body, 1, 0);
-            output += '}';
+            out += 'for(;;) {';
+            out += generateBlock(expr.body, 1, 0);
+            out += '}';
             break;
         case exprKind.WHILE:
-            output += 'while(';
-            generateExpr(expr.cond, 0, 0, 0);
-            output += ') {';
-            generateBlock(expr.body, 1, 0);
-            output += '}';
+            out += 'while(';
+            out += generateExpr(expr.cond, 0, 0, 0);
+            out += ') {';
+            out += generateBlock(expr.body, 1, 0);
+            out += '}';
             break;
         case exprKind.IF:
-            output += 'if (';
-            generateExpr(expr.if.cond, 0, 0, 0);
-            output += ') {';
-            generateBlock(expr.if.body, 1, 0);
-            output += '}';
+            out += 'if (';
+            out += generateExpr(expr.if.cond, 0, 0, 0);
+            out += ') {';
+            out += generateBlock(expr.if.body, 1, 0);
+            out += '}';
             for (let i = 0; i < expr.elif.length; ++i) {
-                output += ' else if (';
-                generateExpr(expr.elif[i].cond, 0, 0, 0);
-                output += ') {';
-                generateBlock(expr.elif[i].body, 1, 0);
-                output += '}';
+                out += ' else if (';
+                out += generateExpr(expr.elif[i].cond, 0, 0, 0);
+                out += ') {';
+                out += generateBlock(expr.elif[i].body, 1, 0);
+                out += '}';
             }
             if (expr.else) {
-                output += ' else {';
-                generateBlock(expr.else, 1, 0);
-                output += '}';
+                out += ' else {';
+                out += generateBlock(expr.else, 1, 0);
+                out += '}';
             }
             break;
         case exprKind.FOR:
-            output += `for(int ${expr.loop_var}=0;`;
-            generateExpr(expr.cond, 0, 0, 0);
-            output += ';';
-            generateExpr(expr.next, 0, 0, 0);
-            output += ') {';
-            generateBlock(expr.body, 1, 0);
-            output += '}';
+            out += `for(int ${expr.loop_var.name}=${generateExpr(expr.loop_var.value)};`;
+            out += generateExpr(expr.cond, 0, 0, 0);
+            out += ';';
+            out += generateExpr(expr.next, 0, 0, 0);
+            out += ') {';
+            out += generateBlock(expr.body, 1, 0);
+            out += '}';
             break;
         case exprKind.EACH:
             break;
         case exprKind.MATCH:
+            out += `switch(${generateExpr(expr.value, 0, 0, 0)}.type){`;
+            const _enum = enumExprs[expr.body[0].cases[0].path.map(p => p.name).slice(0, -1).join('_')];
+            for (let i = 0; i < expr.body.length; ++i) {
+                const _case = expr.body[i];
+                const index = _enum.body.map(e => e.name).indexOf(_case.cases[0].path[_case.cases[0].path.length - 1].name);
+                out += `case ${index}:`;
+                if (_case.cases[0].kind === exprKind.SUB_CALL) {
+                    for (let ii = 0; ii < _case.cases[0].args.length; ++ii) {
+                        out += generateType(_enum.body[i].body[ii].type) + ' ';
+                        out += _case.cases[0].args[ii].path[0].name;
+                        out += `=${expr.value.path.map(p => p.name).join('_')}.u.u${index}.${_enum.body[i].body[ii].name};`;
+                    }
+                }
+                out += generateBlock(_case.body, 1, 0);
+                out += 'break;';
+            }
+            out += '}';
             break;
         case exprKind.NEXT:
-            output += `continue ${expr.target};`;
+            out += `continue ${expr.target};`;
             break;
         case exprKind.JUMP:
-            output += `goto ${expr.target};`;
+            out += `goto ${expr.target};`;
             break;
         case exprKind.RET:
-            if (expr.label) {
-                output += `break ${expr.label}`;
+            if (expr.target) {
+                out += `break ${expr.target}`;
             } else {
-                output += 'return';
+                out += 'return';
             }
             if (expr.value) {
-                output += ' ';
-                generateExpr(expr.value, 0, 0, 0);
+                out += ' ';
+                out += generateExpr(expr.value, 0, 0, 0);
             }
-            output += ';';
+            out += ';';
             break;
         case exprKind.TRY:
             break;
         case exprKind.UNARY_OP:
+            out += '(';
             switch (expr.type) {
                 case tokenKind.NOT:
-                    output += '!';
+                    out += '!';
                     break;
                 case tokenKind.DEREF:
-                    output += '*';
+                    out += '*';
                     break;
                 case tokenKind.ADDRESS:
-                    output += '&';
+                    out += '&';
                     break;
             }
-            generateExpr(expr.value, 0, 0, parenths + 1);
+            out += generateExpr(expr.value, 0, 0, parenths + 1);
+            out += ')';
             break;
         case exprKind.BINARY_OP:
             if (parenths) {
-                output += '(';
+                out += '(';
             }
             if (expr.type === tokenKind.AS) {
-                output += '(';
-                generateType(expr.rhs);
-                output += ')';
-                generateExpr(expr.lhs, 0, 0, parenths + 1);
+                out += '(';
+                out += generateType(expr.rhs);
+                out += ')';
+                out += generateExpr(expr.lhs, 0, 0, parenths + 1);
             } else {
-                generateExpr(expr.lhs, 0, 0, parenths + 1);
+                out += generateExpr(expr.lhs, 0, 0, parenths + 1);
                 switch (expr.type) {
                     case tokenKind.ASSIGN:
-                        output += '=';
+                        out += '=';
                         break;
                     case tokenKind.EQUAL:
-                        output += '==';
+                        out += '==';
                         break;
                     case tokenKind.AND:
-                        output += '&&';
+                        out += '&&';
                         break;
                     case tokenKind.OR:
-                        output += '||';
+                        out += '||';
                         break;
                     case tokenKind.LESS:
-                        output += '<';
+                        out += '<';
                         break;
                     case tokenKind.LESS_EQUAL:
-                        output += '<=';
+                        out += '<=';
                         break;
                     case tokenKind.GREATER:
-                        output += '>';
+                        out += '>';
                         break;
                     case tokenKind.GREATER_EQUAL:
-                        output += '>=';
+                        out += '>=';
                         break;
                     case tokenKind.ADD:
-                        output += '+';
+                        if (expr.lhs.kind !== exprKind.STRING_LIT && expr.rhs.kind !== exprKind.STRING_LIT) {
+                            out += '+';
+                        }
                         break;
                     case tokenKind.ADD_ASSIGN:
-                        output += '+=';
+                        out += '+=';
                         break;
                     case tokenKind.SUBTRACT:
-                        output += '-';
+                        out += '-';
                         break;
                     case tokenKind.SUBTRACT_ASSIGN:
-                        output += '-=';
+                        out += '-=';
                         break;
                     case tokenKind.MULTIPLY:
-                        output += '*';
+                        out += '*';
                         break;
                     case tokenKind.MULTIPLY_ASSIGN:
-                        output += '*=';
+                        out += '*=';
                         break;
                     case tokenKind.DIVIDE:
-                        output += '/';
+                        out += '/';
                         break;
                     case tokenKind.DIVIDE_ASSIGN:
-                        output += '/=';
+                        out += '/=';
                         break;
                     case tokenKind.MODULO:
-                        output += '%';
+                        out += '%';
                         break;
                     case tokenKind.MODULO_ASSIGN:
-                        output += '%=';
+                        out += '%=';
                         break;
                     case tokenKind.NOT_EQUAL:
-                        output += '!=';
+                        out += '!=';
                         break;
                     case tokenKind.DOT:
-                        output += '.';
+                        out += '.';
+                        break;
+                    case tokenKind.LEFT_BRACKET:
+                        out += '[';
                         break;
                 }
-                generateExpr(expr.rhs, 0, 0, parenths + 1);
+                out += generateExpr(expr.rhs, 0, 0, parenths + 1);
+                if (expr.type === tokenKind.LEFT_BRACKET) {
+                    out += ']';
+                }
             }
             if (parenths) {
-                output += ')';
+                out += ')';
             }
             if (semicolon) {
-                output += ';';
+                out += ';';
             }
             break;
     }
 
     scopeGens = oldScopeGens;
+
+    return out;
 }
 
 function generateBlock(exprs, semicolon, comma) {
+    let out = '';
     for (let i = 0; i < exprs.length; ++i) {
         let is_last = i + 1 === exprs.length;
-        generateExpr(exprs[i], is_last, semicolon, 0);
+        out += generateExpr(exprs[i], is_last, semicolon, 0);
         if (comma && !is_last) {
-            output += ',';
+            out += ',';
         }
     }
+    return out;
 }
 
 module.exports.generate = function (ast) {
@@ -495,7 +603,10 @@ module.exports.generate = function (ast) {
     reqs = [];
     binds = {};
     scopeGens = [];
-    generateBlock(ast, 0, 0);
+    headers = [];
+    let out = generateBlock(ast, 0, 0);
+    output = headers.join('') + output;
+    output += out;
     for (let i = 0; i < reqs.length; ++i) {
         reqs[i] = `#include <${reqs[i]}>\n`;
     }

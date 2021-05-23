@@ -1,4 +1,4 @@
-sub command_help(str n, str d, str o) {
+sub command_help(ptr<u8> n, ptr<u8> d, ptr<u8> o) {
     printf(d);
     printf("\n\nUSAGE:\n    cup ");
     printf(n);
@@ -8,9 +8,9 @@ sub command_help(str n, str d, str o) {
 };
 
 #inl mod command_options {
-    var empty = "\n    No options are available for this command";
+    ptr<u8> empty = "\n    No options are available for this command";
 
-    var compile = "\n    -i, --input     Specify the input file name" +
+    ptr<u8> compile = "\n    -i, --input     Specify the input file name" +
                    "\n    -o, --output    Specify the output file name" +
                    "\n    -cg, --gcc     Use GCC as a compiler" +
                    "\n    -cm, --msvc    Use MSVC as a compiler" +
@@ -54,24 +54,24 @@ Command get_command(int argc, ptr<ptr<u8>> argv) {
 
     bool is_command = false;
     vec<u8> vector = vec<u8>:new(16);
-    ` ~l for i = 1, i < argc, i += 1 {
-    `     if i == 4 {
-    `         ret ~l;
-    `     };
-    ` 
-    `     if argv[i][0] == '-' {
-    `         if is_command {
-    `             ret ~l;
-    `         };
-    `         next;
-    `     };
-    `     is_command = true;
-    ` 
-    `     var length = strlen(argv[i]);
-    `     for c = 0, c < length, c += 1 {
-    `         vector.push(argv[i][c]);
-    `     };
-    ` };
+    ~l for i = 1, (i) < argc, i += 1 {
+        if i == 4 {
+            ret ~l;
+        };
+    
+        if argv[i][0] == '-' {
+            if is_command {
+                ret ~l;
+            };
+            next ~l;
+        };
+        is_command = true;
+    
+        int length = strlen(argv[i]);
+        for c = 0, (c) < length, c += 1 {
+            vector.push(argv[i][c]);
+        };
+    };
 
     vector.push('\0');
     ptr<u8> input = vector.buf;

@@ -37,28 +37,12 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-#gen("T")
-comp vec {
-    ptr<T> buf,
-};
+` comps/enums before subs
+` comparing command ==
+` generate labels
 
-#gen("T")
-def vec<T> {
-    vec<T> new(int cap) {
-        ret vec<T> {
-            buf = malloc(10),
-        };
-    };
-};
-
-int main() {
-    vec<i32> a = vec<i32>:new(1);
-    vec<f64> a = vec<f64>:new(1);
-};
-
-`` gen
-` TODO: merge analyzer with generator
-` TODO: treat simple enums as C-enums
+`` v0.1
+` TODO: enums
 ` TODO: 'match' generation
 
 `` v0.2
@@ -66,3 +50,4 @@ int main() {
 ` TODO: comp foo {}; -> comp foo ();
 ` TODO: add 'has' keyword
 ` TODO: def a for b -> def a, b
+` TODO: #self

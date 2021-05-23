@@ -296,7 +296,7 @@ function parseLocal(endTokenKind, start = index, end) {
 
         if (endTokenKind !== tokenKind.LEFT_BRACE) {
             if (token.kind === tokenKind.LEFT_BRACE) {
-                ++scopes[1]; continue;
+                ++scopes[1];
             } else if (token.kind === tokenKind.RIGHT_BRACE) {
                 if (scopes[1]-- === 0) {
                     throw "unexpected '}'";
@@ -305,6 +305,15 @@ function parseLocal(endTokenKind, start = index, end) {
         }
 
         if (token.kind === tokenKind.LEFT_BRACKET) {
+            if (scopes[0] === 0 && scopes[1] === 0 && scopes[2] === 0) {
+                if (opLevel == 0) {
+                    opLevel = 1;
+                }
+                if (opLevel == 1) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+            }
             ++scopes[2]; continue;
         } else if (endTokenKind !== tokenKind.RIGHT_BRACKET && token.kind === tokenKind.RIGHT_BRACKET) {
             if (scopes[2]-- === 0) {
@@ -445,7 +454,11 @@ function parseLocal(endTokenKind, start = index, end) {
         if (opKind === tokenKind.NOT || opKind === tokenKind.DEREF || opKind === tokenKind.ADDRESS) {
             expr.kind = exprKind.UNARY_OP;
             expr.value = parseLocal(null, start, opIndex);
+            index = opIndex + 2;
         } else {
+            if (opKind === tokenKind.LEFT_BRACKET) {
+                end -= 1;
+            }
             expr.kind = exprKind.BINARY_OP;
             expr.lhs = parseLocal(null, start, opIndex);
             if (expr.lhs.kind === exprKind.LOCAL_VAR_DEF) {
@@ -470,6 +483,9 @@ function parseLocal(endTokenKind, start = index, end) {
                 index = end + 1;
             } else {
                 expr.rhs = parseLocal(null, opIndex + 1, end);
+                if (opKind === tokenKind.LEFT_BRACKET) {
+                    index = end + 2;
+                }
             }
         }
         return expr;
@@ -617,7 +633,8 @@ function parseLocal(endTokenKind, start = index, end) {
                 token = nextToken();
                 expr.target = parseLabel(true);
                 token = optionalToken(tokenKind.SEMICOLON, null, () => {
-                    expr.value = parseLocal();
+                    expr.value = parseLocal(null, index);
+                    console.log(expr.value);
                 });
                 break;
             case tokenKind.NEXT:
@@ -698,10 +715,6 @@ function parseLocal(endTokenKind, start = index, end) {
                         expr.args.push(parseLocal(null, i, paren));
                     }
                     i = paren + 1;
-                } else if (tokens[i].kind === tokenKind.LEFT_BRACKET) {
-                    index = i + 1;
-                    let inside = parseLocal(tokenKind.RIGHT_BRACKET);
-                    i = index;
                 } else if (tokens[i].kind === tokenKind.LEFT_BRACE) {
                     expr.kind = exprKind.COMP_INST;
                     expr.args = [];
@@ -994,12 +1007,14 @@ function parseGlobal() {
             if (token = tokenKind.IDENT) {
                 expr.name = tokens[index].value;
                 token = nextToken();
-                if (token.kind === tokenKind.ASSIGN || tokenKind.kind === tokenKind.SEMICOLON) {
+                if (token.kind === tokenKind.ASSIGN || token.kind === tokenKind.SEMICOLON) {
                     expr.kind = exprKind.VAR_DEF;
                     expr.type = type;
                     if (token.kind === tokenKind.ASSIGN) {
                         token = nextToken();
                         expr.value = parseLocal(null);
+                    } else {
+                        ++index;
                     }
                 } else {
                     expr.kind = exprKind.SUB_DEF;

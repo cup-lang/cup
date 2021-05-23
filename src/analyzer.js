@@ -1,7 +1,9 @@
 const exprKind = require('./parser.js').exprKind;
 
 let genExprs = {};
+let enumExprs = {};
 let mods;
+let gens;
 
 function analyzeExpr(expr) {
     switch (expr.kind) {
@@ -11,18 +13,38 @@ function analyzeExpr(expr) {
         case exprKind.PROP:
         case exprKind.DEF:
         case exprKind.SUB_DEF:
+            const oldGens = gens.length;
+            expr.gen = gens.concat(expr.gen || []);
             if (expr.tags) {
                 for (let i = 0; i < expr.tags.length; ++i) {
                     const tag = expr.tags[i];
                     if (tag.name === 'gen') {
-                        const name = mods.concat(expr.name);
-                        genExprs[name.join('_')] = expr;
+                        expr.gen.push(tag.args[0].value);
+                        gens.push(tag.args[0].value);
                     }
                 }
             }
-            mods.push(expr.name);
+            const name = mods.concat(expr.name);
+            if (expr.gen.length > 0 &&
+                (expr.kind === exprKind.COMP ||
+                    expr.kind === exprKind.ENUM ||
+                    expr.kind === exprKind.SUB_DEF)) {
+                genExprs[name.join('_')] = expr;
+                expr.path = name;
+            } else if (expr.kind === exprKind.ENUM) {
+                enumExprs[name.join('_')] = expr;
+            }
+            const oldMods = mods.length;
+            if (expr.kind === exprKind.DEF) {
+                for (let i = 0; i < expr.prop.path.length; ++i) {
+                    mods.push(expr.prop.path[i].name);
+                }
+            } else {
+                mods.push(expr.name);
+            }
             analyzeBlock(expr.body);
-            mods.pop();
+            mods = mods.slice(0, oldMods);
+            gens = gens.slice(0, oldGens);
             break;
     }
 }
@@ -35,62 +57,9 @@ function analyzeBlock(exprs) {
 
 module.exports.analyze = function (ast) {
     mods = [];
+    gens = [];
     analyzeBlock(ast);
 }
 
 module.exports.genExprs = genExprs;
-
-// function deepEqual(a, b) {
-//     if (typeof a == 'object' && a != null && typeof b == 'object' && b != null) {
-//         var count = [0, 0];
-//         for (var key in a) count[0]++;
-//         for (var key in b) count[1]++;
-//         if (count[0] - count[1] != 0) {
-//             return false;
-//         }
-//         for (var key in a) {
-//             if (!(key in b) || !deepEqual(a[key], b[key])) {
-//                 return false;
-//             }
-//         }
-//         for (var key in b) {
-//             if (!(key in a) || !deepEqual(b[key], a[key])) {
-//                 return false;
-//             }
-//         }
-//         return true;
-//     }
-//     return a === b;
-// }
-
-// function registerGenericUse(type) {
-//     if (!type) return;
-
-//     let hasGenerics = false;
-//     for (let i = 0; i < type.path.length; ++i) {
-//         if (type.path[i].gens.length > 0) {
-//             hasGenerics = true;
-//             break;
-//         }
-//     }
-//     if (hasGenerics) {
-//         let name = type.path.map(p => p.name).join('_');
-//         if (!module.exports.gens[name]) {
-//             module.exports.gens[name] = [type.path.map(p => p.gens)];
-//         }
-//         else {
-//             let gen = module.exports.gens[name];
-//             let exists;
-//             let typeGens = type.path.map(p => p.gens);
-//             for (let i = 0; i < gen.length; ++i) {
-//                 if (deepEqual(gen[i], typeGens)) {
-//                     exists = true;
-//                     break;
-//                 }
-//             }
-//             if (!exists) {
-//                 module.exports.gens[name].push(typeGens);
-//             }
-//         }
-//     }
-// }
+module.exports.enumExprs = enumExprs;
