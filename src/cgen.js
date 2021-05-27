@@ -190,6 +190,7 @@ function generateSub(expr, gen) {
         name = expr.path;
     }
     if (binds[name.join('_')]) { return; }
+    let isSelf = expr.tags.map(t => t.name).indexOf('self') !== -1;
     let header = generateType(expr.retType);
     header += ` ${generateGenericName(name, gen)}(`;
     header += generateBlock(expr.args, 0, 0) + ')';
@@ -388,11 +389,17 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.BLOCK:
             out += '{';
             out += generateBlock(expr.body, 1, 0);
+            if (expr.label) {
+                out += `${expr.label}:`;
+            }
             out += '}';
             break;
         case exprKind.LOOP:
             out += 'for(;;) {';
             out += generateBlock(expr.body, 1, 0);
+            if (expr.label) {
+                out += `${expr.label}:`;
+            }
             out += '}';
             break;
         case exprKind.WHILE:
@@ -400,6 +407,9 @@ function generateExpr(expr, last, semicolon, parenths) {
             out += generateExpr(expr.cond, 0, 0, 0);
             out += ') {';
             out += generateBlock(expr.body, 1, 0);
+            if (expr.label) {
+                out += `${expr.label}:`;
+            }
             out += '}';
             break;
         case exprKind.IF:
@@ -428,6 +438,9 @@ function generateExpr(expr, last, semicolon, parenths) {
             out += generateExpr(expr.next, 0, 0, 0);
             out += ') {';
             out += generateBlock(expr.body, 1, 0);
+            if (expr.label) {
+                out += `${expr.label}:`;
+            }
             out += '}';
             break;
         case exprKind.EACH:
@@ -452,14 +465,18 @@ function generateExpr(expr, last, semicolon, parenths) {
             out += '}';
             break;
         case exprKind.NEXT:
-            out += `continue ${expr.target};`;
+            if (expr.target) {
+                out += `goto ${expr.target};`;
+            } else {
+                out += `continue;`;
+            }
             break;
         case exprKind.JUMP:
             out += `goto ${expr.target};`;
             break;
         case exprKind.RET:
             if (expr.target) {
-                out += `break ${expr.target}`;
+                out += `goto brk_${expr.target}`;
             } else {
                 out += 'return';
             }
@@ -491,6 +508,22 @@ function generateExpr(expr, last, semicolon, parenths) {
             if (parenths) {
                 out += '(';
             }
+
+            if (expr.type === tokenKind.DOT && expr.rhs.kind === exprKind.SUB_CALL) {
+                // get the type of expr.lhs somehow
+                console.log(expr.lhs);
+                expr = {
+                    kind: exprKind.SUB_CALL,
+                    label: expr.label,
+                    path: expr.rhs.path, // FIX
+                    args: [{
+                        kind: exprKind.UNARY_OP,
+                        type: tokenKind.ADDRESS,
+                        value: expr.lhs,
+                    }].concat(expr.rhs.args),
+                };
+            }
+
             if (expr.type === tokenKind.AS) {
                 out += '(';
                 out += generateType(expr.rhs);
@@ -524,9 +557,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                         out += '>=';
                         break;
                     case tokenKind.ADD:
-                        if (expr.lhs.kind !== exprKind.STRING_LIT && expr.rhs.kind !== exprKind.STRING_LIT) {
-                            out += '+';
-                        }
+                        out += '+';
                         break;
                     case tokenKind.ADD_ASSIGN:
                         out += '+=';
@@ -577,6 +608,10 @@ function generateExpr(expr, last, semicolon, parenths) {
                 out += ';';
             }
             break;
+    }
+
+    if (expr.label) {
+        out += `brk_${expr.label}:`;
     }
 
     scopeGens = oldScopeGens;

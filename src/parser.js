@@ -485,6 +485,9 @@ function parseLocal(endTokenKind, start = index, end) {
                 expr.rhs = parseLocal(null, opIndex + 1, end);
                 if (opKind === tokenKind.LEFT_BRACKET) {
                     index = end + 2;
+                } else if (opKind === tokenKind.ADD && expr.lhs.kind === exprKind.STRING_LIT && expr.rhs.kind === exprKind.STRING_LIT) {
+                    expr.lhs.value += expr.rhs.value;
+                    expr = expr.lhs;
                 }
             }
         }
@@ -505,6 +508,8 @@ function parseLocal(endTokenKind, start = index, end) {
             index = end + 1;
             return expr;
         }
+
+        expr.label = parseLabel(true);
 
         end: switch (token.kind) {
             case tokenKind.IF:
@@ -634,7 +639,6 @@ function parseLocal(endTokenKind, start = index, end) {
                 expr.target = parseLabel(true);
                 token = optionalToken(tokenKind.SEMICOLON, null, () => {
                     expr.value = parseLocal(null, index);
-                    console.log(expr.value);
                 });
                 break;
             case tokenKind.NEXT:

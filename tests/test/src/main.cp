@@ -37,9 +37,39 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
+int main() {
+    vec<i32> abc;
+    abc.foo(12);
+    ` vec<i32>:foo(abc$, 12);
+};
+
+` int main() {
+`     vec_i32 abc;
+`     vec_i32_foo(&abc, 12);
+` }
+
+#gen("T")
+comp vec {
+    ptr<T> buf,
+};
+
+#gen("T")
+def vec<T> {
+    #self
+    sub foo(int bar) {
+        this.buf = xxx;
+    };
+};
+
+``` #self
+`` generate sub_defs differently
+` ^ adding a argument
+` ^ replacing 'this' with derefed pointer
+`` generate '.' ops differently
+` ^ get the type of the variable
+
+` mem:size is sizeof
 ` comps/enums before subs
-` comparing command ==
-` generate labels
 
 `` v0.1
 ` TODO: enums

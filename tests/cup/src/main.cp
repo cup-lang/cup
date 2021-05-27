@@ -3,13 +3,19 @@
 ` FIX: "ret (a + 1)" -> "ret a + 1"
 ` FIX: use "var"
 
-#req("stdlib.h")
 #req("stdio.h")
 #req("stdint.h")
 #req("string.h")
 #req("ctype.h")
 #req("time.h")
 mod _ {};
+
+#req("stdlib.h")
+mod mem {
+    #bind("malloc") sub alloc() {};
+
+    #bind("sizeof") sub size() {}; 
+};
 
 ptr<u8> file_name = none;
 int file_size;
@@ -18,38 +24,18 @@ int main(int argc, ptr<ptr<u8>> argv) {
     #os("win") console = GetStdHandle(STD_OUTPUT_HANDLE);
 
     Command command = get_command(argc, argv);
-    
-    if (argc == 1) | (command == Command:Help) {
-        printf("Cup Toolkit v0.0.1\n\n");
-        printf("USAGE:\n    cup [COMMAND] [OPTIONS]");
-        printf("\n\nCOMMANDS:");
-        printf("\n    run                  Compile and run the current package");
-        printf("\n    build                Compile the current package");
-        printf("\n    check                Analyze the current package");
-        printf("\n    new [PACKAGE]        Create a new package");
-        printf("\n    update [PACKAGE]     Update given dependency");
-        printf("\n    add [PACKAGE]        Adds given dependency");
-        printf("\n    remove [PACKAGE]     Removes given dependency");
-        printf("\n    gen docs             Generate documentation for the current package");
-        printf("\n    gen binds [HEADER]   Generate bindings for a given C header file");
-        printf("\n    self update          Update the Cup Toolkit");
-        printf("\n    self install         Install the Cup Toolkit");
-        printf("\n    self uninstall       Uninstall the Cup Toolkit");
-        printf("\n\nSee 'cup help [COMMAND]' for more info about a specific command and it's available options.\n");
-        ret 0;
-    } elif command == Command:None {
-        set_color(Color:Red);
-        printf("error: ");
-        set_color(Color:Reset);
-        printf("no such command: '%s", argv[1]);
-        for i = 2, (i) < argc, i += 1 {
-            printf(" %s", argv[i]);
-        };
-        printf("'\n\nSee 'cup help' for the list of available commands.\n");
-        ret 1;
-    };
-
     ~m match command {
+        Command:None {
+            set_color(Color:Red);
+            printf("error: ");
+            set_color(Color:Reset);
+            printf("no such command: '%s", argv[1]);
+            for i = 2, (i) < argc, i += 1 {
+                printf(" %s", argv[i]);
+            };
+            printf("'\n\nSee 'cup help' for the list of available commands.\n");
+            ret 1;
+        },
         Command:Run { ret ~m; },
         Command:Build { ret ~m; },
         Command:Check { ret 1; },
@@ -62,6 +48,25 @@ int main(int argc, ptr<ptr<u8>> argv) {
         Command:SelfUpdate { ret 1; },
         Command:SelfInstall { ret 1; },
         Command:SelfUninstall { ret 1; },
+        Command:Help {
+            printf("Cup Toolkit v0.0.1\n\n");
+            printf("USAGE:\n    cup [COMMAND] [OPTIONS]");
+            printf("\n\nCOMMANDS:");
+            printf("\n    run                  Compile and run the current package");
+            printf("\n    build                Compile the current package");
+            printf("\n    check                Analyze the current package");
+            printf("\n    new [PACKAGE]        Create a new package");
+            printf("\n    update [PACKAGE]     Update given dependency");
+            printf("\n    add [PACKAGE]        Adds given dependency");
+            printf("\n    remove [PACKAGE]     Removes given dependency");
+            printf("\n    gen docs             Generate documentation for the current package");
+            printf("\n    gen binds [HEADER]   Generate bindings for a given C header file");
+            printf("\n    self update          Update the Cup Toolkit");
+            printf("\n    self install         Install the Cup Toolkit");
+            printf("\n    self uninstall       Uninstall the Cup Toolkit");
+            printf("\n\nSee 'cup help [COMMAND]' for more info about a specific command and it's available options.\n");
+            ret 0;
+        },
         Command:HelpRun {
             command_help("run", "Compile and run the current package", command_options:compile);
             ret 0;
@@ -115,18 +120,15 @@ int main(int argc, ptr<ptr<u8>> argv) {
     ptr<u8> output = none;
     for i = 2; (i) < argc; i += 1 {
         if argv[i][0] == '-' {
-            ` match argv[i][1] {
-            `     'i' {
-            `         if file_name == none {
-            `             file_name = get_option(i$, argc, argv);
-            `         };
-            `     },
-            `     'o' {
-            `         if output == none {
-            `             output = get_option(i$, argc, argv);
-            `         };
-            `     },
-            ` };
+            if argv[i][1] == 'i' {
+                if file_name == none {
+                    file_name = get_option(i$, argc, argv);
+                };
+            } elif argv[i][1] == 'o' {
+                if output == none {
+                    output = get_option(i$, argc, argv);
+                };
+            };
         } else {
             set_color(Color:Red);
             printf("error: ");
@@ -194,22 +196,21 @@ enum Color {
 
 #os("win")
 sub set_color(Color color) {
-    ` int color_code = match color {
-    `     Reset { ret 7; },
-    `     Red { ret 12; },
-    ` };
+    int color_code; 
+    match color {
+        Color:Reset { color_code = 7; },
+        Color:Red { color_code = 12; },
+    };
 
-    ` SetConsoleTextAttribute(console, color_code);   
+    SetConsoleTextAttribute(console, color_code);   
 };
 
 #os("linux")
 sub set_color(Color color) {
-    ` ptr<u8> color_code = match color {
-    `     Reset { ret "\033[0m;"; },
-    `     Red { ret "\033[0;31m"; },
-    ` };
-
-    ` printf(color_code);
+    match color {
+        Color:Reset { printf("\033[0m"); },
+        Color:Red { printf("\033[0;31m"); },
+    };
 };
 
 #gen("T")
