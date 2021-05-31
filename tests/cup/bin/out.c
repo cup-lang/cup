@@ -1,1 +1,2 @@
-int32_t main();typedef struct vec_i32 vec_i32;struct vec_i32{i32* buf;};int32_t main(){vec_i32 abc;abc.foo(12);};
+#include <stdlib.h>
+int32_t main();typedef struct vec_T vec_T;vec_i32 vec_i32_new(int32_t cap);vec_i32 vec_i32_new(int32_t cap){return (vec_i32){malloc(sizeof()*cap),0,cap,};};int32_t main(){vec_i32_new(1);};

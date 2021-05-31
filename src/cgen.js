@@ -9,6 +9,7 @@ let genNames;
 let reqs;
 let binds;
 let scopeGens;
+let vars;
 let headers;
 
 function generateType(type, raw) {
@@ -26,6 +27,7 @@ function generateType(type, raw) {
 
     const gen = genNames[type.path.map(p => p.name).join('_')];
     type = gen ? gen : type;
+    path = type.path[0].name;
 
     let out = '';
 
@@ -189,8 +191,35 @@ function generateSub(expr, gen) {
     if (gen) {
         name = expr.path;
     }
-    if (binds[name.join('_')]) { return; }
+    if (binds[name.join('_')]) { return ''; }
     let isSelf = expr.tags.map(t => t.name).indexOf('self') !== -1;
+    if (isSelf) {
+        expr.args = [{
+            kind: exprKind.ARG,
+            tags: [],
+            type: {
+                kind: exprKind.TYPE,
+                path: [{
+                    kind: exprKind.PATH_PART,
+                    name: 'ptr',
+                    gens: [{
+                        kind: exprKind.TYPE,
+                        path: expr.path.slice(0, -1).map((p, i) => {
+                            return {
+                                kind: exprKind.PATH_PART,
+                                name: p,
+                                gens: [{
+                                    kind: exprKind.TYPE,
+                                    path: [{ kind: exprKind.PATH_PART, name: expr.gen[i], gens: [] }],
+                                }],
+                            };
+                        }),
+                    }],
+                }],
+            },
+            name: 'this',
+        }].concat(expr.args);
+    }
     let header = generateType(expr.retType);
     header += ` ${generateGenericName(name, gen)}(`;
     header += generateBlock(expr.args, 0, 0) + ')';
@@ -311,7 +340,9 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.VAR_DEF:
         case exprKind.LOCAL_VAR_DEF:
             out += generateType(expr.type);
-            out += ` ${expr.kind === exprKind.VAR_DEF ? mods.concat(expr.name).join('_') : expr.name}`;
+            const vname = expr.kind === exprKind.VAR_DEF ? mods.concat(expr.name).join('_') : expr.name;
+            vars[vars.length - 1][vname] = expr.type;
+            out += ` ${vname}`;
             if (expr.value) {
                 out += '=';
                 out += generateExpr(expr.value, 0, 0, 0);
@@ -383,6 +414,9 @@ function generateExpr(expr, last, semicolon, parenths) {
             break;
         case exprKind.NONE_LIT:
             out += '(void*)0';
+            break;
+        case exprKind.THIS_LIT:
+            out += '(*this)';
             break;
         case exprKind.SELF_LIT:
             break;
@@ -510,18 +544,26 @@ function generateExpr(expr, last, semicolon, parenths) {
             }
 
             if (expr.type === tokenKind.DOT && expr.rhs.kind === exprKind.SUB_CALL) {
-                // get the type of expr.lhs somehow
-                console.log(expr.lhs);
-                expr = {
-                    kind: exprKind.SUB_CALL,
-                    label: expr.label,
-                    path: expr.rhs.path, // FIX
-                    args: [{
-                        kind: exprKind.UNARY_OP,
-                        type: tokenKind.ADDRESS,
-                        value: expr.lhs,
-                    }].concat(expr.rhs.args),
-                };
+                const name = expr.lhs.path.map(p => p.name).join('_');
+                for (let i = 0; i < vars.length; ++i) {
+                    const v = vars[i];
+                    if (v[name]) {
+                        expr = {
+                            kind: exprKind.SUB_CALL,
+                            label: expr.label,
+                            path: v[name].path.concat(expr.rhs.path),
+                            args: [{
+                                kind: exprKind.UNARY_OP,
+                                type: tokenKind.ADDRESS,
+                                value: expr.lhs,
+                            }].concat(expr.rhs.args),
+                            tags: expr.tags,
+                        };
+                        out += generateExpr(expr, last, semicolon, parenths);
+                        break s;
+                    }
+                }
+
             }
 
             if (expr.type === tokenKind.AS) {
@@ -621,6 +663,7 @@ function generateExpr(expr, last, semicolon, parenths) {
 
 function generateBlock(exprs, semicolon, comma) {
     let out = '';
+    vars.push({});
     for (let i = 0; i < exprs.length; ++i) {
         let is_last = i + 1 === exprs.length;
         out += generateExpr(exprs[i], is_last, semicolon, 0);
@@ -628,6 +671,7 @@ function generateBlock(exprs, semicolon, comma) {
             out += ',';
         }
     }
+    vars.pop();
     return out;
 }
 
@@ -638,6 +682,7 @@ module.exports.generate = function (ast) {
     reqs = [];
     binds = {};
     scopeGens = [];
+    vars = [];
     headers = [];
     let out = generateBlock(ast, 0, 0);
     output = headers.join('') + output;

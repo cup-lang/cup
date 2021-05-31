@@ -13,7 +13,7 @@ mod _ {};
 #req("stdlib.h")
 mod mem {
     #bind("malloc") sub alloc() {};
-
+    #bind("realloc") sub realloc() {};
     #bind("sizeof") sub size() {}; 
 };
 
@@ -235,9 +235,9 @@ def vec<T> {
         this.buf[this.size] = item;
         this.size += 1;
 
-        if this.size == this.capacity {
-            this.capacity *= 2;
-            this.buf = mem:realloc(v.buf, mem:size<T>() * this.capacity);
+        if this.size == this.cap {
+            this.cap *= 2;
+            this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
     };
 };
