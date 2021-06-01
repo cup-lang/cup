@@ -17,11 +17,11 @@ function compileRecursive(mods, path) {
             file = path + '/' + file.name;
             const contents = fs.readFileSync(file).toString();
             const tokens = lexer.lex(contents);
-            console.log('Tokens:', tokens);
+            // console.log('Tokens:', tokens);
             console.log(file);
             let ast = parser.parse(tokens);
-            stdout.write('AST: ');
-            console.dir(ast, { depth: null });
+            // stdout.write('AST: ');
+            // console.dir(ast, { depth: null });
             if (mods.length) {
                 ast = {
                     kind: parser.exprKind.MOD,

@@ -1,20 +1,45 @@
 ` TODO: use errors
 ` FIX: "(a) < 1" -> "a < 1"
 ` FIX: "ret (a + 1)" -> "ret a + 1"
-` FIX: use "var"
 
-#req("stdio.h")
-#req("stdint.h")
-#req("string.h")
-#req("ctype.h")
+#req("stdint.h") mod _ {};
+
 #req("time.h")
-mod _ {};
+mod time {
+    #bind("clock") sub now() {};
+}
+
+#req("ctype.h")
+mod num {
+    #bind("isdigit") sub is_digit() {};
+    #bind("isspace") sub is_space() {};
+};
 
 #req("stdlib.h")
 mod mem {
     #bind("malloc") sub alloc() {};
     #bind("realloc") sub realloc() {};
     #bind("sizeof") sub size() {}; 
+
+    #req("string.h")
+    #bind("memcpy")
+    sub copy() {};
+};
+
+#req("string.h")
+mod str {
+    #bind("strcmp") sub cmp() {};
+    #bind("strlen") sub len() {};
+};
+
+#req("stdio.h")
+mod file {
+    #bind("fopen") sub open() {};
+    #bind("fclose") sub close() {};
+    #bind("fread") sub read() {};
+    #bind("fseek") sub seek() {};
+    #bind("ftell") ftellsub size() {};
+    #bind("rewind") rewind() {};
 };
 
 ptr<u8> file_name = none;
@@ -139,7 +164,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
 
     `` Open the file
     ptr<FILE> file_point;
-    if fopen_s(file_point$, file_name, "rb") {
+    if file_point = file:open(file_name, "rb") {
         set_color(Color:Red);
         printf("error: ");
         set_color(Color:Reset);
@@ -148,14 +173,14 @@ int main(int argc, ptr<ptr<u8>> argv) {
     };
 
     `` Get the size of the file
-    fseek(file_point, 0 as i32, SEEK_END);
-    file_size = ftell(file_point);
-    rewind(file_point);
+    file:seek(file_point, 0 as i32, SEEK_END);
+    file_size = file:size(file_point);
+    file:rewind(file_point);
 
     `` Allocate the buffer, read contents and close the file
     ptr<u8> file = mem:alloc(file_size);
-    fread(file, file_size, 1, file_point);
-    fclose(file_point);
+    file:read(file, file_size, 1, file_point);
+    file:close(file_point);
 
     `` Tokenize the file
     vec<lexer:Token> tokens = lexer:lex();
@@ -165,13 +190,13 @@ int main(int argc, ptr<ptr<u8>> argv) {
 
     `` Generate output file
     if output != none {
-        fopen_s(file_point$, output, "w");
+        file_point = file:open(output, "w");
     } else {
-        fopen_s(file_point$, "out.c", "w");
+        file_point = file:open("out.c", "w");
     };
     fputs("#include <stdint.h>\n", file_point);
     gen:generate_vector(ast);
-    fclose(file_point);
+    file:close(file_point);
 
     system("cc test/test0/out.c -o test/test0/out");
 
@@ -181,7 +206,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
 };
 
 ptr<u8> get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
-    if strlen(argv[index@]) > 2 {
+    if str:len(argv[index@]) > 2 {
         ret (argv[index@] + 1);
     } elif (argc > index@) {
         ret (argv[index@ += 1]);

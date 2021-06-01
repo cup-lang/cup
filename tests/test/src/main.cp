@@ -45,10 +45,8 @@ mod mem {
 };
 
 int main() {
-    vec<i32>:new(1);
-    
-    ` vec<i32> foo;
-    ` foo.push(12);
+    vec<i32> foo;
+    foo.push(12);
 };
 
 #gen("T")
@@ -80,7 +78,7 @@ def vec<T> {
     };
 };
 
-` mem:size is sizeof
+` fix binds
 ` comps/enums before subs
 
 `` v0.1

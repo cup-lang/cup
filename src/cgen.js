@@ -12,6 +12,23 @@ let scopeGens;
 let vars;
 let headers;
 
+function applyGeneric(type) {
+    for (let i = 0; i < type.path.length; ++i) {
+        const p = type.path[i];
+        if (p.gens.length > 0) {
+            for (let ii = 0; ii < p.gens.length; ++ii) {
+                p.gens[ii] = applyGeneric(p.gens[ii]);
+            }
+        } else {
+            const gen = genNames[type.path.map(p => p.name).join('_')];
+            if (gen) {
+                return gen;
+            }
+        }
+    }
+    return type;
+}
+
 function generateType(type, raw) {
     if (type === undefined) {
         return 'void';
@@ -25,8 +42,7 @@ function generateType(type, raw) {
         ++pointerCount;
     }
 
-    const gen = genNames[type.path.map(p => p.name).join('_')];
-    type = gen ? gen : type;
+    type = applyGeneric(type);
     path = type.path[0].name;
 
     let out = '';
@@ -104,20 +120,22 @@ function generateGeneric(path, gens) {
     for (let i = 0; i < expr.gen.length; ++i) {
         genNames[expr.gen[i]] = gensList[i];
     }
+    var out;
     switch (expr.kind) {
         case exprKind.COMP:
-            output += generateComp(expr, gens);
+            out = generateComp(expr, gens);
             break;
         case exprKind.ENUM:
-            output += generateEnum(expr, gens);
+            out = generateEnum(expr, gens);
             break;
         case exprKind.SUB_DEF:
-            output += generateSub(expr, gens);
+            out = generateSub(expr, gens);
             break;
         case exprKind.COMP_INST:
-            output += generateCompInst(expr, gens);
+            out = generateCompInst(expr, gens);
             break;
     }
+    output += out;
     genNames = oldGenNames;
 }
 
@@ -153,14 +171,18 @@ function generateGenericName(name, gens) {
 }
 
 function generateComp(expr, gen) {
+    let out = '';
     let name = mods.concat(expr.name);
     if (gen) {
         name = expr.path;
     }
     let gname = generateGenericName(name, gen);
-    let out = `struct ${gname}{`;
-    out += generateBlock(expr.body, 1, 0) + '};';
-    headers.push(`typedef struct ${gname} ${gname};`);
+    let header = `typedef struct ${gname} ${gname};`;
+    if (headers.indexOf(header) === -1) {
+        headers.push(header);
+        out += `struct ${gname}{`;
+        out += generateBlock(expr.body, 1, 0) + '};';
+    }
     return out;
 }
 
@@ -193,7 +215,7 @@ function generateSub(expr, gen) {
     }
     if (binds[name.join('_')]) { return ''; }
     let isSelf = expr.tags.map(t => t.name).indexOf('self') !== -1;
-    if (isSelf) {
+    if (isSelf && expr.args.length > 0 && expr.args[0].name !== 'this') {
         expr.args = [{
             kind: exprKind.ARG,
             tags: [],
@@ -223,8 +245,10 @@ function generateSub(expr, gen) {
     let header = generateType(expr.retType);
     header += ` ${generateGenericName(name, gen)}(`;
     header += generateBlock(expr.args, 0, 0) + ')';
-    headers.push(header + ';');
-    out += header + '{' + generateBlock(expr.body, 1, 0) + '};';
+    if (headers.indexOf(header + ';') === -1) {
+        headers.push(header + ';');
+        out += header + '{' + generateBlock(expr.body, 1, 0) + '};';
+    }
     return out;
 }
 
@@ -369,6 +393,12 @@ function generateExpr(expr, last, semicolon, parenths) {
                 }
             }
             let bind = binds[name.join('_')];
+            if (bind === 'sizeof') {
+                out += 'sizeof(';
+                out += generateType(expr.path[1].gens[0]);
+                out += ')';
+                break s;
+            }
             generateGeneric(name.join('_'), expr.path.map(p => p.gens));
             out += `${bind ? bind : generateGenericName(expr.path.map(p => p.name), expr.path.map(p => p.gens))}(`;
             out += generateBlock(expr.args, 0, 1);
