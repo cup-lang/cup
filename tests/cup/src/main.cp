@@ -1,47 +1,4 @@
-` TODO: use errors
-` FIX: "(a) < 1" -> "a < 1"
-` FIX: "ret (a + 1)" -> "ret a + 1"
-
-#req("stdint.h") mod _ {};
-
-#req("time.h")
-mod time {
-    #bind("clock") sub now() {};
-}
-
-#req("ctype.h")
-mod num {
-    #bind("isdigit") sub is_digit() {};
-    #bind("isspace") sub is_space() {};
-};
-
-#req("stdlib.h")
-mod mem {
-    #bind("malloc") sub alloc() {};
-    #bind("realloc") sub realloc() {};
-    #bind("sizeof") sub size() {}; 
-
-    #req("string.h")
-    #bind("memcpy")
-    sub copy() {};
-};
-
-#req("string.h")
-mod str {
-    #bind("strcmp") sub cmp() {};
-    #bind("strlen") sub len() {};
-};
-
-#req("stdio.h")
-mod file {
-    #bind("fopen") sub open() {};
-    #bind("fclose") sub close() {};
-    #bind("fread") sub read() {};
-    #bind("fseek") sub seek() {};
-    #bind("ftell") ftellsub size() {};
-    #bind("rewind") rewind() {};
-};
-
+#os("win") HANDLE console;
 ptr<u8> file_name = none;
 int file_size;
 
@@ -235,34 +192,5 @@ sub set_color(Color color) {
     match color {
         Color:Reset { printf("\033[0m"); },
         Color:Red { printf("\033[0;31m"); },
-    };
-};
-
-#gen("T")
-comp vec {
-    ptr<T> buf,
-    int size,
-    int cap,
-};
-
-#gen("T")
-def vec<T> {
-    vec<T> new(int cap) {
-        ret vec<T> {
-            buf = mem:alloc(mem:size<T>() * cap),
-            size = 0,
-            cap = cap,
-        };
-    };
-
-    #self
-    sub push(T item) {
-        this.buf[this.size] = item;
-        this.size += 1;
-
-        if this.size == this.cap {
-            this.cap *= 2;
-            this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
-        };
     };
 };

@@ -49,7 +49,7 @@ enum Command {
 
 Command get_command(int argc, ptr<ptr<u8>> argv) {
     if argc == 1 {
-        ret Command:None;
+        ret Command:Help;
     };
 
     bool is_command = false;

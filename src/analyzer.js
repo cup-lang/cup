@@ -2,6 +2,7 @@ const exprKind = require('./parser.js').exprKind;
 
 let genExprs = {};
 let enumExprs = {};
+let binds = {};
 let mods;
 let gens;
 
@@ -18,9 +19,14 @@ function analyzeExpr(expr) {
             if (expr.tags) {
                 for (let i = 0; i < expr.tags.length; ++i) {
                     const tag = expr.tags[i];
-                    if (tag.name === 'gen') {
-                        expr.gen.push(tag.args[0].value);
-                        gens.push(tag.args[0].value);
+                    switch (tag.name) {
+                        case 'gen':
+                            expr.gen.push(tag.args[0].value);
+                            gens.push(tag.args[0].value);
+                            break;
+                        case 'bind':
+                            binds[mods.concat(expr.name).join('_')] = tag.args[0].value;
+                            break;
                     }
                 }
             }
@@ -63,3 +69,4 @@ module.exports.analyze = function (ast) {
 
 module.exports.genExprs = genExprs;
 module.exports.enumExprs = enumExprs;
+module.exports.binds = binds;

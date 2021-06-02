@@ -2,17 +2,19 @@ const tokenKind = require('./lexer.js').tokenKind;
 const exprKind = require('./parser.js').exprKind;
 const genExprs = require('./analyzer.js').genExprs;
 const enumExprs = require('./analyzer.js').enumExprs;
+const binds = require('./analyzer.js').binds;
 
+let types;
 let output;
 let mods;
 let genNames;
 let reqs;
-let binds;
 let scopeGens;
 let vars;
 let headers;
 
 function applyGeneric(type) {
+    type = JSON.parse(JSON.stringify(type));
     for (let i = 0; i < type.path.length; ++i) {
         const p = type.path[i];
         if (p.gens.length > 0) {
@@ -120,7 +122,7 @@ function generateGeneric(path, gens) {
     for (let i = 0; i < expr.gen.length; ++i) {
         genNames[expr.gen[i]] = gensList[i];
     }
-    var out;
+    let out;
     switch (expr.kind) {
         case exprKind.COMP:
             out = generateComp(expr, gens);
@@ -135,7 +137,11 @@ function generateGeneric(path, gens) {
             out = generateCompInst(expr, gens);
             break;
     }
-    output += out;
+    if (expr.kind === exprKind.COMP || expr.kind === exprKind.ENUM) {
+        types += out;
+    } else {
+        output += out;
+    }
     genNames = oldGenNames;
 }
 
@@ -292,7 +298,6 @@ function generateExpr(expr, last, semicolon, parenths) {
                     }
                     break;
                 case 'bind':
-                    binds[mods.concat(expr.name).join('_')] = tag.args[0].value;
                     break;
             }
         }
@@ -317,11 +322,11 @@ function generateExpr(expr, last, semicolon, parenths) {
             mods.pop();
             break;
         case exprKind.COMP: {
-            out += generateComp(expr);
+            types += generateComp(expr);
             break;
         }
         case exprKind.ENUM: {
-            out += generateEnum(expr);
+            types += generateEnum(expr);
             break;
         }
         case exprKind.OPTION:
@@ -706,16 +711,16 @@ function generateBlock(exprs, semicolon, comma) {
 }
 
 module.exports.generate = function (ast) {
+    types = '';
     output = '';
     mods = [];
     genNames = {};
     reqs = [];
-    binds = {};
     scopeGens = [];
     vars = [];
     headers = [];
     let out = generateBlock(ast, 0, 0);
-    output = headers.join('') + output;
+    output = headers.join('') + types + output;
     output += out;
     for (let i = 0; i < reqs.length; ++i) {
         reqs[i] = `#include <${reqs[i]}>\n`;

@@ -35,7 +35,7 @@ function compileRecursive(mods, path) {
     return allAst;
 }
 
-let ast = compileRecursive([], 'tests/test/src');
+let ast = compileRecursive([], 'tests/cup/src');
 analyzer.analyze(ast);
 // console.dir(ast, { depth: null });
 const c = cgen.generate(ast);
