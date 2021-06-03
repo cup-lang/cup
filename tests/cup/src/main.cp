@@ -141,6 +141,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
 
     `` Tokenize the file
     vec<Token> tokens = lex(file);
+    print_tokens(tokens);
 
     `` Parse the tokens
     vec<Expr> ast = parse(tokens);
@@ -170,6 +171,8 @@ ptr<u8> get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
 
 enum Color {
     Reset,
+    Magenta,
+    Green,
     Red,
 };
 
@@ -178,6 +181,8 @@ sub set_color(Color color) {
     int color_code; 
     match color {
         Color:Reset { color_code = 7; },
+        Color:Magenta { color_code = 5; },
+        Color:Green { color_code = 10; },
         Color:Red { color_code = 12; },
     };
 
@@ -188,6 +193,8 @@ sub set_color(Color color) {
 sub set_color(Color color) {
     match color {
         Color:Reset { fmt:print("\033[0m"); },
+        Color:Magenta { fmt:print("\033[35m"); },
+        Color:Green { fmt:print("\033[32m"); },
         Color:Red { fmt:print("\033[0;31m"); },
     };
 };

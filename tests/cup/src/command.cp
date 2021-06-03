@@ -67,7 +67,7 @@ Command get_command(int argc, ptr<ptr<u8>> argv) {
         };
         is_command = true;
     
-        int length = strlen(argv[i]);
+        int length = str:len(argv[i]);
         for c = 0, (c) < length, c += 1 {
             vector.push(argv[i][c]);
         };
@@ -76,51 +76,51 @@ Command get_command(int argc, ptr<ptr<u8>> argv) {
     vector.push('\0');
     ptr<u8> input = vector.buf;
 
-    if strcmp(input, "help") == 0 {
+    if str:cmp(input, "help") == 0 {
         ret Command:Help;
-    } elif strcmp(input, "helprun") == 0 {
+    } elif str:cmp(input, "helprun") == 0 {
         ret Command:HelpRun;
-    } elif strcmp(input, "helpbuild") == 0 {
+    } elif str:cmp(input, "helpbuild") == 0 {
         ret Command:HelpBuild;
-    } elif strcmp(input, "helpcheck") == 0 {
+    } elif str:cmp(input, "helpcheck") == 0 {
         ret Command:HelpCheck;
-    } elif strcmp(input, "helpupdate") == 0 {
+    } elif str:cmp(input, "helpupdate") == 0 {
         ret Command:HelpUpdatePackage;
-    } elif strcmp(input, "helpadd") == 0 {
+    } elif str:cmp(input, "helpadd") == 0 {
         ret Command:HelpAddPackage;
-    } elif strcmp(input, "helpremove") == 0 {
+    } elif str:cmp(input, "helpremove") == 0 {
         ret Command:HelpRemovePackage;
-    } elif strcmp(input, "helpgendocs") == 0 {
+    } elif str:cmp(input, "helpgendocs") == 0 {
         ret Command:HelpGenDocs;
-    } elif strcmp(input, "helpgenbinds") == 0 {
+    } elif str:cmp(input, "helpgenbinds") == 0 {
         ret Command:HelpGenBinds;
-    } elif strcmp(input, "helpselfupdate") == 0 {
+    } elif str:cmp(input, "helpselfupdate") == 0 {
         ret Command:HelpSelfUpdate;
-    } elif strcmp(input, "helpselfinstall") == 0 {
+    } elif str:cmp(input, "helpselfinstall") == 0 {
         ret Command:HelpSelfInstall;
-    } elif strcmp(input, "helpselfuninstall") == 0 {
+    } elif str:cmp(input, "helpselfuninstall") == 0 {
         ret Command:HelpSelfUninstall;
-    } elif strcmp(input, "run") == 0 {
+    } elif str:cmp(input, "run") == 0 {
         ret Command:Run;
-    } elif strcmp(input, "build") == 0 {
+    } elif str:cmp(input, "build") == 0 {
         ret Command:Build;
-    } elif strcmp(input, "check") == 0 {
+    } elif str:cmp(input, "check") == 0 {
         ret Command:Check;
-    } elif strcmp(input, "update") == 0 {
+    } elif str:cmp(input, "update") == 0 {
         ret Command:UpdatePackage;
-    } elif strcmp(input, "add") == 0 {
+    } elif str:cmp(input, "add") == 0 {
         ret Command:AddPackage;
-    } elif strcmp(input, "remove") == 0 {
+    } elif str:cmp(input, "remove") == 0 {
         ret Command:RemovePackage;
-    } elif strcmp(input, "gendocs") == 0 {
+    } elif str:cmp(input, "gendocs") == 0 {
         ret Command:GenDocs;
-    } elif strcmp(input, "genbinds") == 0 {
+    } elif str:cmp(input, "genbinds") == 0 {
         ret Command:GenBinds;
-    } elif strcmp(input, "selfupdate") == 0 {
+    } elif str:cmp(input, "selfupdate") == 0 {
         ret Command:SelfUpdate;
-    } elif strcmp(input, "selfinstall") == 0 {
+    } elif str:cmp(input, "selfinstall") == 0 {
         ret Command:SelfInstall;
-    } elif strcmp(input, "selfuninstall") == 0 {
+    } elif str:cmp(input, "selfuninstall") == 0 {
         ret Command:SelfUninstall;
     };
 

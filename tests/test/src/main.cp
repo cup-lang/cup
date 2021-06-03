@@ -37,8 +37,6 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-\
-
 `` v0.1
 ` TODO: enums
 ` TODO: 'match' generation

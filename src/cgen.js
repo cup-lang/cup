@@ -531,7 +531,11 @@ function generateExpr(expr, last, semicolon, parenths) {
             for (let i = 0; i < expr.body.length; ++i) {
                 const _case = expr.body[i];
                 const index = _enum.body.map(e => e.name).indexOf(_case.cases[0].path[_case.cases[0].path.length - 1].name);
-                out += `case ${index}:`;
+                if (index === -1) {
+                    out += 'default:{';
+                } else {
+                    out += `case ${index}:{`;
+                }
                 if (_case.cases[0].kind === exprKind.SUB_CALL) {
                     for (let ii = 0; ii < _case.cases[0].args.length; ++ii) {
                         out += generateType(_enum.body[i].body[ii].type) + ' ';
@@ -540,7 +544,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                     }
                 }
                 out += generateBlock(_case.body, 1, 0);
-                out += 'break;';
+                out += 'break;}';
             }
             out += '}';
             break;
