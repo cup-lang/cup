@@ -1,7 +1,7 @@
 #gen("T")
 comp vec {
     ptr<T> buf,
-    int size,
+    int len,
     int cap,
 };
 
@@ -10,17 +10,17 @@ def vec<T> {
     vec<T> new(int cap) {
         ret vec<T> {
             buf = mem:alloc(mem:size<T>() * cap),
-            size = 0,
+            len = 0,
             cap = cap,
         };
     };
 
     #self
     sub push(T item) {
-        this.buf[this.size] = item;
-        this.size += 1;
+        this.buf[this.len] = item;
+        this.len += 1;
 
-        if this.size == this.cap {
+        if this.len == this.cap {
             this.cap *= 2;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };

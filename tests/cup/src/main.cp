@@ -9,13 +9,13 @@ int main(int argc, ptr<ptr<u8>> argv) {
     ~m match command {
         Command:None {
             set_color(Color:Red);
-            printf("error: ");
+            fmt:print("error: ");
             set_color(Color:Reset);
-            printf("no such command: '%s", argv[1]);
+            fmt:print("no such command: '%s", argv[1]);
             for i = 2, (i) < argc, i += 1 {
-                printf(" %s", argv[i]);
+                fmt:print(" %s", argv[i]);
             };
-            printf("'\n\nSee 'cup help' for the list of available commands.\n");
+            fmt:print("'\n\nSee 'cup help' for the list of available commands.\n");
             ret 1;
         },
         Command:Run { ret ~m; },
@@ -31,22 +31,22 @@ int main(int argc, ptr<ptr<u8>> argv) {
         Command:SelfInstall { ret 1; },
         Command:SelfUninstall { ret 1; },
         Command:Help {
-            printf("Cup Toolkit v0.0.1\n\n");
-            printf("USAGE:\n    cup [COMMAND] [OPTIONS]");
-            printf("\n\nCOMMANDS:");
-            printf("\n    run                  Compile and run the current package");
-            printf("\n    build                Compile the current package");
-            printf("\n    check                Analyze the current package");
-            printf("\n    new [PACKAGE]        Create a new package");
-            printf("\n    update [PACKAGE]     Update given dependency");
-            printf("\n    add [PACKAGE]        Adds given dependency");
-            printf("\n    remove [PACKAGE]     Removes given dependency");
-            printf("\n    gen docs             Generate documentation for the current package");
-            printf("\n    gen binds [HEADER]   Generate bindings for a given C header file");
-            printf("\n    self update          Update the Cup Toolkit");
-            printf("\n    self install         Install the Cup Toolkit");
-            printf("\n    self uninstall       Uninstall the Cup Toolkit");
-            printf("\n\nSee 'cup help [COMMAND]' for more info about a specific command and it's available options.\n");
+            fmt:print("Cup Toolkit v0.0.1\n\n");
+            fmt:print("USAGE:\n    cup [COMMAND] [OPTIONS]");
+            fmt:print("\n\nCOMMANDS:");
+            fmt:print("\n    run                  Compile and run the current package");
+            fmt:print("\n    build                Compile the current package");
+            fmt:print("\n    check                Analyze the current package");
+            fmt:print("\n    new [PACKAGE]        Create a new package");
+            fmt:print("\n    update [PACKAGE]     Update given dependency");
+            fmt:print("\n    add [PACKAGE]        Adds given dependency");
+            fmt:print("\n    remove [PACKAGE]     Removes given dependency");
+            fmt:print("\n    gen docs             Generate documentation for the current package");
+            fmt:print("\n    gen binds [HEADER]   Generate bindings for a given C header file");
+            fmt:print("\n    self update          Update the Cup Toolkit");
+            fmt:print("\n    self install         Install the Cup Toolkit");
+            fmt:print("\n    self uninstall       Uninstall the Cup Toolkit");
+            fmt:print("\n\nSee 'cup help [COMMAND]' for more info about a specific command and it's available options.\n");
             ret 0;
         },
         Command:HelpRun {
@@ -113,19 +113,19 @@ int main(int argc, ptr<ptr<u8>> argv) {
             };
         } else {
             set_color(Color:Red);
-            printf("error: ");
+            fmt:print("error: ");
             set_color(Color:Reset);
-            printf("invalid option '%s'", argv[i]);
+            fmt:print("invalid option '%s'", argv[i]);
         };
     };
 
     `` Open the file
-    ptr<FILE> file_point;
-    if file_point = file:open(file_name, "rb") {
+    ptr<FILE> file_point = file:open(file_name, "rb");
+    if file_point == none {
         set_color(Color:Red);
-        printf("error: ");
+        fmt:print("error: ");
         set_color(Color:Reset);
-        printf("no such file or directory: '%s'", file_name);
+        fmt:print("no such file or directory: '%s'", file_name);
         ret 1;
     };
 
@@ -135,29 +135,26 @@ int main(int argc, ptr<ptr<u8>> argv) {
     file:rewind(file_point);
 
     `` Allocate the buffer, read contents and close the file
-    ptr<u8> file = mem:alloc(file_size);
-    file:read(file, file_size, 1, file_point);
+    arr<u8> file = arr<u8>:new(file_size);
+    file:read(file.buf, file_size, 1, file_point);
     file:close(file_point);
 
     `` Tokenize the file
-    vec<lexer:Token> tokens = lexer:lex();
+    vec<Token> tokens = lex(file);
 
     `` Parse the tokens
-    vec<parser:Expr> ast = parser:parse(tokens);
+    vec<Expr> ast = parse(tokens);
 
     `` Generate output file
-    if output != none {
-        file_point = file:open(output, "w");
-    } else {
-        file_point = file:open("out.c", "w");
-    };
-    fputs("#include <stdint.h>\n", file_point);
-    gen:generate_vector(ast);
-    file:close(file_point);
+    ` if output != none {
+    `     file_point = file:open(output, "w");
+    ` } else {
+    `     file_point = file:open("out.c", "w");
+    ` };
+    ` generate_vector(ast);
+    ` file:close(file_point);
 
-    system("cc test/test0/out.c -o test/test0/out");
-
-    printf("Compilation successful (%.3lfs elapsed)\n", clock() as f64 / CLOCKS_PER_SEC);
+    fmt:print("Compilation successful (%.3lfs elapsed)\n", (clock() as f64) / CLOCKS_PER_SEC);
 
     ret 0;
 };
@@ -190,7 +187,7 @@ sub set_color(Color color) {
 #os("linux")
 sub set_color(Color color) {
     match color {
-        Color:Reset { printf("\033[0m"); },
-        Color:Red { printf("\033[0;31m"); },
+        Color:Reset { fmt:print("\033[0m"); },
+        Color:Red { fmt:print("\033[0;31m"); },
     };
 };

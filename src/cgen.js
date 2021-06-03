@@ -248,9 +248,20 @@ function generateSub(expr, gen) {
             name: 'this',
         }].concat(expr.args);
     }
+    for (let i = 0; i < expr.args.length; ++i) {
+        const arg = expr.args[i];
+        vars[vars.length - 1][arg.name] = arg.type;
+    }
     let header = generateType(expr.retType);
     header += ` ${generateGenericName(name, gen)}(`;
-    header += generateBlock(expr.args, 0, 0) + ')';
+    header += generateBlock(expr.args, 0, 0);
+    if (expr.tags.map(t => t.name).indexOf('rest') !== -1) {
+        if (!reqs.includes('stdarg.h')) {
+            reqs.push('stdarg.h');
+        }
+        header += ',...';
+    }
+    header += ')';
     if (headers.indexOf(header + ';') === -1) {
         headers.push(header + ';');
         out += header + '{' + generateBlock(expr.body, 1, 0) + '};';

@@ -20,6 +20,12 @@ mod mem {
     sub copy() {};
 };
 
+#req("stdio.h")
+mod fmt {
+    #bind("printf") sub print() {};
+    #bind("vprintf") sub vprint() {};
+};
+
 #req("string.h")
 mod str {
     #bind("strcmp") sub cmp() {};
@@ -37,7 +43,7 @@ mod file {
 };
 
 #req("ctype.h")
-mod num {
+mod ch {
     #bind("isspace") sub is_space() {};
     #bind("isdigit") sub is_num() {};
     #bind("isalpha") sub is_alpha() {};

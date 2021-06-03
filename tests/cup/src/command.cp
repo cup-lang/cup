@@ -1,10 +1,10 @@
 sub command_help(ptr<u8> n, ptr<u8> d, ptr<u8> o) {
-    printf(d);
-    printf("\n\nUSAGE:\n    cup ");
-    printf(n);
-    printf(" [OPTIONS]\n\nOPTIONS:");
-    printf(o);
-    printf("\n");
+    fmt:print(d);
+    fmt:print("\n\nUSAGE:\n    cup ");
+    fmt:print(n);
+    fmt:print(" [OPTIONS]\n\nOPTIONS:");
+    fmt:print(o);
+    fmt:print("\n");
 };
 
 #inl mod command_options {
