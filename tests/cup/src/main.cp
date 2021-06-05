@@ -1,6 +1,4 @@
 #os("win") HANDLE console;
-ptr<u8> file_name = none;
-int file_size;
 
 int main(int argc, ptr<ptr<u8>> argv) {
     #os("win") console = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -99,12 +97,13 @@ int main(int argc, ptr<ptr<u8>> argv) {
         },
     };
 
+    ptr<u8> input = none;
     ptr<u8> output = none;
     for i = 2; (i) < argc; i += 1 {
         if argv[i][0] == '-' {
             if argv[i][1] == 'i' {
-                if file_name == none {
-                    file_name = get_option(i$, argc, argv);
+                if input == none {
+                    input = get_option(i$, argc, argv);
                 };
             } elif argv[i][1] == 'o' {
                 if output == none {
@@ -120,42 +119,24 @@ int main(int argc, ptr<ptr<u8>> argv) {
     };
 
     `` Open the file
-    ptr<FILE> file_point = file:open(file_name, "rb");
-    if file_point == none {
-        set_color(Color:Red);
-        fmt:print("error: ");
-        set_color(Color:Reset);
-        fmt:print("no such file or directory: '%s'", file_name);
-        ret 1;
-    };
-
-    `` Get the size of the file
-    file:seek(file_point, 0 as i32, SEEK_END);
-    file_size = file:size(file_point);
-    file:rewind(file_point);
-
-    `` Allocate the buffer, read contents and close the file
-    arr<u8> file = arr<u8>:new(file_size);
-    file:read(file.buf, file_size, 1, file_point);
-    file:close(file_point);
-
-    `` Tokenize the file
-    vec<Token> tokens = lex(file);
-    print_tokens(tokens);
-
-    `` Parse the tokens
-    vec<Expr> ast = parse(tokens);
-
-    `` Generate output file
-    ` if output != none {
-    `     file_point = file:open(output, "w");
-    ` } else {
-    `     file_point = file:open("out.c", "w");
+    ` ptr<FILE> file_point = file:open(input, "rb");
+    ` if file_point == none {
+    `     set_color(Color:Red);
+    `     fmt:print("error: ");
+    `     set_color(Color:Reset);
+    `     fmt:print("no such file or directory: '%s'", input);
+    `     ret 1;
     ` };
-    ` generate_vector(ast);
-    ` file:close(file_point);
 
-    fmt:print("Compilation successful (%.3lfs elapsed)\n", (clock() as f64) / CLOCKS_PER_SEC);
+    lex_parse_recursive(input);
+    `` Analyze
+    `` Generate
+
+    fmt:print("Compilation ");
+    set_color(Color:Green);
+    fmt:print("successful");
+    set_color(Color:Reset);
+    fmt:print(" (%.1lfs elapsed)\n", (clock() as f64) / CLOCKS_PER_SEC);
 
     ret 0;
 };
@@ -197,4 +178,43 @@ sub set_color(Color color) {
         Color:Green { fmt:print("\033[32m"); },
         Color:Red { fmt:print("\033[0;31m"); },
     };
+};
+
+sub lex_parse_recursive(ptr<u8> path) {
+    ptr<DIR> dir = dir:open(path);
+    ptr<dirent> ent;
+    while (ent = dir:read(dir)) != none {
+        int new_length = str:len(ent@.d_name);
+        if (new_length == 1) & (ent@.d_name[0] == '.') { }
+        elif ((new_length == 2) & (ent@.d_name[0] == '.')) & (ent@.d_name[1] == '.') { }
+        else {
+            int length = str:len(path);
+            ptr<u8> new_path = mem:alloc(length + 1 + new_length + 1);
+            mem:copy(new_path, path, length);
+            new_path[length] = '/';
+            mem:copy(new_path + length + 1, ent@.d_name, new_length);
+            new_path[length + new_length + 1] = '\0';
+            if ent@.d_type == DT_DIR {
+                lex_parse_recursive(new_path);
+            } elif ent@.d_type == DT_REG {
+                ptr<FILE> file_point = file:open(new_path, "rb");
+                file:seek(file_point, 0 as i32, SEEK_END);
+                arr<u8> file = arr<u8>:new(ftell(file_point) + 1);
+                rewind(file_point);
+                file.len -= 1;
+                file:read(file.buf, file.len, 1, file_point);
+                file.buf[file.len] = '\0';
+                file:close(file_point);
+
+                fmt:print("Compiling %s:\n", new_path);
+                vec<Token> tokens = lex(file);
+                print_tokens(tokens);
+                vec<Expr> ast = parse(tokens);
+
+                mem:free(file.buf);
+            };
+            mem:free(new_path);
+        };
+    };
+    dir:close(dir);
 };

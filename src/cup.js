@@ -18,7 +18,7 @@ function compileRecursive(mods, path) {
             const contents = fs.readFileSync(file).toString();
             const tokens = lexer.lex(contents);
             // console.log('Tokens:', tokens);
-            console.log(file);
+            // console.log(file);
             let ast = parser.parse(tokens);
             // stdout.write('AST: ');
             // console.dir(ast, { depth: null });

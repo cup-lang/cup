@@ -14,6 +14,7 @@ mod mem {
     #bind("malloc") sub alloc() {};
     #bind("realloc") sub realloc() {};
     #bind("sizeof") sub size() {}; 
+    #bind("free") sub free() {}; 
 
     #req("string.h")
     #bind("memcpy")
@@ -30,6 +31,14 @@ mod fmt {
 mod str {
     #bind("strcmp") sub cmp() {};
     #bind("strlen") sub len() {};
+};
+
+#raw("typedef struct dirent dirent;")
+#req("dirent.h")
+mod dir {
+    #bind("opendir") sub open() {};
+    #bind("readdir") sub read() {};
+    #bind("closedir") sub close() {};    
 };
 
 #req("stdio.h")

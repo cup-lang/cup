@@ -290,6 +290,33 @@ TokenKind get_keyword(ptr<u8> value) {
     ret TokenKind:Empty;
 }; 
 
+bool is_binary_operator(TokenKind kind) {
+    match kind {
+        TokenKind:LeftParen { ret true; },
+        TokenKind:Assign { ret true; },
+        TokenKind:Equal { ret true; },
+        TokenKind:NotEqual { ret true; },
+        TokenKind:And { ret true; },
+        TokenKind:Or { ret true; },
+        TokenKind:Less { ret true; },
+        TokenKind:LessEqual { ret true; },
+        TokenKind:Greater { ret true; },
+        TokenKind:GreaterEqual { ret true; },
+        TokenKind:Add { ret true; },
+        TokenKind:AddAssign { ret true; },
+        TokenKind:Subtract { ret true; },
+        TokenKind:SubtractAssign { ret true; },
+        TokenKind:Multiply { ret true; },
+        TokenKind:MultiplyAssign { ret true; },
+        TokenKind:Divide { ret true; },
+        TokenKind:DivideAssign { ret true; },
+        TokenKind:Modulo { ret true; },
+        TokenKind:ModuloAssign { ret true; },
+        TokenKind:As { ret true; },
+        _ { ret false; },
+    };
+};
+
 vec<Token> lex(arr<u8> file) {
     vec<Token> tokens = vec<Token>:new(32);
     u8 is_comment = 0;
@@ -334,7 +361,7 @@ vec<Token> lex(arr<u8> file) {
             };
         };
 
-        if ch:is_space(c) {
+        ~ll if ch:is_space(c) {
             kind = TokenKind:Empty;
         } else {
             if c == '"' {
@@ -426,22 +453,15 @@ vec<Token> lex(arr<u8> file) {
                     kind = TokenKind:Add;
                 };
             } elif c == '-' {
-                ` if (isBinaryOperator(tokens[tokens.length - 1]) && isNumeric(input[i + 1])) {
-                `     break;
-                ` }
-                ` kind = TokenKind:Subtract;
-                ` if (i + 1 < input.length) {
-                `     switch (input[i + 1]) {
-                `         case '>':
-                `             kind = tokenKind.ARROW;
-                `             ++i;
-                `             break;
-                `         case '=':
-                `             kind = tokenKind.SUBTRACT_ASSIGN;
-                `             ++i;
-                `             break;
-                `     }
-                ` };
+                if is_binary_operator(tokens.buf[tokens.len - 1].kind) & ch:is_num(file.buf[i + 1]) {
+                    ret ~ll;
+                };
+                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                    kind = TokenKind:SubtractAssign;
+                    i += 1;
+                } else {
+                    kind = TokenKind:Subtract;
+                };
             } elif c == '*' {
                 if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
                     kind = TokenKind:MultiplyAssign;

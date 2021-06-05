@@ -310,6 +310,9 @@ function generateExpr(expr, last, semicolon, parenths) {
                     break;
                 case 'bind':
                     break;
+                case 'raw':
+                    output += tag.args[0].value;
+                    break;
             }
         }
     }
