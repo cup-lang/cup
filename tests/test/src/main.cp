@@ -37,13 +37,14 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-`` v0.1
-` TODO: enums
-` TODO: 'match' generation
+#gen("T")
+use vec<T> as this_is_my_vec<T>;
+use vec<u8> as str;
+
+mod abc:foo;
 
 `` v0.2
 ` TODO: SomeComp {} -> SomeComp ()
 ` TODO: comp foo {}; -> comp foo ();
 ` TODO: add 'has' keyword
 ` TODO: def a for b -> def a, b
-` TODO: #self

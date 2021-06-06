@@ -117,16 +117,12 @@ int main(int argc, ptr<ptr<u8>> argv) {
             fmt:print("invalid option '%s'", argv[i]);
         };
     };
-
-    `` Open the file
-    ` ptr<FILE> file_point = file:open(input, "rb");
-    ` if file_point == none {
-    `     set_color(Color:Red);
-    `     fmt:print("error: ");
-    `     set_color(Color:Reset);
-    `     fmt:print("no such file or directory: '%s'", input);
-    `     ret 1;
-    ` };
+    if input == none {
+        input = ".";
+    };
+    if output == none {
+        output = "out.c";
+    };
 
     lex_parse_recursive(input);
     `` Analyze
@@ -182,6 +178,13 @@ sub set_color(Color color) {
 
 sub lex_parse_recursive(ptr<u8> path) {
     ptr<DIR> dir = dir:open(path);
+    if dir == none {
+        set_color(Color:Red);
+        fmt:print("error: ");
+        set_color(Color:Reset);
+        fmt:print("no such file or directory: '%s'\n", path);
+        exit(1);
+    };
     ptr<dirent> ent;
     while (ent = dir:read(dir)) != none {
         int new_length = str:len(ent@.d_name);
@@ -205,16 +208,26 @@ sub lex_parse_recursive(ptr<u8> path) {
                 file:read(file.buf, file.len, 1, file_point);
                 file.buf[file.len] = '\0';
                 file:close(file_point);
-
+                
                 fmt:print("Compiling %s:\n", new_path);
-                vec<Token> tokens = lex(file);
+                File abc = File {
+                    name = new_path,
+                    data = file,
+                };
+                vec<Token> tokens = lex(abc);
                 print_tokens(tokens);
-                vec<Expr> ast = parse(tokens);
-
+                vec<Expr> exprs = parse(abc, tokens);
+                print_exprs(exprs);
+                
                 mem:free(file.buf);
             };
             mem:free(new_path);
         };
     };
     dir:close(dir);
+};
+
+comp File {
+    ptr<u8> name,
+    arr<u8> data,
 };

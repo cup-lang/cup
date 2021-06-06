@@ -53,18 +53,18 @@ sub print_snippet(arr<u8> file, Location location) {
 };
 
 #rest
-sub throw(arr<u8> file, ptr<u8> file_name, int index, ptr<u8> error) {
+sub throw(File file, int index, ptr<u8> error) {
     va_list args;
     va_start(args, error);
 
-    Location loc = get_location(file.buf, index);
-    fmt:print("%s:%i:%i: ", file_name, loc.line, loc.column);
+    Location loc = get_location(file.data.buf, index);
+    fmt:print("%s:%i:%i: ", file.name, loc.line, loc.column);
     set_color(Color:Red);
     fmt:print("error: ");
     set_color(Color:Reset);
     fmt:vprint(error, args);
     fmt:print("\n");
-    print_snippet(file, loc);
+    print_snippet(file.data, loc);
     exit(1);
 
     va_end(args);

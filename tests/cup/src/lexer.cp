@@ -75,7 +75,7 @@ enum TokenKind {
     ModuloAssign,
 };
 
-int get_length(TokenKind kind) {
+int get_token_length(TokenKind kind) {
     match kind {
         TokenKind:True { ret 4; },
         TokenKind:False { ret 5; },
@@ -143,7 +143,7 @@ int get_length(TokenKind kind) {
     };
 };
 
-ptr<u8> get_name(TokenKind kind) {
+ptr<u8> get_token_name(TokenKind kind) {
     match kind {
         TokenKind:Ident { ret "IDENT"; },
         TokenKind:StringLit { ret "STRING_LIT"; },
@@ -222,9 +222,9 @@ comp Token {
     ptr<u8> value,
 };
 
-sub add_to_value(arr<u8> file, ptr<u8> file_name, ptr<vec<u8>> value, int i, u8 c, u8 is_literal) {
+sub add_to_value(File file, ptr<vec<u8>> value, int i, u8 c, u8 is_literal) {
     if (is_literal == 2) & (value@.len == 4) {
-        throw(file, file_name, i, "too many characters in character literal");
+        throw(file, i, "too many characters in character literal");
     };
     push_char(value, c);
 };
@@ -317,15 +317,15 @@ bool is_binary_operator(TokenKind kind) {
     };
 };
 
-vec<Token> lex(arr<u8> file) {
+vec<Token> lex(File file) {
     vec<Token> tokens = vec<Token>:new(32);
     u8 is_comment = 0;
     u8 is_literal = 0;
     vec<u8> value = vec<u8>:new(8);
     empty(value$);
 
-    ~l for i = 0, i <= file.len, i += 1 {
-        u8 c = file.buf[i];
+    ~l for i = 0, i <= file.data.len, i += 1 {
+        u8 c = file.data.buf[i];
 
         if ((((is_literal != 1) & (is_literal != 2)) & (is_literal != 3)) & (is_literal != 4)) & (c == '`') {
             is_comment = 1;
@@ -348,20 +348,20 @@ vec<Token> lex(arr<u8> file) {
         if (is_literal == 1) | (is_literal == 2) {
             if c == 0 {
                 if is_literal == 1 {
-                    throw(file, "test_name", i - 1, "expected end of %s literal", "string");
+                    throw(file, i - 1, "expected end of %s literal", "string");
                 } else {
-                    throw(file, "test_name", i - 1, "expected end of %s literal", "char");
+                    throw(file, i - 1, "expected end of %s literal", "char");
                 };
             }
             elif (is_literal == 1) & (c == '"') {}
             elif (is_literal == 2) & (c == 39) {}
             else {
-                add_to_value(file, "test_name", value$, i, c, is_literal);
+                add_to_value(file, value$, i, c, is_literal);
                 next ~l;
             };
         };
 
-        ~ll if ch:is_space(c) {
+        ~ll if (c == 0) | ch:is_space(c) {
             kind = TokenKind:Empty;
         } else {
             if c == '"' {
@@ -387,7 +387,7 @@ vec<Token> lex(arr<u8> file) {
             } elif c == ',' {
                 kind = TokenKind:Comma;
             } elif c == '.' {
-                u8 n = file.buf[i + 1];
+                u8 n = file.data.buf[i + 1];
                 if (is_literal != 5) | ((n == '_') | ch:is_alpha(n)) {
                     kind = TokenKind:Dot;
                 };
@@ -418,66 +418,66 @@ vec<Token> lex(arr<u8> file) {
             } elif c == '|' {
                 kind = TokenKind:Or;
             } elif c == '=' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:Equal;
                     i += 1;
                 } else {
                     kind = TokenKind:Assign;
                 };
             } elif c == '!' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:NotEqual;
                     i += 1;
                 } else {
                     kind = TokenKind:Not;
                 };
             } elif c == '<' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:LessEqual;
                     i += 1;
                 } else {
                     kind = TokenKind:Less;
                 };
             } elif c == '>' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:GreaterEqual;
                     i += 1;
                 } else {
                     kind = TokenKind:Greater;
                 };
             } elif c == '+' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:AddAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Add;
                 };
             } elif c == '-' {
-                if is_binary_operator(tokens.buf[tokens.len - 1].kind) & ch:is_num(file.buf[i + 1]) {
+                if is_binary_operator(tokens.buf[tokens.len - 1].kind) & ch:is_num(file.data.buf[i + 1]) {
                     ret ~ll;
                 };
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:SubtractAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Subtract;
                 };
             } elif c == '*' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:MultiplyAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Multiply;
                 };
             } elif c == '/' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:DivideAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Divide;
                 };
             } elif c == '%' {
-                if (i + 1 < file.len) & (file.buf[i + 1] == '=') {
+                if (i + 1 < file.data.len) & (file.data.buf[i + 1] == '=') {
                     kind = TokenKind:ModuloAssign;
                     i += 1;
                 } else {
@@ -496,15 +496,15 @@ vec<Token> lex(arr<u8> file) {
                             is_literal = 6;
                         } elif (c == '_') | ch:is_num(c) {} 
                         else {
-                            throw(file, "test_name", i - value.len, "invalid identifier name starting with a digit");
+                            throw(file, i - value.len, "invalid identifier name starting with a digit");
                         };
                     };
 
                     if ((is_literal != 5) & (is_literal != 6)) | (c != '_') {
-                        add_to_value(file, "test_name", value$, i, c, is_literal);
+                        add_to_value(file, value$, i, c, is_literal);
                     };
                 } else {
-                    throw(file, "test_name", i, "unexpected symbol %c", c);
+                    throw(file, i, "unexpected symbol %c", c);
                 };
             },
             _ {
@@ -523,7 +523,7 @@ vec<Token> lex(arr<u8> file) {
                                     } elif is_literal == 6 {
                                         token.kind = TokenKind:FloatLit;
                                         if value.buf[value.len - 1] == '.' {
-                                            throw(file, "test_name", i - 1, "expected a value after the decimal point");
+                                            throw(file, i - 1, "expected a value after the decimal point");
                                         };
                                     } else {
                                         token.kind = TokenKind:Ident;
@@ -535,7 +535,7 @@ vec<Token> lex(arr<u8> file) {
                                 _ {
                                     Token token = Token {
                                         kind = value_kind,
-                                        index = i - get_length(value_kind),
+                                        index = i - get_token_length(value_kind),
                                     };
                                     tokens.push(token);
                                 },
@@ -566,7 +566,7 @@ vec<Token> lex(arr<u8> file) {
                                 empty(value$);
                             },
                             _ {
-                                token.index = i - get_length(kind) + 1;
+                                token.index = i - get_token_length(kind) + 1;
                             },
                         };
                         tokens.push(token);
@@ -584,7 +584,7 @@ sub print_tokens(vec<Token> tokens) {
     for i = 0, (i) < tokens.len, i += 1 {
         TokenKind kind = tokens.buf[i].kind;
         set_color(Color:Magenta);
-        fmt:print("  %s", get_name(kind));
+        fmt:print("  %s", get_token_name(kind));
         set_color(Color:Reset);
         match kind {
             TokenKind:Ident { fmt:print("(%s)", tokens.buf[i].value); },

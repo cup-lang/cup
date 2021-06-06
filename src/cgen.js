@@ -11,6 +11,7 @@ let genNames;
 let reqs;
 let scopeGens;
 let vars;
+let typeHeaders;
 let headers;
 
 function applyGeneric(type) {
@@ -184,8 +185,8 @@ function generateComp(expr, gen) {
     }
     let gname = generateGenericName(name, gen);
     let header = `typedef struct ${gname} ${gname};`;
-    if (headers.indexOf(header) === -1) {
-        headers.push(header);
+    if (typeHeaders.indexOf(header) === -1) {
+        typeHeaders.push(header);
         out += `struct ${gname}{`;
         out += generateBlock(expr.body, 1, 0) + '};';
     }
@@ -199,17 +200,17 @@ function generateEnum(expr, gen) {
         name = expr.path;
     }
     let gname = generateGenericName(name, gen);
-    headers.push(`typedef struct ${gname} ${gname};`);
+    typeHeaders.push(`typedef struct ${gname} ${gname};`);
     mods.push(expr.name);
     out += generateBlock(expr.body, 1, 0);
     mods.pop();
-    out += `union ${gname}Union{char _;`;
+    out += `union ${gname}Union{`;
     for (let i = 0; i < expr.body.length; ++i) {
         if (expr.body[i].body.length > 0) {
-            out += `struct ${gname + '_' + expr.body[i].name} u${i};`;
+            out += `${gname + '_' + expr.body[i].name} u${i};`;
         }
     }
-    out += `};struct ${gname}{int type;union ${gname}Union u;};`;
+    out += `char _;};struct ${gname}{int type;union ${gname}Union u;};`;
     return out;
 }
 
@@ -346,9 +347,9 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.OPTION:
             if (expr.body.length > 0) {
                 const name = mods.concat(expr.name).join('_');
-                out += `struct ${name}{`;
+                out += 'typedef struct{';
                 out += generateBlock(expr.body, 1, 0);
-                out += '}';
+                out += `}${name};`;
             }
             break;
         case exprKind.OPTION_FIELD:
@@ -401,11 +402,10 @@ function generateExpr(expr, last, semicolon, parenths) {
                     const index = _enum.body.map(e => e.name).indexOf(expr.path[expr.path.length - 1].name);
                     out += `(${enumName}){${index}`;
                     if (expr.args.length > 0) {
-                        out += `,(${name.join('_')}){`;
+                        out += `,`;
                         for (let i = 0; i < expr.args.length; ++i) {
                             out += generateExpr(expr.args[i]) + ',';
                         }
-                        out += '}';
                     }
                     out += '}';
                     break s;
@@ -543,7 +543,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                     for (let ii = 0; ii < _case.cases[0].args.length; ++ii) {
                         out += generateType(_enum.body[i].body[ii].type) + ' ';
                         out += _case.cases[0].args[ii].path[0].name;
-                        out += `=${expr.value.path.map(p => p.name).join('_')}.u.u${index}.${_enum.body[i].body[ii].name};`;
+                        out += `=${generateExpr(expr.value, 0, 0, 0)}.u.u${index}.${_enum.body[i].body[ii].name};`;
                     }
                 }
                 out += generateBlock(_case.body, 1, 0);
@@ -736,9 +736,10 @@ module.exports.generate = function (ast) {
     reqs = [];
     scopeGens = [];
     vars = [];
+    typeHeaders = [];
     headers = [];
     let out = generateBlock(ast, 0, 0);
-    output = headers.join('') + types + output;
+    output = typeHeaders.join('') + headers.join('') + types + output;
     output += out;
     for (let i = 0; i < reqs.length; ++i) {
         reqs[i] = `#include <${reqs[i]}>\n`;
