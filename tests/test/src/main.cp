@@ -37,11 +37,13 @@
 ` foo:bar xyz = 1;
 ` var bar = 1;
 
-#gen("T")
-use vec<T> as this_is_my_vec<T>;
-use vec<u8> as str;
+` foo:bar<int>:foo:bar<a, b, c>
 
-mod abc:foo;
+` #gen("T")
+` use vec<T> as this_is_my_vec<T>;
+` use vec<u8> as str;
+` 
+` mod abc:foo;
 
 `` v0.2
 ` TODO: SomeComp {} -> SomeComp ()
