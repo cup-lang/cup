@@ -1,27 +1,32 @@
 ```````````````````````````````````````````````` use
 ` use foo:bar;
 ```````````````````````````````````````````````` mod
-` mod foo { };
+` mod foo;
 ```````````````````````````````````````````````` comp, field
-` comp SomeComp {
+` comp SomeComp (
 `     i32 foo,
 `     i32 bar,
-` };
+` ) {};
 ```````````````````````````````````````````````` enum, option
-` enum SomeEnum {
+` enum SomeEnum (
+`     i32 foo;
+`     i32 bar;
+`     
 `     Option0,
 `     Option1(i32 foo, f32 bar),
-`     Option2,
-` };
+`     Option2(),
+` ) {};
 ```````````````````````````````````````````````` tag_def, arg
-` tag test_tag(string foo, int bar);
+` tag test_tag(string foo, int bar) { };
 ```````````````````````````````````````````````` prop
 ` prop SomeProp { };
 ```````````````````````````````````````````````` def
-` def SomeProp<T, TT> for SomeObject<T, TT> { };
+` def SomeProp<T, TT>, SomeObject<T, TT> { };
 ```````````````````````````````````````````````` sub_def, arg
 ` foo:bar xyz() {};
 ` sub foo(i32 bar) {
+`     foo:bar xyz = 1;
+`     var bar = 1, bar2 = 2;
 `     if 0 { } elif 1 { } else { };
 `     loop { };
 `     while 2 { };
@@ -36,17 +41,8 @@
 ```````````````````````````````````````````````` var_def
 ` foo:bar xyz = 1;
 ` var bar = 1;
+````````````````````````````````````````````````
 
-` foo:bar<int>:foo:bar<a, b, c>
+` var a = (1, 2, 3);
 
-` #gen("T")
-` use vec<T> as this_is_my_vec<T>;
-` use vec<u8> as str;
-` 
-` mod abc:foo;
-
-`` v0.2
-` TODO: SomeComp {} -> SomeComp ()
-` TODO: comp foo {}; -> comp foo ();
 ` TODO: add 'has' keyword
-` TODO: def a for b -> def a, b

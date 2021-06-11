@@ -1,18 +1,8 @@
-sub REMOVE_ME() { vec<PathPart>:new(0); vec<Field>:new(0); vec<Option>:new(0); vec<FieldInst>:new(0); vec<MatchCase>:new(0); };
+sub REMOVE_ME() { vec<PathPart>:new(0); vec<FieldInst>:new(0); };
 
 comp PathPart {
     ptr<u8> name,
     vec<Expr> gens,
-};
-
-comp Field {
-    ptr<Expr> _type,
-    ptr<u8> name,
-};
-
-comp Option {
-    ptr<u8> name,
-    vec<Field> fields,
 };
 
 comp FieldInst {
@@ -20,23 +10,20 @@ comp FieldInst {
     ptr<Expr> value,
 };
 
-comp MatchCase {
-    vec<Expr> values,
-    vec<Expr> body,
-};
-
 enum ExprKind {
-    Tag(ptr<u8> name, vec<Field> args),
+    Tag(ptr<u8> name, vec<Expr> args),
     Path(vec<PathPart> path),
     TagDef(ptr<Expr> path, vec<Expr> body),
     Block(vec<Expr> body),
     Mod(ptr<Expr> path),
     Use(ptr<Expr> path),
-    Comp(ptr<Expr> path, vec<Field> fields, vec<Expr> body),
-    Enum(ptr<Expr> path, vec<Option> opts, vec<Expr> body),
+    Field(ptr<Expr> _type, ptr<u8> name),
+    Comp(ptr<Expr> path, vec<Expr> fields, vec<Expr> body),
+    Enum(ptr<Expr> path, vec<Expr> fields, vec<Expr> opts, vec<Expr> body),
+    Option(ptr<u8> name, vec<Expr> fields),
     Prop(ptr<Expr> path, vec<Expr> body),
     Def(ptr<Expr> _prop, ptr<Expr> target),
-    SubDef(ptr<Expr> ret_type, ptr<Expr> path, vec<Field> args, vec<Expr> body),
+    SubDef(ptr<Expr> ret_type, ptr<Expr> path, vec<Expr> args, vec<Expr> body),
     VarDef(ptr<Expr> _type, ptr<Expr> path, ptr<Expr> value),
 
     LocalVarDef(ptr<Expr> _type, ptr<u8> name, ptr<Expr> value),
@@ -56,9 +43,10 @@ enum ExprKind {
     Else(vec<Expr> body),
     Loop(vec<Expr> body),
     While(ptr<Expr> cond, vec<Expr> body),
-    For(ptr<u8> iter, ptr<Expr> cond, ptr<Expr> _next),
-    Each(ptr<u8> iter, ptr<Expr> value),
-    Match(ptr<Expr> value, vec<MatchCase> cases),
+    For(vec<Expr> iter, ptr<Expr> cond, vec<Expr> _next, vec<Expr> body),
+    Each(ptr<u8> iter, ptr<Expr> value, vec<Expr> body),
+    Match(ptr<Expr> value, vec<Expr> cases),
+    Case(vec<Expr> values, vec<Expr> body),
     Ret(ptr<u8> label, ptr<Expr> value),
     Next(ptr<u8> label),
     Jump(ptr<u8> label),
@@ -167,7 +155,7 @@ sub print_expr(Expr expr, int depth) {
     match expr.kind {
         ExprKind:Tag(name, args) {
             fmt:print("name = %s", name);
-            print_fields(args, depth);
+            print_expr_vec(args, depth, "args");
         },
         ExprKind:Path(path) {
             for i = 0, (i) < path.len, i += 1 {
@@ -189,19 +177,24 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:Use(path) {
             print_expr(path@, depth);
         },
+        ExprKind:Field(_type, name) {
+            print_expr(_type@, depth);
+            fmt:print("name = %s", name);
+        },
         ExprKind:Comp(path, fields, body) {
             print_expr(path@, depth);
-            print_fields(fields, depth);
+            print_expr_vec(fields, depth, "fields");
             print_expr_vec(body, depth, "body");
         },
-        ExprKind:Enum(path, opts, body) {
+        ExprKind:Enum(path, fields, opts, body) {
             print_expr(path@, depth);
-            for i = 0, (i) < opts.len, i += 1 {
-                Option opt = opts.buf[i];
-                fmt:print("name = %s", opt.name);
-                print_fields(opt.fields, depth);
-            };
+            print_expr_vec(fields, depth, "fields");
+            print_expr_vec(opts, depth, "opts");
             print_expr_vec(body, depth, "body");
+        },
+        ExprKind:Option(name, fields) {
+            fmt:print("name = %s", name);
+            print_expr_vec(fields, depth, "fields");
         },
         ExprKind:Prop(path, body) {
             print_expr(path@, depth);
@@ -214,7 +207,7 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:SubDef(ret_type, path, args, body) {
             print_expr(ret_type@, depth);
             print_expr(path@, depth);
-            print_fields(args, depth);
+            print_expr_vec(args, depth, "args");
             print_expr_vec(body, depth, "body");
         },
         ExprKind:VarDef(_type, path, value) {
@@ -236,7 +229,11 @@ sub print_expr(Expr expr, int depth) {
         },
         ExprKind:CompInst(path, body) {
             print_expr(path@, depth);
-            ` print_expr_vec(body, depth, "body");
+            for i = 0, (i) < body.len, i += 1 {
+                FieldInst field = body.buf[i];
+                fmt:print("name = %s", field.name);
+                print_expr(field.value@, depth);
+            };
         },
         ExprKind:StringLit(value) {
             fmt:print("name = %s", value);
@@ -260,33 +257,73 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:ThisLit {},
         ExprKind:TypeLit {},
         ExprKind:LocalBlock(body) {
-            ` print_expr_vec(body, depth, "body");
+            print_expr_vec(body, depth, "body");
         },
-        ExprKind:If {},
-        ExprKind:Elif {},
-        ExprKind:Else {},
-        ExprKind:Loop {},
-        ExprKind:While {},
-        ExprKind:For {},
-        ExprKind:Each {},
-        ExprKind:Match {},
-        ExprKind:Ret {},
-        ExprKind:Next {},
-        ExprKind:Jump {},
-        ExprKind:Try {},
-        ExprKind:UnaryOp {},
-        ExprKind:BinaryOp {},
-        ExprKind:TernaryOp {},
+        ExprKind:If(cond, body) {
+            print_expr(cond@, depth);
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:Elif(cond, body) {
+            print_expr(cond@, depth);
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:Else(body) {
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:Loop(body) {
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:While(cond, body) {
+            print_expr(cond@, depth);
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:For(iter, cond, _next, body) {
+            print_expr_vec(iter, depth, "iter");
+            print_expr(cond@, depth);
+            print_expr_vec(_next, depth, "next");
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:Each(iter, value, body) {
+            fmt:print("iter = %s", iter);
+            print_expr(value@, depth);
+            print_expr_vec(body, depth, "body");
+        },
+        ExprKind:Match(value, cases) {
+            ` value
+            ` cases
+        },
+        ExprKind:Case(values, body) {
+            ` values
+            ` body
+        },
+        ExprKind:Ret(label, value) {
+            fmt:print("label = %s", label);
+            print_expr(value@, depth);
+        },
+        ExprKind:Next(label) {
+            fmt:print("label = %s", label);
+        },
+        ExprKind:Jump(label) {
+            fmt:print("label = %s", label);
+        },
+        ExprKind:Try(label, value) {
+            fmt:print("label = %s", label);
+            print_expr(value@, depth);
+        },
+        ExprKind:UnaryOp(value, kind) {
+            print_expr(value@, depth);
+        },
+        ExprKind:BinaryOp(lhs, rhs, kind) {
+            print_expr(lhs@, depth);
+            print_expr(rhs@, depth);
+        },
+        ExprKind:TernaryOp(cond, valueA, valueB) {
+            print_expr(cond@, depth);
+            print_expr(valueA@, depth);
+            print_expr(valueB@, depth);
+        },
     };
     putchar(')');
-};
-
-sub print_fields(vec<Field> fields, int depth) {
-    for i = 0, (i) < fields.len, i += 1 {
-        Field field = fields.buf[i];
-        print_expr(field._type@, depth);
-        fmt:print("name = %s", field.name);
-    };
 };
 
 ptr<u8> get_expr_name(ExprKind kind) {

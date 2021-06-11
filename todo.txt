@@ -1,11 +1,5 @@
-- fix left to right for assign
-- infer type
-- tuples
-- cond op
-- subs only in defs
 - combo var_def
-- a < b < c
-- match on multiple values
+- tuples
 
 ? clojures
 ? aliases, copy/embed fields
