@@ -274,6 +274,9 @@ function generateCompInst(expr, gen) {
     const name = expr.path.map(p => p.name);
     let out = `(${generateGenericName(name, gen)}){`;
     for (let i = 0; i < expr.args.length; ++i) {
+        out += '.';
+        out += expr.args[i].name;
+        out += '=';
         out += generateExpr(expr.args[i].value);
         out += ',';
     }
@@ -400,14 +403,17 @@ function generateExpr(expr, last, semicolon, parenths) {
                 let _enum = enumExprs[enumName];
                 if (_enum) {
                     const index = _enum.body.map(e => e.name).indexOf(expr.path[expr.path.length - 1].name);
-                    out += `(${enumName}){${index}`;
+                    out += `(${enumName}){.type=${index},.u={.u${index}={`;
                     if (expr.args.length > 0) {
-                        out += `,`;
                         for (let i = 0; i < expr.args.length; ++i) {
-                            out += generateExpr(expr.args[i]) + ',';
+                            out += '.';
+                            out += _enum.body[index].body[i].name;
+                            out += '=';
+                            out += generateExpr(expr.args[i]);
+                            out += ',';
                         }
                     }
-                    out += '}';
+                    out += '}}}';
                     break s;
                 }
             }
@@ -598,7 +604,7 @@ function generateExpr(expr, last, semicolon, parenths) {
 
             if (expr.type === tokenKind.DOT && expr.rhs.kind === exprKind.SUB_CALL) {
                 const name = expr.lhs.path.map(p => p.name).join('_');
-                for (let i = 0; i < vars.length; ++i) {
+                for (let i = vars.length - 1; i >= 0; --i) {
                     const v = vars[i];
                     if (v[name]) {
                         expr = {

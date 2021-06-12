@@ -36,6 +36,7 @@ enum TokenKind {
     Jump,
     Try,
     As,
+    Has,
 
     Semicolon,
     Colon,
@@ -105,6 +106,7 @@ int get_token_length(TokenKind kind) {
         TokenKind:Jump { ret 4; },
         TokenKind:Try { ret 3; },
         TokenKind:As { ret 2; },
+        TokenKind:Has { ret 3; },
         TokenKind:Semicolon { ret 1; },
         TokenKind:Colon { ret 1; },
         TokenKind:Comma { ret 1; },
@@ -178,6 +180,7 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:Jump { ret "JUMP"; },
         TokenKind:Try { ret "TRY"; },
         TokenKind:As { ret "AS"; },
+        TokenKind:Has { ret "HAS"; },
         TokenKind:Semicolon { ret "SEMICOLON"; },
         TokenKind:Colon { ret "COLON"; },
         TokenKind:Comma { ret "COMMA"; },
@@ -286,6 +289,8 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:Try;
     } elif str:cmp(value, "as") == 0 {
         ret TokenKind:As;
+    } elif str:cmp(value, "has") == 0 {
+        ret TokenKind:Has;
     };
     ret TokenKind:Empty;
 }; 
@@ -313,6 +318,7 @@ bool is_binary_operator(TokenKind kind) {
         TokenKind:Modulo { ret true; },
         TokenKind:ModuloAssign { ret true; },
         TokenKind:As { ret true; },
+        TokenKind:Has { ret true; },
         _ { ret false; },
     };
 };

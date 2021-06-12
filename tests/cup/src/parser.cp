@@ -106,8 +106,8 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             token = tokens.buf[index@ += 1];
             match token.kind {
                 TokenKind:Ident {
-                    expr.kind = ExprKind:Use(token.value);
-                    token = tokens.buf[index@ += 1];
+                    ` ptr<Expr> path = parse_path(file, tokens, index);
+                    ` expr.kind = ExprKind:Use(path);
                 },
                 _ {
                     throw(file, token.index, "expected identifier");
@@ -116,6 +116,64 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         },
     };
 
+    ret expr;
+};
+
+ptr<Expr> parse_path(File file, vec<Token> tokens, ptr<int> index) {
+    ptr<Expr> expr = mem:alloc(mem:size<Expr>());
+    
+    vec<PathPart> path = vec<PathPart>:new(2);
+    bool need_colon = false;
+    ~l loop {
+        Token token = tokens.buf[index@];
+        if need_colon {
+            match token.kind {
+                TokenKind:Colon {
+                    need_colon = false;
+                },
+                _ {
+                    ret ~l;
+                },
+            };
+        } else {
+            match token.kind {
+                TokenKind:Ident {
+                    PathPart part = PathPart {
+                        name = token.value,
+                        gens = vec<Expr>:new(2),
+                    };
+                    match tokens.buf[index@ + 1].kind {
+                        TokenKind:Less {
+                            index@ += 1;
+                            ` nextToken();
+                            loop {
+                                ` let should_break;
+                                ` optionalToken(tokenKind.GREATER, () => {
+                                `     should_break = true;
+                                ` }, null);
+                                ` if (should_break) { break; }
+                                ` part.gens.push(parseType());
+                                ` optionalToken(tokenKind.COMMA, null, null);
+                            };
+                            index@ -= 1;
+                        },
+                    };
+                    path.push(part);
+                    need_colon = true;
+                },
+                _ {
+                    if path.len > 0 {
+                        throw(file, index@, "expected identifier after ':'");
+                    } else {
+                        ret ~l;
+                    };
+                },
+            };
+        };
+        index@ += 1;
+    };
+
+    expr@.kind = ExprKind:Path(path);
     ret expr;
 };
 
