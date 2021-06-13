@@ -77,6 +77,10 @@ vec<Expr> parse_block(File file, vec<Token> tokens, ptr<int> index, bool local) 
                 index@ += 1;
                 ret exprs;
             },
+            TokenKind:Empty {
+                index@ += 1;
+                ret exprs;
+            },
         };
 
         Expr expr;
@@ -89,6 +93,19 @@ vec<Expr> parse_block(File file, vec<Token> tokens, ptr<int> index, bool local) 
     };
 
     ret exprs;
+};
+
+bool optional_token(Token token, TokenKind kind, ptr<int> index) {
+    match token.kind {
+        TokenKind:Unset {},
+        kind {
+            index@ += 1;
+            ret true;
+        },
+        _ {
+            ret false;
+        },
+    };
 };
 
 Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
@@ -106,8 +123,9 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             token = tokens.buf[index@ += 1];
             match token.kind {
                 TokenKind:Ident {
-                    ` ptr<Expr> path = parse_path(file, tokens, index);
-                    ` expr.kind = ExprKind:Use(path);
+                    ptr<Expr> path = mem:alloc(mem:size<Expr>());
+                    path@ = parse_path(file, tokens, index);
+                    expr.kind = ExprKind:Use(path);
                 },
                 _ {
                     throw(file, token.index, "expected identifier");
@@ -119,9 +137,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
     ret expr;
 };
 
-ptr<Expr> parse_path(File file, vec<Token> tokens, ptr<int> index) {
-    ptr<Expr> expr = mem:alloc(mem:size<Expr>());
-    
+Expr parse_path(File file, vec<Token> tokens, ptr<int> index) {    
     vec<PathPart> path = vec<PathPart>:new(2);
     bool need_colon = false;
     ~l loop {
@@ -144,18 +160,19 @@ ptr<Expr> parse_path(File file, vec<Token> tokens, ptr<int> index) {
                     };
                     match tokens.buf[index@ + 1].kind {
                         TokenKind:Less {
-                            index@ += 1;
-                            ` nextToken();
-                            loop {
-                                ` let should_break;
-                                ` optionalToken(tokenKind.GREATER, () => {
-                                `     should_break = true;
-                                ` }, null);
-                                ` if (should_break) { break; }
-                                ` part.gens.push(parseType());
-                                ` optionalToken(tokenKind.COMMA, null, null);
+                            token = tokens.buf[index@ += 2];
+                            ~ll loop {
+                                match token.kind {
+                                    TokenKind:Greater {
+                                        ` FIX: check if anything at all 
+                                        ret ~ll;
+                                    },
+                                    _ {},
+                                };
+                                vec<Expr> gens = part.gens;
+                                gens.push(parse_path(file, tokens, index));
+                                optional_token(token, TokenKind:Comma, index);
                             };
-                            index@ -= 1;
                         },
                     };
                     path.push(part);
@@ -163,7 +180,7 @@ ptr<Expr> parse_path(File file, vec<Token> tokens, ptr<int> index) {
                 },
                 _ {
                     if path.len > 0 {
-                        throw(file, index@, "expected identifier after ':'");
+                        throw(file, token.index, "expected identifier after ':'");
                     } else {
                         ret ~l;
                     };
@@ -172,67 +189,74 @@ ptr<Expr> parse_path(File file, vec<Token> tokens, ptr<int> index) {
         };
         index@ += 1;
     };
-
-    expr@.kind = ExprKind:Path(path);
+    Expr expr;
+    expr.kind = ExprKind:Path(path);
+    expr.tags.len = 0;
+    expr.label = none;
     ret expr;
 };
 
 sub print_exprs(vec<Expr> exprs) {
     fmt:print("Exprs:");
-    print_expr_vec(exprs, 0, none);
+    print_expr_vec(exprs, 0);
     putchar('\n');
 };
 
-sub print_expr_vec(vec<Expr> exprs, int depth, ptr<u8> name) {
+sub print_expr_vec(vec<Expr> exprs, int depth) {
     for i = 0, (i) < exprs.len, i += 1 {
         putchar('\n');
-        if name != none {
-            fmt:print("%s = [", name);
-        };
         indent(depth);
         set_color(Color:Green);
-        fmt:print("%s", get_expr_name(exprs.buf[i].kind));
+        printf("%s", get_expr_name(exprs.buf[i].kind));
         set_color(Color:Reset);
         print_expr(exprs.buf[i], depth);
-        if name != none {
-            indent(depth);
-            putchar(']');
-        };
     };
-    if exprs.len != 0 {
-        putchar('\n');
+    putchar('\n');
+};
+
+sub print_opt_expr_vec(vec<Expr> exprs, int depth, ptr<u8> name, bool _next) {
+    if exprs.len > 0 {
+        if _next {
+            fmt:print(", ");
+        };
+        fmt:print("%s = [", name);
+        print_expr_vec(exprs, depth + 1);
+        indent(depth);
+        putchar(']');
     };
 };
 
 sub print_expr(Expr expr, int depth) {
     putchar('(');
-    print_expr_vec(expr.tags, 0, "tags");
+    print_opt_expr_vec(expr.tags, 0, "tags", false);
     if expr.tags.len != 0 {
         fmt:print(", ");
     };
     match expr.kind {
         ExprKind:Tag(name, args) {
             fmt:print("name = %s", name);
-            print_expr_vec(args, depth, "args");
+            print_opt_expr_vec(args, depth, "args", true);
         },
         ExprKind:Path(path) {
             for i = 0, (i) < path.len, i += 1 {
                 PathPart part = path.buf[i];
-                fmt:print("name = %s", part.name);
-                print_expr_vec(part.gens, depth, "gens");
+                fmt:print("name = %s, ", part.name);
+                print_opt_expr_vec(part.gens, depth, "gens", true);
             };
         },
         ExprKind:TagDef(path, body) {
             print_expr(path@, depth);
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Block(body) {
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Mod(path) {
+            fmt:print("path = ");
             print_expr(path@, depth);
         },
         ExprKind:Use(path) {
+            fmt:print("path = ");
             print_expr(path@, depth);
         },
         ExprKind:Field(_type, name) {
@@ -241,22 +265,22 @@ sub print_expr(Expr expr, int depth) {
         },
         ExprKind:Comp(path, fields, body) {
             print_expr(path@, depth);
-            print_expr_vec(fields, depth, "fields");
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(fields, depth, "fields", true);
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Enum(path, fields, opts, body) {
             print_expr(path@, depth);
-            print_expr_vec(fields, depth, "fields");
-            print_expr_vec(opts, depth, "opts");
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(fields, depth, "fields", true);
+            print_opt_expr_vec(opts, depth, "opts", true);
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Option(name, fields) {
             fmt:print("name = %s", name);
-            print_expr_vec(fields, depth, "fields");
+            print_opt_expr_vec(fields, depth, "fields", true);
         },
         ExprKind:Prop(path, body) {
             print_expr(path@, depth);
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Def(_prop, target) {
             print_expr(_prop@, depth);
@@ -265,8 +289,8 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:SubDef(ret_type, path, args, body) {
             print_expr(ret_type@, depth);
             print_expr(path@, depth);
-            print_expr_vec(args, depth, "args");
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(args, depth, "args", true);
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:VarDef(_type, path, value) {
             print_expr(_type@, depth);
@@ -280,7 +304,7 @@ sub print_expr(Expr expr, int depth) {
         },
         ExprKind:SubCall(path, args) {
             print_expr(path@, depth);
-            print_expr_vec(args, depth, "args");
+            print_opt_expr_vec(args, depth, "args", true);
         },
         ExprKind:VarUse(path) {
             print_expr(path@, depth);
@@ -315,36 +339,36 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:ThisLit {},
         ExprKind:TypeLit {},
         ExprKind:LocalBlock(body) {
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:If(cond, body) {
             print_expr(cond@, depth);
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Elif(cond, body) {
             print_expr(cond@, depth);
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Else(body) {
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Loop(body) {
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:While(cond, body) {
             print_expr(cond@, depth);
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:For(iter, cond, _next, body) {
-            print_expr_vec(iter, depth, "iter");
+            print_opt_expr_vec(iter, depth, "iter", true);
             print_expr(cond@, depth);
-            print_expr_vec(_next, depth, "next");
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(_next, depth, "next", true);
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Each(iter, value, body) {
             fmt:print("iter = %s", iter);
             print_expr(value@, depth);
-            print_expr_vec(body, depth, "body");
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Match(value, cases) {
             ` value

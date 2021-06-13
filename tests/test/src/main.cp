@@ -43,7 +43,7 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` use foo
+use foo<abc>:bar
 ` mod foo;
 
 ` use foo:bar;

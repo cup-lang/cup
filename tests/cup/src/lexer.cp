@@ -147,6 +147,7 @@ int get_token_length(TokenKind kind) {
 
 ptr<u8> get_token_name(TokenKind kind) {
     match kind {
+        TokenKind:Empty { ret "EMPTY"; },
         TokenKind:Ident { ret "IDENT"; },
         TokenKind:StringLit { ret "STRING_LIT"; },
         TokenKind:CharLit { ret "CHAR_LIT"; },
@@ -328,7 +329,7 @@ vec<Token> lex(File file) {
     u8 is_comment = 0;
     u8 is_literal = 0;
     vec<u8> value = vec<u8>:new(8);
-    empty(value$);
+    value.empty();
 
     ~l for i = 0, i <= file.data.len, i += 1 {
         u8 c = file.data.buf[i];
@@ -548,7 +549,7 @@ vec<Token> lex(File file) {
                             };
                             
                             value = vec<u8>:new(8);
-                            empty(value$);
+                            value.empty();
                             is_literal = 0;
                         },
                     };
@@ -564,12 +565,12 @@ vec<Token> lex(File file) {
                             TokenKind:StringLit {
                                 token.value = value.buf;
                                 token.index = i - value.len;
-                                empty(value$);
+                                value.empty();
                             },
                             TokenKind:CharLit {
                                 token.value = value.buf;
                                 token.index = i - value.len;
-                                empty(value$);
+                                value.empty();
                             },
                             _ {
                                 token.index = i - get_token_length(kind) + 1;
@@ -581,6 +582,18 @@ vec<Token> lex(File file) {
             },
         };
     };
+
+    Token last;
+    last.index = 0;
+    last.kind = TokenKind:Empty;
+    ` if tokens.len > 0 {
+    `     last = tokens.buf[tokens.len - 1];
+    `     last.index = last.index + get_token_length(last.kind);
+    ` } else {
+    `     last.index = 0;
+    ` };
+    ` last.kind = TokenKind:Empty;
+    tokens.push(last);
 
     ret tokens;
 };

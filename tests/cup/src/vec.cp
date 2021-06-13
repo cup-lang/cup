@@ -25,6 +25,11 @@ def vec<T> {
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
     };
+
+    #self
+    sub empty() {
+        this.buf[0] = this.len = 0;
+    };
 };
 
 sub push_char(ptr<vec<u8>> v, u8 c) {
@@ -37,8 +42,4 @@ sub push_char(ptr<vec<u8>> v, u8 c) {
     };
 
     v@.buf[v@.len] = 0;
-};
-
-sub empty(ptr<vec<u8>> v) {
-    v@.buf[0] = v@.len = 0;
 };

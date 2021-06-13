@@ -222,7 +222,7 @@ function generateSub(expr, gen) {
     }
     if (binds[name.join('_')]) { return ''; }
     let isSelf = expr.tags.map(t => t.name).indexOf('self') !== -1;
-    if (isSelf && expr.args.length > 0 && expr.args[0].name !== 'this') {
+    if (isSelf && (expr.args.length === 0 || expr.args[0].name !== 'this')) {
         expr.args = [{
             kind: exprKind.ARG,
             tags: [],
@@ -535,25 +535,29 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.EACH:
             break;
         case exprKind.MATCH:
-            out += `switch(${generateExpr(expr.value, 0, 0, 0)}.type){`;
+            const value = generateExpr(expr.value, 0, 0, 0);
             const _enum = enumExprs[expr.body[0].cases[0].path.map(p => p.name).slice(0, -1).join('_')];
             for (let i = 0; i < expr.body.length; ++i) {
-                const _case = expr.body[i];
-                const index = _enum.body.map(e => e.name).indexOf(_case.cases[0].path[_case.cases[0].path.length - 1].name);
-                if (index === -1) {
-                    out += 'default:{';
+                const _case = expr.body[i].cases[0];
+                const name = _case.path[_case.path.length - 1].name;
+                const index = _enum.body.map(e => e.name).indexOf(name);
+                if (name === '_') {
+                    out += `}else{`;
                 } else {
-                    out += `case ${index}:{`;
-                }
-                if (_case.cases[0].kind === exprKind.SUB_CALL) {
-                    for (let ii = 0; ii < _case.cases[0].args.length; ++ii) {
-                        out += generateType(_enum.body[i].body[ii].type) + ' ';
-                        out += _case.cases[0].args[ii].path[0].name;
-                        out += `=${generateExpr(expr.value, 0, 0, 0)}.u.u${index}.${_enum.body[i].body[ii].name};`;
+                    if (i === 0) {
+                        out += `if(${value}.type==${index}){`;
+                    } else {
+                        out += `}else if(${value}.type==${index}){`;
                     }
                 }
-                out += generateBlock(_case.body, 1, 0);
-                out += 'break;}';
+                if (_case.kind === exprKind.SUB_CALL) {
+                    for (let ii = 0; ii < _case.args.length; ++ii) {
+                        out += generateType(_enum.body[index].body[ii].type) + ' ';
+                        out += _case.args[ii].path[0].name;
+                        out += `=${value}.u.u${index}.${_enum.body[index].body[ii].name};`;
+                    }
+                }
+                out += generateBlock(expr.body[i].body, 1, 0);
             }
             out += '}';
             break;
