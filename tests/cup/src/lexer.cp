@@ -584,15 +584,13 @@ vec<Token> lex(File file) {
     };
 
     Token last;
-    last.index = 0;
+    if tokens.len > 0 {
+        last = tokens.buf[tokens.len - 1];
+        last.index = last.index + get_token_length(last.kind);
+    } else {
+        last.index = 0;
+    };
     last.kind = TokenKind:Empty;
-    ` if tokens.len > 0 {
-    `     last = tokens.buf[tokens.len - 1];
-    `     last.index = last.index + get_token_length(last.kind);
-    ` } else {
-    `     last.index = 0;
-    ` };
-    ` last.kind = TokenKind:Empty;
     tokens.push(last);
 
     ret tokens;

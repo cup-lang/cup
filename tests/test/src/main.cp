@@ -43,8 +43,10 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-use foo<abc>:bar
-` mod foo;
+comp abc (
+    int a,
+    foo b,
+)
 
 ` use foo:bar;
 ` mod foo:bar;

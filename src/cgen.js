@@ -540,7 +540,10 @@ function generateExpr(expr, last, semicolon, parenths) {
             for (let i = 0; i < expr.body.length; ++i) {
                 const _case = expr.body[i].cases[0];
                 const name = _case.path[_case.path.length - 1].name;
-                const index = _enum.body.map(e => e.name).indexOf(name);
+                let index = _enum.body.map(e => e.name).indexOf(name);
+                if (index === -1) {
+                    index = `${generateExpr(_case, 0, 0, 0)}.type`;
+                }
                 if (name === '_') {
                     out += `}else{`;
                 } else {
