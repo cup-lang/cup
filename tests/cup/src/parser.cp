@@ -95,6 +95,19 @@ vec<Expr> parse_block(File file, vec<Token> tokens, ptr<int> index, bool local) 
     ret exprs;
 };
 
+Token expect_token(File file, vec<Token> tokens, TokenKind kind, ptr<int> index, ptr<u8> error) {
+    Token token = tokens.buf[index@];
+    match token.kind {
+        TokenKind:Unset {},
+        kind {},
+        _ {
+            throw(file, token.index, error);
+        },
+    };
+    index@ += 1;
+    ret token;
+};
+
 bool opt_token(vec<Token> tokens, TokenKind kind, ptr<int> index) {
     match tokens.buf[index@].kind {
         TokenKind:Unset {},
@@ -106,18 +119,6 @@ bool opt_token(vec<Token> tokens, TokenKind kind, ptr<int> index) {
             ret false;
         },
     };
-};
-
-sub expect_token(File file, vec<Token> tokens, TokenKind kind, ptr<int> index, ptr<u8> error) {
-    Token token = tokens.buf[index@];
-    match token.kind {
-        TokenKind:Unset {},
-        kind {},
-        _ {
-            throw(file, token.index, error);
-        },
-    };
-    index@ += 1;
 };
 
 Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
@@ -147,12 +148,15 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             index@ += 1;
             ptr<Expr> path = mem:alloc(mem:size<Expr>());
             path@ = parse_path(file, tokens, index);
-            expr.kind = ExprKind:Comp(path);
             expect_token(file, tokens, TokenKind:LeftParen, index, "expected '(' after 'comp' path");
             vec<Expr> fields = parse_fields(file, tokens, index);
-            expect_token(file, tokens, TokenKind:LeftParen, index, "expected ')' after last field");
-            ` fields
-            ` body
+            vec<Expr> body;
+            if opt_token(tokens, TokenKind:LeftBrace, index) {
+                body = parse_block(file, tokens, index, true);
+            } else {
+                body.len = 0;
+            };
+            expr.kind = ExprKind:Comp(path, fields, body);
         },
         _ {
             throw(file, token.index, "expected a global item");
@@ -236,32 +240,28 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
 vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
     vec<Expr> fields = vec<Expr>:new(2);
 
-    loop {
-        if opt_token(tokens, TokenKind:RightBrace, index) {
-
+    ~l loop {
+        if opt_token(tokens, TokenKind:RightParen, index) {
+            ret fields;
         };
 
-        ` let should_end;
-        ` token = optionalToken(tokenKind.RIGHT_BRACE, () => {
-        `     token = expectToken(tokenKind.SEMICOLON, "expected ';' after 'comp' body");
-        `     should_end = true;
-        ` });
-        ` if (should_end) { break end; }
-        ` let field = {
-        `     kind: exprKind.FIELD,
-        `     tags: parseTags()
-        ` };
-        ` field.type = parseType();
-        ` token = expectToken(tokenKind.IDENT, "expected field name in 'comp' body", () => {
-        `     field.name = tokens[index].value;
-        ` });
-        ` expr.body.push(field);
-        ` let should_break;
-        ` token = optionalToken(tokenKind.COMMA, null, () => {
-        `     should_break = true;
-        ` });
-        ` if (should_break) { break; }
+        Expr field = Expr {
+            kind = ExprKind:Field(
+                alloc<Expr>(parse_path(file, tokens, index)),
+                expect_token(file, tokens, TokenKind:Ident, index, "expected field name in 'comp' body").value
+            ),
+            tags = vec<Expr> {
+                len = 0,
+            },
+            label = none,
+        };
+        fields.push(field);
+
+        if opt_token(tokens, TokenKind:Comma, index) == false {
+            ret ~l;
+        };
     };
+    expect_token(file, tokens, TokenKind:RightParen, index, "expected ')' after last field");
 
     ret fields;
 };
@@ -333,8 +333,9 @@ sub print_expr(Expr expr, int depth) {
             print_expr(path@, depth);
         },
         ExprKind:Field(_type, name) {
+            fmt:print("type = ");
             print_expr(_type@, depth);
-            fmt:print("name = %s", name);
+            fmt:print(", name = %s", name);
         },
         ExprKind:Comp(path, fields, body) {
             fmt:print("path = ");
@@ -502,6 +503,7 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:TagDef { ret "TAG_DEF"; },
         ExprKind:Mod { ret "MOD"; },
         ExprKind:Use { ret "USE"; },
+        ExprKind:Field { ret "FIELD"; },
         ExprKind:Comp { ret "COMP"; },
         ExprKind:Enum { ret "ENUM"; },
         ExprKind:Prop { ret "PROP"; },

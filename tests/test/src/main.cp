@@ -43,10 +43,10 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-comp abc (
-    int a,
-    foo b,
-)
+` tag
+` tag_def
+` block
 
-` use foo:bar;
-` mod foo:bar;
+` enum
+` prop
+` def
