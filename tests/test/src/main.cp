@@ -9,8 +9,8 @@
 ` ) {};
 ```````````````````````````````````````````````` enum, option
 ` enum SomeEnum (
-`     i32 foo;
-`     i32 bar;
+`     i32 foo,
+`     i32 bar,
 `     
 `     Option0,
 `     Option1(i32 foo, f32 bar),
@@ -43,10 +43,8 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` tag
-` tag_def
-` block
+sub foo() {
+    if { ret 1 } + { ret 1 } {
 
-` enum
-` prop
-` def
+    }
+}

@@ -13,7 +13,7 @@ comp FieldInst {
 enum ExprKind {
     Tag(ptr<u8> name, vec<Expr> args),
     Path(vec<PathPart> path),
-    TagDef(ptr<Expr> path, vec<Expr> body),
+    TagDef(ptr<Expr> path, vec<Expr> args, vec<Expr> body),
     Block(vec<Expr> body),
     Mod(ptr<Expr> path),
     Use(ptr<Expr> path),
@@ -22,7 +22,7 @@ enum ExprKind {
     Enum(ptr<Expr> path, vec<Expr> fields, vec<Expr> opts, vec<Expr> body),
     Option(ptr<u8> name, vec<Expr> fields),
     Prop(ptr<Expr> path, vec<Expr> body),
-    Def(ptr<Expr> _prop, ptr<Expr> target),
+    Def(ptr<Expr> _prop, ptr<Expr> target, vec<Expr> body),
     SubDef(ptr<Expr> ret_type, ptr<Expr> path, vec<Expr> args, vec<Expr> body),
     VarDef(ptr<Expr> _type, ptr<Expr> path, ptr<Expr> value),
 
@@ -71,14 +71,13 @@ vec<Expr> parse(File file, vec<Token> tokens) {
 vec<Expr> parse_block(File file, vec<Token> tokens, ptr<int> index, bool local) {
     vec<Expr> exprs = vec<Expr>:new(4);
 
-    while index@ < tokens.len {
+    loop {
         match tokens.buf[index@].kind {
             TokenKind:RightBrace {
                 index@ += 1;
                 ret exprs;
             },
             TokenKind:Empty {
-                index@ += 1;
                 ret exprs;
             },
         };
@@ -90,9 +89,23 @@ vec<Expr> parse_block(File file, vec<Token> tokens, ptr<int> index, bool local) 
             expr = parse_global(file, tokens, index);
         };
         exprs.push(expr);
-    };
 
-    ret exprs;
+        match tokens.buf[index@].kind {
+            TokenKind:Semicolon { },
+            TokenKind:RightBrace {
+                index@ += 1;
+                ret exprs;
+            },
+            TokenKind:Empty {
+                ret exprs;
+            },
+            _ {
+                throw(file, tokens.buf[index@].index, "unexpected smth after last expr");
+            },
+        };
+
+        index@ += 1;
+    };
 };
 
 Token expect_token(File file, vec<Token> tokens, TokenKind kind, ptr<int> index, ptr<u8> error) {
@@ -122,16 +135,236 @@ bool opt_token(vec<Token> tokens, TokenKind kind, ptr<int> index) {
 };
 
 Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
-    ret Expr {};
+    Expr expr;
+    expr.tags = parse_tags(file, tokens, index);
+
+    loop {
+
+    };
+
+    ret expr;
+};
+
+comp OpData {
+    int op_level,
+    TokenKind op_kind,
+    int op_index,
+};
+
+OpData get_op_data(File file, vec<Token> tokens, int start, int end) {
+    arr<int> scopes = arr<int>:new(3);
+    scopes.buf[2] = scopes.buf[1] = scopes.buf[0] = 0;
+    int skip_blocks = 0;
+    int need_operator = false;
+
+    int i = start - 1;
+    ~l while (i) < end {
+        Token token = tokens.buf[i += 1];
+
+        if skip_blocks > 0 {
+            match token.kind {
+                TokenKind:LeftBrace {
+                    scopes.buf[1] += 1;
+                },
+                TokenKind:RightBrace {
+                    scopes.buf[1] -= 1;
+                    if scopes.buf[1] == 0 {
+                        skip_blocks -= 1;
+                    };
+                },
+            };
+            next ~l;
+        };
+
+        match token.kind {
+            TokenKind:LeftParen {
+                scopes.buf[0] += 1; next ~l;
+            },
+            TokenKind:RightParen {
+                if (scopes.buf[0] -= 1) == 0 {
+                    throw(file, token.index, "unexpected ')'");
+                }; next ~l;
+            },
+        };
+
+        match token.kind {
+            TokenKind:LeftBrace {
+                scopes.buf[1] += 1; next ~l;
+            },
+            TokenKind:RightBrace {
+                if (scopes.buf[1] -= 1) == 0 {
+                    throw(file, token.index, "unexpected '}'");
+                }; next ~l;
+            },
+        };
+
+        match token.kind {
+            TokenKind:LeftBracket {
+                if ((scopes.buf[0] == 0) & (scopes.buf[1] == 0)) & (scopes.buf[2] == 0) {
+                    if op_level == 0 {
+                        op_level = 1;
+                    };
+                    if op_level == 1 {
+                        op_kind = token.kind;
+                        op_index = i;
+                    };
+                };
+                scopes.buf[2] += 1; next ~l;
+            },
+            TokenKind:RightBracket {
+                if (scopes.buf[2] -= 1) == 0 {
+                    throw(file, token.index, "unexpected ']'");
+                }; next ~l;
+            },
+        };
+
+        if ((scopes.buf[0] > 0) | (scopes.buf[1] > 0)) | (scopes.buf[2] > 0) {
+            next ~l;
+        };
+
+        match token.kind {
+            TokenKind:If { skip_blocks += 1; next ~l; },
+            TokenKind:Elif { skip_blocks += 1; next ~l; },
+            TokenKind:Else { skip_blocks += 1; next ~l; },
+            TokenKind:Loop { skip_blocks += 1; next ~l; },
+            TokenKind:While { skip_blocks += 1; next ~l; },
+            TokenKind:For { skip_blocks += 1; next ~l; },
+            TokenKind:Each { skip_blocks += 1; next ~l; },
+            TokenKind:Match { skip_blocks += 1; next ~l; },
+        };
+
+        match token.kind {
+            TokenKind:Assign:
+            TokenKind:AddAssign:
+            TokenKind:SubtractAssign:
+            TokenKind:MultiplyAssign:
+            TokenKind:DivideAssign:
+            TokenKind:ModuloAssign:
+                if (opLevel < 6) {
+                    opLevel = 6;
+                    opIndex = i;
+                    opKind = token.kind;
+                }
+                break;
+            TokenKind:As:
+                if (opLevel < 5) {
+                    opLevel = 5;
+                }
+                if (opLevel == 5) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            TokenKind:Less:
+                if (opLevel != 4) {
+                    let genericCount = 1;
+                    let tryEnd = end ? end : tokens.length + 1;
+                    f: for (let ii = i + 1; ii < tryEnd; ++ii) {
+                        if (!end && tokens[ii].kind === tokenKind.SEMICOLON || tokens[ii].kind === endTokenKind) {
+                            break;
+                        }
+                        switch (tokens[ii].kind) {
+                            case tokenKind.LESS:
+                                ++genericCount;
+                                break;
+                            case tokenKind.IDENT:
+                            case tokenKind.COLON:
+                            case tokenKind.COMMA:
+                                break;
+                            case tokenKind.GREATER:
+                                if (--genericCount == 0) {
+                                    i = ii;
+                                    continue w;
+                                }
+                                break;
+                            default:
+                                break f;
+                        }
+                    }
+                }
+            TokenKind:And:
+            TokenKind:Or:
+            TokenKind:LessEqual:
+            TokenKind:Greater:
+            TokenKind:GreaterEqual:
+            TokenKind:Equal:
+            TokenKind:NotEqual:
+                if (opLevel == 4) {
+                    throw 'dont mix these (you mixed ' + token.kind + ' with ' + opKind + ')';
+                }
+                if (opLevel < 4) {
+                    opLevel = 4;
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            TokenKind:Add:
+            TokenKind:Subtract:
+                if (opLevel < 3) {
+                    opLevel = 3;
+                }
+                if (opLevel == 3) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            TokenKind:Multiply:
+            TokenKind:Divide:
+            TokenKind:Modulo:
+                if (opLevel < 2) {
+                    opLevel = 2;
+                }
+                if (opLevel == 2) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+            TokenKind:Dot:
+            TokenKind:Not:
+            TokenKind:Deref:
+            TokenKind:Address:
+                if (opLevel == 0) {
+                    opLevel = 1;
+                }
+                if (opLevel == 1) {
+                    opKind = token.kind;
+                    opIndex = i;
+                }
+                break;
+        };
+    };
+};
+
+Expr parse_local_range(File file, vec<Token> tokens, int start, int end) {
+    
 };
 
 Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
     Expr expr;
-    expr.tags.len = 0;
+    expr.tags = parse_tags(file, tokens, index);
+    expr.label = none;
 
     Token token = tokens.buf[index@];
 
     match token.kind {
+        TokenKind:Tag {
+            index@ += 1;
+            ptr<Expr> path = mem:alloc(mem:size<Expr>());
+            path@ = parse_path(file, tokens, index);
+            expect_token(file, tokens, TokenKind:LeftParen, index, "expected '(' after 'tag' path");
+            vec<Expr> args = parse_fields(file, tokens, index);
+            vec<Expr> body;
+            if opt_token(tokens, TokenKind:LeftBrace, index) {
+                body = parse_block(file, tokens, index, true);
+            } else {
+                body.len = 0;
+            };
+            expr.kind = ExprKind:TagDef(path, args, body);
+        },
+        TokenKind:LeftBrace {
+            index@ += 1;
+            expr.kind = ExprKind:Block(parse_block(file, tokens, index, false));
+        },
         TokenKind:Mod {
             index@ += 1;
             ptr<Expr> path = mem:alloc(mem:size<Expr>());
@@ -158,12 +391,183 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             };
             expr.kind = ExprKind:Comp(path, fields, body);
         },
+        TokenKind:Enum {
+            index@ += 1;
+            ptr<Expr> path = mem:alloc(mem:size<Expr>());
+            path@ = parse_path(file, tokens, index);
+            expect_token(file, tokens, TokenKind:LeftParen, index, "expected '(' after 'comp' path");
+            vec<Expr> opts = parse_options(file, tokens, index);
+            vec<Expr> body;
+            if opt_token(tokens, TokenKind:LeftBrace, index) {
+                body = parse_block(file, tokens, index, true);
+            } else {
+                body.len = 0;
+            };
+            expr.kind = ExprKind:Enum(path, opts, body);
+        },
+        TokenKind:Prop {
+            index@ += 1;
+            ptr<Expr> path = mem:alloc(mem:size<Expr>());
+            path@ = parse_path(file, tokens, index);
+            vec<Expr> body;
+            if opt_token(tokens, TokenKind:LeftBrace, index) {
+                body = parse_block(file, tokens, index, false);
+            } else {
+                body.len = 0;
+            };
+            expr.kind = ExprKind:Prop(path, body);
+        },
+        TokenKind:Def {
+            index@ += 1;
+            ptr<Expr> _prop = mem:alloc(mem:size<Expr>());
+            _prop@ = parse_path(file, tokens, index);
+            ptr<Expr> _target = none;
+            if opt_token(tokens, TokenKind:Comma, index) {
+                _target = mem:alloc(mem:size<Expr>());
+                _target@ = parse_path(file, tokens, index);
+            };
+            vec<Expr> body;
+            if opt_token(tokens, TokenKind:LeftBrace, index) {
+                body = parse_block(file, tokens, index, false);
+            } else {
+                body.len = 0;
+            };
+            expr.kind = ExprKind:Def(_prop, _target, body);
+        },
+        TokenKind:Sub {
+            index@ += 1;
+
+            ptr<Expr> path = mem:alloc(mem:size<Expr>());
+            path@ = parse_path(file, tokens, index);
+
+            expect_token(file, tokens, TokenKind:LeftParen, index, "expected '(' after 'sub' path");
+            vec<Expr> args = parse_fields(file, tokens, index);
+
+            vec<Expr> body;
+            if opt_token(tokens, TokenKind:LeftBrace, index) {
+                body = parse_block(file, tokens, index, true);
+            } else {
+                body.len = 0;
+            };
+
+            expr.kind = ExprKind:SubDef(none, path, args, body);
+        },
+        TokenKind:Var {
+            index@ += 1;
+
+            ptr<Expr> path = mem:alloc(mem:size<Expr>());
+            path@ = parse_path(file, tokens, index);
+
+            ptr<Expr> value = none;
+            if opt_token(tokens, TokenKind:Assign, index) {
+                index@ += 1;
+                ` value = parse_local();
+            };
+            expr.kind = ExprKind:VarDef(none, path, value);
+        },
+        TokenKind:Ident {
+            ptr<Expr> _type = mem:alloc(mem:size<Expr>());
+            _type@ = parse_path(file, tokens, index);
+
+            ptr<Expr> path = mem:alloc(mem:size<Expr>());
+            path@ = parse_path(file, tokens, index);
+
+            token = tokens.buf[index@];
+            match token.kind {
+                TokenKind:LeftParen {
+                    index@ += 1;
+
+                    vec<Expr> args = parse_fields(file, tokens, index);
+
+                    vec<Expr> body;
+                    if opt_token(tokens, TokenKind:LeftBrace, index) {
+                        body = parse_block(file, tokens, index, true);
+                    } else {
+                        body.len = 0;
+                    };
+
+                    expr.kind = ExprKind:SubDef(_type, path, args, body);
+                },
+                _ {
+                    ptr<Expr> value = none;
+                    if opt_token(tokens, TokenKind:Assign, index) {
+                        index@ += 1;
+                        ` value = parse_local();
+                    };
+                    expr.kind = ExprKind:VarDef(_type, path, value);
+                },
+            };
+        },
         _ {
             throw(file, token.index, "expected a global item");
         },
     };
 
     ret expr;
+};
+
+vec<Expr> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
+    vec<Expr> tags = vec<Expr>:new(2);
+
+    ~l loop {
+        match tokens.buf[index@].kind {
+            TokenKind:Hash {
+                Token token = tokens.buf[index@ += 1];
+                match token.kind {
+                    TokenKind:Ident {
+                        vec<Expr> args = vec<Expr>:new(1);
+
+                        Expr _tag = Expr {
+                            kind = ExprKind:Tag(token.value, args),
+                            tags = vec<Expr> {
+                                len = 0,
+                            },
+                            label = none,
+                        };
+
+                        token = tokens.buf[index@ += 1];
+
+                        match token.kind {
+                            TokenKind:LeftParen {
+                                ~ll loop {
+                                    token = tokens.buf[index@ += 1];
+
+                                    match token.kind {
+                                        TokenKind:RightParen { ret ~ll; },
+                                    };
+
+                                    ` tag.args.push(parse_value());
+
+                                    ` token = tokens[++index];
+                                    ` if (token.kind === tokenKind.COMMA) {
+                                    `     next ~ll;
+                                    ` }
+                                    ` else if (token.kind === tokenKind.RIGHT_PAREN) {
+                                    `     ret ~ll;
+                                    ` }
+
+                                    throw(file, token.index, "unexpected smth in 'tag' declaration");
+                                };
+
+                                tags.push(_tag);
+                                index@ += 1;
+                            },
+                            _ {
+                                tags.push(_tag);
+                                next ~l;
+                            },
+                        };
+                    },
+                    _ {
+                        throw(file, token.index, "expected identifier after tag declaration");
+                    },
+                };
+            },
+            _ { ret ~l; },
+        };
+    };
+
+    ret tags;
 };
 
 Expr parse_path(File file, vec<Token> tokens, ptr<int> index) {
@@ -248,7 +652,7 @@ vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
         Expr field = Expr {
             kind = ExprKind:Field(
                 alloc<Expr>(parse_path(file, tokens, index)),
-                expect_token(file, tokens, TokenKind:Ident, index, "expected field name in 'comp' body").value
+                expect_token(file, tokens, TokenKind:Ident, index, "expected field name in 'comp' definition").value
             ),
             tags = vec<Expr> {
                 len = 0,
@@ -264,6 +668,40 @@ vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
     expect_token(file, tokens, TokenKind:RightParen, index, "expected ')' after last field");
 
     ret fields;
+};
+
+vec<Expr> parse_options(File file, vec<Token> tokens, ptr<int> index) {
+    vec<Expr> opts = vec<Expr>:new(2);
+
+    ~l loop {
+        if opt_token(tokens, TokenKind:RightParen, index) {
+            ret opts;
+        };
+
+        ptr<u8> name = expect_token(file, tokens, TokenKind:Ident, index, "expected option name in 'enum' definition").value;
+
+        vec<Expr> fields;
+        if opt_token(tokens, TokenKind:LeftParen, index) {
+            fields = parse_fields(file, tokens, index);    
+        } else {
+            fields.len = 0;
+        };
+
+        opts.push(Expr {
+            kind = ExprKind:Option(name, fields),
+            tags = vec<Expr> {
+                len = 0,
+            },
+            label = none,
+        });
+
+        if opt_token(tokens, TokenKind:Comma, index) == false {
+            ret ~l;
+        };
+    };
+    expect_token(file, tokens, TokenKind:RightParen, index, "expected ')' after last option");
+
+    ret opts;
 };
 
 sub print_exprs(vec<Expr> exprs) {
@@ -317,12 +755,13 @@ sub print_expr(Expr expr, int depth) {
                 print_opt_expr_vec(part.gens, depth, "gens", true);
             };
         },
-        ExprKind:TagDef(path, body) {
+        ExprKind:TagDef(path, args, body) {
             print_expr(path@, depth);
+            print_opt_expr_vec(args, depth, "args", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Block(body) {
-            print_opt_expr_vec(body, depth, "body", true);
+            print_opt_expr_vec(body, depth, "body", false);
         },
         ExprKind:Mod(path) {
             fmt:print("path = ");
@@ -359,27 +798,38 @@ sub print_expr(Expr expr, int depth) {
             print_expr(path@, depth);
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:Def(_prop, target) {
+        ExprKind:Def(_prop, target, body) {
             fmt:print("prop = ");
             print_expr(_prop@, depth);
-            fmt:print(", target = ");
-            print_expr(target@, depth);
+            if target != none {
+                fmt:print(", target = ");
+                print_expr(target@, depth);
+            };
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:SubDef(ret_type, path, args, body) {
-            fmt:print("ret_type = ");
-            print_expr(ret_type@, depth);
-            fmt:print(", path = ");
+            if ret_type != none {
+                fmt:print("ret_type = ");
+                print_expr(ret_type@, depth);
+                fmt:print(", ");
+            }
+            fmt:print("path = ");
             print_expr(path@, depth);
             print_opt_expr_vec(args, depth, "args", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:VarDef(_type, path, value) {
-            fmt:print("type = ");
-            print_expr(_type@, depth);
-            fmt:print(", path = ");
+            if _type != none {
+                fmt:print("type = ");
+                print_expr(_type@, depth);
+                fmt:print(", ");
+            }
+            fmt:print("path = ");
             print_expr(path@, depth);
-            fmt:print(", value = ");
-            print_expr(value@, depth);
+            if value != none {
+                fmt:print(", value = ");
+                print_expr(value@, depth);
+            };
         },
         ExprKind:LocalVarDef(_type, name, value) {
             fmt:print("type = ");
@@ -501,11 +951,13 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:Tag { ret "TAG"; },
         ExprKind:Path { ret "PATH"; },
         ExprKind:TagDef { ret "TAG_DEF"; },
+        ExprKind:Block { ret "BLOCK"; },
         ExprKind:Mod { ret "MOD"; },
         ExprKind:Use { ret "USE"; },
         ExprKind:Field { ret "FIELD"; },
         ExprKind:Comp { ret "COMP"; },
         ExprKind:Enum { ret "ENUM"; },
+        ExprKind:Option { ret "OPTION"; },
         ExprKind:Prop { ret "PROP"; },
         ExprKind:Def { ret "DEF"; },
         ExprKind:SubDef { ret "SUB_DEF"; },
