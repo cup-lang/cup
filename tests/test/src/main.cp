@@ -44,7 +44,12 @@
 ````````````````````````````````````````````````
 
 sub foo() {
-    if { ret 1 } + { ret 1 } {
-
-    }
+    ` for var i, i < 1, i += 1 { };
+    ` each i, foo { };
+    ` match foo { 0 { }, 1 { }, };
 }
+
+`` TODO:
+    ` parse labels
+    ` fix strings
+    ` ops
