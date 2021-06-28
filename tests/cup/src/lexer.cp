@@ -30,6 +30,7 @@ enum TokenKind {
     While,
     For,
     Each,
+    In,
     Match,
     Ret,
     Next,
@@ -100,6 +101,7 @@ int get_token_length(TokenKind kind) {
         TokenKind:While { ret 5; },
         TokenKind:For { ret 3; },
         TokenKind:Each { ret 4; },
+        TokenKind:In { ret 2; },
         TokenKind:Match { ret 5; },
         TokenKind:Ret { ret 3; },
         TokenKind:Next { ret 4; },
@@ -175,6 +177,7 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:While { ret "WHILE"; },
         TokenKind:For { ret "FOR"; },
         TokenKind:Each { ret "EACH"; },
+        TokenKind:In { ret "IN"; },
         TokenKind:Match { ret "MATCH"; },
         TokenKind:Ret { ret "RET"; },
         TokenKind:Next { ret "NEXT"; },
@@ -278,6 +281,8 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:For;
     } elif str:cmp(value, "each") == 0 {
         ret TokenKind:Each;
+    } elif str:cmp(value, "in") == 0 {
+        ret TokenKind:In;
     } elif str:cmp(value, "match") == 0 {
         ret TokenKind:Match;
     } elif str:cmp(value, "ret") == 0 {
@@ -355,9 +360,9 @@ vec<Token> lex(File file) {
         if (is_literal == 1) | (is_literal == 2) {
             if c == 0 {
                 if is_literal == 1 {
-                    throw(file, i - 1, "expected end of %s literal", "string");
+                    throw(file, i - 1, "expected end of string literal");
                 } else {
-                    throw(file, i - 1, "expected end of %s literal", "char");
+                    throw(file, i - 1, "expected end of char literal");
                 };
             }
             elif (is_literal == 1) & (c == '"') {}
@@ -565,11 +570,13 @@ vec<Token> lex(File file) {
                             TokenKind:StringLit {
                                 token.value = value.buf;
                                 token.index = i - value.len;
+                                value = vec<u8>:new(8);
                                 value.empty();
                             },
                             TokenKind:CharLit {
                                 token.value = value.buf;
                                 token.index = i - value.len;
+                                value = vec<u8>:new(8);
                                 value.empty();
                             },
                             _ {

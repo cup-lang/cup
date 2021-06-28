@@ -26,12 +26,12 @@
 ` foo:bar xyz() {};
 ` sub foo(i32 bar) {
 `     foo:bar xyz = 1;
-`     var bar = 1, bar2 = 2;
+`     var bar = 1;
 `     if 0 { } elif 1 { } else { };
 `     loop { };
 `     while 2 { };
 `     for i, i < 1, i += 1 { };
-`     each i, foo { };
+`     each i in foo { };
 `     match foo { 0 { }, 1 { }, };
 `     ret ~foo 1;
 `     next ~foo;
@@ -44,12 +44,12 @@
 ````````````````````````````````````````````````
 
 sub foo() {
-    ` for var i, i < 1, i += 1 { };
-    ` each i, foo { };
-    ` match foo { 0 { }, 1 { }, };
+    ` for _, _, i += 1 { };
+    ` for _, i < 1, i += 1 { };
+    ` for i = 0, i < 1, i += 1 { };
 }
 
 `` TODO:
-    ` parse labels
-    ` fix strings
+    ` for
     ` ops
+    ` cgen

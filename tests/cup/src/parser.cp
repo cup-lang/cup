@@ -1,8 +1,12 @@
-sub REMOVE_ME() { vec<PathPart>:new(0); };
+sub REMOVE_ME() { vec<PathPart>:new(0); vec<VarName>:new(0); };
 
 comp PathPart {
     ptr<u8> name,
     vec<Expr> gens,
+};
+
+comp VarName {
+    ptr<u8> name,
 };
 
 enum ExprKind {
@@ -38,7 +42,7 @@ enum ExprKind {
     Loop(vec<Expr> body),
     While(ptr<Expr> cond, vec<Expr> body),
     For(vec<Expr> iter, ptr<Expr> cond, vec<Expr> _next, vec<Expr> body),
-    Each(ptr<u8> iter, ptr<Expr> value, vec<Expr> body),
+    Each(vec<VarName> vars, ptr<Expr> iter, vec<Expr> body),
     Match(ptr<Expr> value, vec<Expr> cases),
     Case(vec<Expr> values, vec<Expr> body),
     Ret(ptr<u8> label, ptr<Expr> value),
@@ -131,7 +135,7 @@ Token expect_token(File file, vec<Token> tokens, ptr<int> index, TokenKind kind,
     ret token;
 };
 
-bool opt_token(vec<Token> tokens, TokenKind kind, ptr<int> index) {
+bool opt_token(vec<Token> tokens, ptr<int> index, TokenKind kind) {
     match tokens.buf[index@].kind {
         TokenKind:Unset {},
         kind {
@@ -146,6 +150,7 @@ bool opt_token(vec<Token> tokens, TokenKind kind, ptr<int> index) {
 
 Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
     Expr expr;
+    expr.label = parse_label(file, tokens, index, true);
     expr.tags = parse_tags(file, tokens, index);
 
     Token token = tokens.buf[index@];
@@ -154,16 +159,16 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
         TokenKind:Ident {
             ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
 
-            if opt_token(tokens, TokenKind:LeftParen, index) {
+            if opt_token(tokens, index, TokenKind:LeftParen) {
                 vec<Expr> args = vec<Expr>:new(2);
                 ~ll loop {
-                    if opt_token(tokens, TokenKind:RightParen, index) {
+                    if opt_token(tokens, index, TokenKind:RightParen) {
                         ret ~ll;
                     };
 
                     args.push(parse_local(file, tokens, index));
 
-                    if opt_token(tokens, TokenKind:Comma, index) == false {
+                    if opt_token(tokens, index, TokenKind:Comma) == false {
                         expect_token(file, tokens, index, TokenKind:RightParen, "expected ')' after last argument");
                         ret ~ll;
                     };
@@ -173,10 +178,10 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
                 ret ~l;
             };
 
-            if opt_token(tokens, TokenKind:Ident, index) {
+            if opt_token(tokens, index, TokenKind:Ident) {
                 ptr<u8> name = tokens.buf[index@ - 1].value;
                 ptr<Expr> value = none;
-                if opt_token(tokens, TokenKind:Assign, index) {
+                if opt_token(tokens, index, TokenKind:Assign) {
                     value = alloc<Expr>(parse_local(file, tokens, index));
                 };
                 expr.kind = ExprKind:LocalVarDef(path, name, value);
@@ -189,7 +194,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
             index@ += 1;
             ptr<u8> name = expect_token(file, tokens, index, TokenKind:Ident, "expected identifier after 'var' keyword").value;
             ptr<Expr> value = none;
-            if opt_token(tokens, TokenKind:Assign, index) {
+            if opt_token(tokens, index, TokenKind:Assign) {
                 value = alloc<Expr>(parse_local(file, tokens, index));
             };
             expr.kind = ExprKind:LocalVarDef(none, name, value);
@@ -242,7 +247,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
                 kind = ExprKind:IfBranch(cond, body),
             });
             vec<Expr> _elif = vec<Expr>:new(1);
-            while opt_token(tokens, TokenKind:Elif, index) {
+            while opt_token(tokens, index, TokenKind:Elif) {
                 cond = alloc<Expr>(parse_local(file, tokens, index));
                 expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'elif' condition");
                 vec<Expr> body = parse_block(file, tokens, index, true);
@@ -252,7 +257,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
                     kind = ExprKind:IfBranch(cond, body),
                 });
             };
-            if opt_token(tokens, TokenKind:Else, index) {
+            if opt_token(tokens, index, TokenKind:Else) {
                 expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'else' keyword");
                 vec<Expr> body = parse_block(file, tokens, index, true);
                 _elif.push(Expr {
@@ -276,33 +281,84 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
             vec<Expr> body = parse_block(file, tokens, index, true);
             expr.kind = ExprKind:While(cond, body);
         },
-        TokenKind:For { },
-        TokenKind:Each {
-            token@ += 1;
-            ptr<u8> iter = expect_token(file, tokens, index, TokenKind:Ident, "expected identifier after after 'each' keyword").value;
-            if opt_token(tokens, TokenKind:Comma, index) {
-                
-            };
-            expr.kind = ExprKind:Each(iter, value, body);
+        TokenKind:For {
+            index@ += 1;
+
         },
-        TokenKind:Match { },
-        TokenKind:Ret {
+        TokenKind:Each {
+            index@ += 1;
+            vec<VarName> vars = vec<VarName>:new(2);
+            while opt_token(tokens, index, TokenKind:Ident) {
+                vars.push(VarName {
+                    name = tokens.buf[index@ - 1].value,
+                });
+                opt_token(tokens, index, TokenKind:Comma);
+            };
+            if vars.len == 0 {
+                throw(file, tokens.buf[index@ - 1].index, "expected sex");
+            };
+            expect_token(file, tokens, index, TokenKind:In, "expected 'in' keyword after 'each' variables");
+            ptr<Expr> iter = alloc<Expr>(parse_local(file, tokens, index));
+            expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'each' iterator");
+            vec<Expr> body = parse_block(file, tokens, index, true);
+            expr.kind = ExprKind:Each(vars, iter, body);
+        },
+        TokenKind:Match {
             index@ += 1;
             ptr<Expr> value = alloc<Expr>(parse_local(file, tokens, index));
-            expr.kind = ExprKind:Ret(none, value);
+            expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'match' value");
+            vec<Expr> body = vec<Expr>:new(4);
+            ~lll loop {
+                if opt_token(tokens, index, TokenKind:RightBrace) {
+                    expr.kind = ExprKind:Match(value, body);
+                    ret ~l;
+                };
+                vec<Expr> values = vec<Expr>:new(2);
+                ~llll loop {
+                    if opt_token(tokens, index, TokenKind:LeftBrace) {
+                        jump ~b;
+                    };
+                    values.push(parse_local(file, tokens, index));
+                    if opt_token(tokens, index, TokenKind:Comma) == false {
+                        ret ~llll;
+                    };
+                };
+                expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'match' case value");
+                ~b while false {}; 
+                vec<Expr> case_body = parse_block(file, tokens, index, true);
+                body.push(Expr {
+                    tags = vec<Expr> {
+                        len = 0,
+                    },
+                    label = none,
+                    kind = ExprKind:Case(values, case_body),
+                });
+                if opt_token(tokens, index, TokenKind:Comma) == false {
+                    ret ~lll;
+                };
+            };
+            expect_token(file, tokens, index, TokenKind:RightBrace, "expected '}' after 'match' body");
+            expr.kind = ExprKind:Match(value, body);
+        },
+        TokenKind:Ret {
+            index@ += 1;
+            ptr<u8> label = parse_label(file, tokens, index, false);
+            ptr<Expr> value = alloc<Expr>(parse_local(file, tokens, index));
+            expr.kind = ExprKind:Ret(label, value);
         },
         TokenKind:Next {
             index@ += 1;
-            expr.kind = ExprKind:Next(none);
+            expr.kind = ExprKind:Next(parse_label(file, tokens, index, false));
         },
         TokenKind:Jump {
             index@ += 1;
-            expr.kind = ExprKind:Jump(none);
+            expr.kind = ExprKind:Jump(parse_label(file, tokens, index, false));
         },
         TokenKind:Try {
             index@ += 1;
+            ptr<u8> label = parse_label(file, tokens, index, false);
             ptr<Expr> value = alloc<Expr>(parse_local(file, tokens, index));
-            expr.kind = ExprKind:Try(none, value);
+            expr.kind = ExprKind:Try(label, value);
         },
         _ {
             throw(file, token.index, "expected a local expression");
@@ -311,10 +367,6 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index) {
 
     ret expr;
 };
-
-` Expr parse_local_range(File file, vec<Token> tokens, int start, int end) {
-`     
-` };
 
 comp OpData {
     int op_level,
@@ -506,8 +558,8 @@ OpData get_op_data(File file, vec<Token> tokens, int start, int end) {
 
 Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
     Expr expr;
+    expr.label = parse_label(file, tokens, index, true);
     expr.tags = parse_tags(file, tokens, index);
-    expr.label = none;
 
     Token token = tokens.buf[index@];
 
@@ -518,7 +570,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'tag' path");
             vec<Expr> args = parse_fields(file, tokens, index);
             vec<Expr> body;
-            if opt_token(tokens, TokenKind:LeftBrace, index) {
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, true);
             } else {
                 body.len = 0;
@@ -545,7 +597,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'comp' path");
             vec<Expr> fields = parse_fields(file, tokens, index);
             vec<Expr> body;
-            if opt_token(tokens, TokenKind:LeftBrace, index) {
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, true);
             } else {
                 body.len = 0;
@@ -558,7 +610,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'comp' path");
             vec<Expr> opts = parse_options(file, tokens, index);
             vec<Expr> body;
-            if opt_token(tokens, TokenKind:LeftBrace, index) {
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, true);
             } else {
                 body.len = 0;
@@ -569,7 +621,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             index@ += 1;
             ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
             vec<Expr> body;
-            if opt_token(tokens, TokenKind:LeftBrace, index) {
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, false);
             } else {
                 body.len = 0;
@@ -580,11 +632,11 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             index@ += 1;
             ptr<Expr> _prop = alloc<Expr>(parse_path(file, tokens, index));
             ptr<Expr> _target = none;
-            if opt_token(tokens, TokenKind:Comma, index) {
+            if opt_token(tokens, index, TokenKind:Comma) {
                 _target = alloc<Expr>(parse_path(file, tokens, index));
             };
             vec<Expr> body;
-            if opt_token(tokens, TokenKind:LeftBrace, index) {
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, false);
             } else {
                 body.len = 0;
@@ -600,7 +652,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             vec<Expr> args = parse_fields(file, tokens, index);
 
             vec<Expr> body;
-            if opt_token(tokens, TokenKind:LeftBrace, index) {
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, true);
             } else {
                 body.len = 0;
@@ -614,7 +666,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
 
             ptr<Expr> value = none;
-            if opt_token(tokens, TokenKind:Assign, index) {
+            if opt_token(tokens, index, TokenKind:Assign) {
                 index@ += 1;
                 ` value = parse_local();
             };
@@ -633,7 +685,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
                     vec<Expr> args = parse_fields(file, tokens, index);
 
                     vec<Expr> body;
-                    if opt_token(tokens, TokenKind:LeftBrace, index) {
+                    if opt_token(tokens, index, TokenKind:LeftBrace) {
                         body = parse_block(file, tokens, index, true);
                     } else {
                         body.len = 0;
@@ -643,7 +695,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
                 },
                 _ {
                     ptr<Expr> value = none;
-                    if opt_token(tokens, TokenKind:Assign, index) {
+                    if opt_token(tokens, index, TokenKind:Assign) {
                         index@ += 1;
                         ` value = parse_local();
                     };
@@ -657,6 +709,16 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
     };
 
     ret expr;
+};
+
+ptr<u8> parse_label(File file, vec<Token> tokens, ptr<int> index, bool opt) {
+    if opt & (opt_token(tokens, index, TokenKind:Tilde) == false) {
+        ret none;
+    } elif opt == false {
+        expect_token(file, tokens, index, TokenKind:Tilde, "expected a label");
+    };
+    ptr<u8> label = expect_token(file, tokens, index, TokenKind:Ident, "expected identifier after label declaration").value;
+    ret label;
 };
 
 vec<Expr> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
@@ -767,7 +829,7 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
                                     _ {},
                                 };
                                 vec<Expr>:push(part.gens$, parse_path(file, tokens, index));
-                                bool a = opt_token(tokens, TokenKind:Comma, index);
+                                bool a = opt_token(tokens, index, TokenKind:Comma);
                             };
                         },
                     };
@@ -798,7 +860,7 @@ vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
     vec<Expr> fields = vec<Expr>:new(2);
 
     ~l loop {
-        if opt_token(tokens, TokenKind:RightParen, index) {
+        if opt_token(tokens, index, TokenKind:RightParen) {
             ret fields;
         };
 
@@ -814,7 +876,7 @@ vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
         };
         fields.push(field);
 
-        if opt_token(tokens, TokenKind:Comma, index) == false {
+        if opt_token(tokens, index, TokenKind:Comma) == false {
             ret ~l;
         };
     };
@@ -827,14 +889,14 @@ vec<Expr> parse_options(File file, vec<Token> tokens, ptr<int> index) {
     vec<Expr> opts = vec<Expr>:new(2);
 
     ~l loop {
-        if opt_token(tokens, TokenKind:RightParen, index) {
+        if opt_token(tokens, index, TokenKind:RightParen) {
             ret opts;
         };
 
         ptr<u8> name = expect_token(file, tokens, index, TokenKind:Ident, "expected option name in 'enum' definition").value;
 
         vec<Expr> fields;
-        if opt_token(tokens, TokenKind:LeftParen, index) {
+        if opt_token(tokens, index, TokenKind:LeftParen) {
             fields = parse_fields(file, tokens, index);    
         } else {
             fields.len = 0;
@@ -848,7 +910,7 @@ vec<Expr> parse_options(File file, vec<Token> tokens, ptr<int> index) {
             label = none,
         });
 
-        if opt_token(tokens, TokenKind:Comma, index) == false {
+        if opt_token(tokens, index, TokenKind:Comma) == false {
             ret ~l;
         };
     };
@@ -889,6 +951,9 @@ sub print_expr(Expr expr, int depth) {
     fmt:print("%s", get_expr_name(expr.kind));
     set_color(Color:Reset);
     putchar('(');
+    if expr.label != none {
+        fmt:print("label = %s, ", expr.label);
+    };
     print_opt_expr_vec(expr.tags, 0, "tags", false);
     if expr.tags.len != 0 {
         fmt:print(", ");
@@ -1059,23 +1124,32 @@ sub print_expr(Expr expr, int depth) {
             print_opt_expr_vec(_next, depth, "next", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:Each(iter, value, body) {
-            fmt:print("iter = %s", iter);
-            print_expr(value@, depth);
+        ExprKind:Each(vars, iter, body) {
+            fmt:print("vars = [");
+            for i = 0, (i) < vars.len, i += 1 {
+                if i != 0 {
+                    fmt:print(", ");
+                };
+                fmt:print("%s", vars.buf[i]);
+            };
+            fmt:print("], iter = ");
+            print_expr(iter@, depth);
             print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Match(value, cases) {
-            ` value
-            ` cases
+            fmt:print("value = ");
+            print_expr(value@, depth);
+            print_opt_expr_vec(cases, depth, "cases", true);
         },
         ExprKind:Case(values, body) {
-            ` values
-            ` body
+            print_opt_expr_vec(values, depth, "values", false);
+            print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Ret(label, value) {
             if label != none {
-                fmt:print("label = %s", label);
+                fmt:print("label = %s, ", label);
             };
+            fmt:print("value = ");
             print_expr(value@, depth);
         },
         ExprKind:Next(label) {
@@ -1090,8 +1164,9 @@ sub print_expr(Expr expr, int depth) {
         },
         ExprKind:Try(label, value) {
             if label != none {
-                fmt:print("label = %s", label);
+                fmt:print("label = %s, ", label);
             };
+            fmt:print("value = ");
             print_expr(value@, depth);
         },
         ExprKind:UnaryOp(value, kind) {
@@ -1145,6 +1220,7 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:For { ret "FOR"; },
         ExprKind:Each { ret "EACH"; },
         ExprKind:Match { ret "MATCH"; },
+        ExprKind:Case { ret "CASE"; },
         ExprKind:Ret { ret "RET"; },
         ExprKind:Next { ret "NEXT"; },
         ExprKind:Jump { ret "JUMP"; },
