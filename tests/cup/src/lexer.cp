@@ -8,7 +8,6 @@ enum TokenKind {
     FloatLit,
     True,
     False,
-    None,
     This,
     Type,
 
@@ -81,7 +80,6 @@ int get_token_length(TokenKind kind) {
     match kind {
         TokenKind:True { ret 4; },
         TokenKind:False { ret 5; },
-        TokenKind:None { ret 4; },
         TokenKind:This { ret 4; },
         TokenKind:Type { ret 4; },
         TokenKind:Tag { ret 3; },
@@ -157,7 +155,6 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:FloatLit { ret "FLOAT_LIT"; },
         TokenKind:True { ret "TRUE"; },
         TokenKind:False { ret "FALSE"; },
-        TokenKind:None { ret "NONE"; },
         TokenKind:This { ret "THIS"; },
         TokenKind:Type { ret "TYPE"; },
         TokenKind:Tag { ret "TAG"; },
@@ -265,8 +262,6 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:True;
     } elif str:cmp(value, "false") == 0 {
         ret TokenKind:False;
-    } elif str:cmp(value, "none") == 0 {
-        ret TokenKind:None;
     } elif str:cmp(value, "if") == 0 {
         ret TokenKind:If;
     } elif str:cmp(value, "elif") == 0 {
@@ -593,7 +588,14 @@ vec<Token> lex(File file) {
     Token last;
     if tokens.len > 0 {
         last = tokens.buf[tokens.len - 1];
-        last.index = last.index + get_token_length(last.kind);
+        match last.kind {
+            TokenKind:Ident {
+                last.index = last.index + str:len(last.value);
+            },
+            _ {
+                last.index = last.index + get_token_length(last.kind);
+            },
+        };
     } else {
         last.index = 0;
     };

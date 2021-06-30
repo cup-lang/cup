@@ -99,7 +99,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
 
     ptr<u8> input = none;
     ptr<u8> output = none;
-    for i = 2; (i) < argc; i += 1 {
+    for i = 2, (i) < argc, i += 1 {
         if argv[i][0] == '-' {
             if argv[i][1] == 'i' {
                 if input == none {
