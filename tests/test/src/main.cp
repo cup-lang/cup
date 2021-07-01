@@ -43,10 +43,12 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
+a a;
+
 sub foo() {
     ` a < b < c;
 }
 
 `` TODO:
-    ` combo ops
     ` cgen
+    ` combo ops

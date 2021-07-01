@@ -27,6 +27,16 @@ def vec<T> {
     };
 
     #self
+    sub join(ptr<T> other) {
+        this.len += str:len(other);
+        while this.len >= this.cap {
+            this.cap *= 2;
+            this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
+        };
+        str:copy(this.buf, other);
+    };
+
+    #self
     sub empty() {
         this.buf[0] = this.len = 0;
     };

@@ -124,9 +124,14 @@ int main(int argc, ptr<ptr<u8>> argv) {
         output = "out.c";
     };
 
-    lex_parse_recursive(input);
+    vec<Expr> ast = vec<Expr>:new(8);
+    lex_parse_recursive(input, ast$);
     `` Analyze
-    `` Generate
+    vec<u8> out = vec<u8>:new(1024);
+    generate(out$, ast);
+    out.buf[out.len] = '\0';
+    ptr<FILE> file_point = file:open(output, "w");
+    file:print(file_point, "%s", out.buf);
 
     fmt:print("Compilation ");
     set_color(Color:Green);
@@ -176,7 +181,7 @@ sub set_color(Color color) {
     };
 };
 
-sub lex_parse_recursive(ptr<u8> path) {
+sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
     ptr<DIR> dir = dir:open(path);
     if dir == none {
         set_color(Color:Red);
@@ -198,28 +203,36 @@ sub lex_parse_recursive(ptr<u8> path) {
             mem:copy(new_path + length + 1, ent@.d_name, new_length);
             new_path[length + new_length + 1] = '\0';
             if ent@.d_type == DT_DIR {
-                lex_parse_recursive(new_path);
+                lex_parse_recursive(new_path, ast);
             } elif ent@.d_type == DT_REG {
-                ptr<FILE> file_point = file:open(new_path, "rb");
+                ptr<FILE> file_point = file:open(new_path, "r");
                 file:seek(file_point, 0 as i32, SEEK_END);
-                arr<u8> file = arr<u8>:new(ftell(file_point) + 1);
+                arr<u8> data = arr<u8>:new(ftell(file_point) + 1);
                 rewind(file_point);
-                file.len -= 1;
-                file:read(file.buf, file.len, 1, file_point);
-                file.buf[file.len] = '\0';
+                data.len -= 1;
+                file:read(data.buf, data.len, 1, file_point);
+                data.buf[data.len] = '\0';
                 file:close(file_point);
                 
                 fmt:print("Compiling %s:\n", new_path);
-                File abc = File {
+                File file = File {
                     name = new_path,
-                    data = file,
+                    data = data,
                 };
-                vec<Token> tokens = lex(abc);
+                vec<Token> tokens = lex(file);
                 print_tokens(tokens);
-                vec<Expr> exprs = parse(abc, tokens);
+                vec<Expr> exprs = parse(file, tokens);
                 print_exprs(exprs);
                 
-                mem:free(file.buf);
+                vec<Expr>:push(ast, Expr {
+                    tags = vec<Expr> {
+                        len = 0,
+                    },
+                    label = none,
+                    kind = ExprKind:Block(exprs),
+                });
+
+                mem:free(data.buf);
             };
             mem:free(new_path);
         };

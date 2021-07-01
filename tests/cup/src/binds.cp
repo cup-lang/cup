@@ -31,6 +31,7 @@ mod fmt {
 mod str {
     #bind("strcmp") sub cmp() {};
     #bind("strlen") sub len() {};
+    #bind("strcpy") sub copy() {};
 };
 
 #raw("typedef struct dirent dirent;")
@@ -49,6 +50,7 @@ mod file {
     #bind("fseek") sub seek() {};
     #bind("ftell") sub size() {};
     #bind("rewind") sub rewind() {};
+    #bind("fprintf") sub print() {};
 };
 
 #req("ctype.h")
