@@ -4,6 +4,26 @@
 
 #req("stdint.h") mod _ {};
 
+#gen("T")
+mod math {
+    T min(T a, T b) {
+        if (a) < b {
+            ret a;
+        };
+        ret b;
+    };
+
+    T max(T a, T b) {
+        if a > b {
+            ret a;
+        };
+        ret b;
+    };
+
+    #bind("pow") sub pow() {};
+    #bind("log10") sub log10() {};
+};
+
 #req("time.h")
 mod time {
     #bind("clock") sub now() {};

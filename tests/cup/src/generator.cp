@@ -1,8 +1,19 @@
-sub generate(ptr<vec<u8>> out, vec<Expr> ast) {
-    generate_expr_vec(out, ast, 0, 0);    
+sub REMOVE_ME2() { vec<PathPart>:new(0); };
+
+comp MangledPath {
+    vec<PathPart> path,
+    ptr<u8> name,
 };
 
-sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, int semicolon, int comma) {
+int mangle_index = 0;
+vec<vec<MangledPath>> mangled_paths;
+
+sub generate(ptr<vec<u8>> out, vec<Expr> ast) {
+    mangled_paths = vec<vec<MangledPath>>:new(8);
+    generate_expr_vec(out, ast, false, false);    
+};
+
+sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool comma) {
     ` let out = '';
     ` vars.push({});
     for i = 0, (i) < exprs.len, i += 1 {
@@ -15,7 +26,7 @@ sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, int semicolon, int comm
     ` vars.pop();
 };
 
-sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int parenths) {
+sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int parenths) {
     ` if (expr.gen && expr.gen.length > 0) {
     `     return '';
     ` }
@@ -63,9 +74,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
     ` let out = '';
 
     match expr.kind {
-        ExprKind:TagDef {},
         ExprKind:Block(body) {
-            generate_expr_vec(out, body, 0, 0);
+            generate_expr_vec(out, body, false, false);
         },
         ExprKind:Field {},
         ExprKind:Comp {},
@@ -74,7 +84,16 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
         ExprKind:Prop {},
         ExprKind:Def {},
         ExprKind:SubDef {},
-        ExprKind:VarDef {},
+        ExprKind:VarDef(_type, path, value) {
+            vec<u8>:join(out, mangle(_type@));
+            vec<u8>:push(out, ' ');
+            vec<u8>:join(out, mangle(path@));
+            if value != none {
+                vec<u8>:push(out, '=');
+                generate_expr(out, value@, false, false, 0);
+            };
+            vec<u8>:push(out, ';');
+        },
         ExprKind:LocalVarDef {},
         ExprKind:SubCall {},
         ExprKind:VarUse {},
@@ -103,20 +122,20 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
         },
         ExprKind:LocalBlock(body) {
             vec<u8>:push(out, '{');
-            generate_expr_vec(out, body, 1, 0);
+            generate_expr_vec(out, body, true, false);
             vec<u8>:push(out, '}');
         },
         ExprKind:If {},
         ExprKind:Loop(body) {
             vec<u8>:join(out, "for(;;){");
-            generate_expr_vec(out, body, 1, 0);
+            generate_expr_vec(out, body, true, false);
             vec<u8>:push(out, '}');
         },
         ExprKind:While(cond, body) {
             vec<u8>:join(out, "while(");
-            generate_expr(out, cond@, 0, 0, 0);
+            generate_expr(out, cond@, false, false, 0);
             vec<u8>:join(out, "){");
-            generate_expr_vec(out, body, 1, 0);
+            generate_expr_vec(out, body, true, false);
             vec<u8>:push(out, '}');
         },
         ExprKind:For {},
@@ -132,7 +151,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
             };
             if value != none {
                 vec<u8>:push(out, ' ');
-                generate_expr(out, value@, 0, 0, 0);
+                generate_expr(out, value@, false, false, 0);
             };
             vec<u8>:push(out, ';');
         },
@@ -164,7 +183,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
                     vec<u8>:push(out, '&');
                 },
             };
-            generate_expr(out, value@, 0, 0, parenths + 1);
+            generate_expr(out, value@, false, false, parenths + 1);
             vec<u8>:push(out, ')');
         },
         ExprKind:BinaryOp(lhs, rhs, kind) {
@@ -177,10 +196,10 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
                     vec<u8>:push(out, '(');
                     ` generate_type(rhs);
                     vec<u8>:push(out, ')');
-                    generate_expr(out, lhs@, 0, 0, parenths + 1);
+                    generate_expr(out, lhs@, false, false, parenths + 1);
                 },
                 _ {
-                    generate_expr(out, lhs@, 0, 0, parenths + 1);
+                    generate_expr(out, lhs@, false, false, parenths + 1);
                     match kind {
                         TokenKind:Assign {
                             vec<u8>:push(out, '=');
@@ -246,7 +265,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
                             vec<u8>:push(out, '[');
                         },
                     };
-                    generate_expr(out, rhs@, 0, 0, parenths + 1);
+                    generate_expr(out, rhs@, false, false, parenths + 1);
                     match kind {
                         TokenKind:LeftBracket {
                             vec<u8>:push(out, ']');
@@ -263,11 +282,11 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
             };
         },
         ExprKind:TernaryOp(cond, valueA, valueB) {
-            generate_expr(out, cond@, 0, 0, parenths + 1);
+            generate_expr(out, cond@, false, false, parenths + 1);
             vec<u8>:push(out, '?');
-            generate_expr(out, valueA@, 0, 0, parenths + 1);
+            generate_expr(out, valueA@, false, false, parenths + 1);
             vec<u8>:push(out, ':');
-            generate_expr(out, valueB@, 0, 0, parenths + 1);
+            generate_expr(out, valueB@, false, false, parenths + 1);
         },
     };
 
@@ -276,4 +295,78 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, int last, int semicolon, int pare
     ` }
 
     ` scopeGens = oldScopeGens;
+};
+
+ptr<u8> mangle(Expr expr) {
+    vec<PathPart> path = expr.kind.u.u2.path;
+    if path.len <= mangled_paths.len {
+        vec<MangledPath> paths = mangled_paths.buf[path.len - 1];
+        ~l for i = 0, (i) < paths.len, i += 1 {
+            if compare_paths(path, paths.buf[i].path) {
+                ret (paths.buf[i].name);
+            };
+        };
+    } else {
+        while path.len > mangled_paths.len {
+            mangled_paths.push(vec<MangledPath>:new(32));
+        };
+    };
+    ptr<u8> name = new_mangle(mangle_index += 1);
+    vec<MangledPath>:push(mangled_paths.buf[path.len - 1]$, MangledPath {
+        path = path,
+        name = name,
+    }); 
+    ret name;
+};
+
+ptr<u8> new_mangle(int index) {
+    vec<u8> name = vec<u8>:new(4);
+
+    while index > 0 {
+        int i = index % 62;
+        if (i) < 10 {
+            i += 48;
+        } elif (i) < 36 {
+            i += 55;
+        } else {
+            i += 61;
+        };
+        name.push(i);
+        index /= 62;
+    };
+
+    name.buf[name.len] = '\0';
+    ret (name.buf);
+};
+
+bool compare_paths(vec<PathPart> path1, vec<PathPart> path2) {
+    ~l for i = 0, (i) < path1.len, i += 1 {
+        PathPart part1 = path1.buf[i];
+        PathPart part2 = path2.buf[i];
+        if part1.gens.len == part2.gens.len {
+            if str:cmp(part1.name, part2.name) == 0 {
+                if compare_gens(part1.gens, part2.gens) {
+                    next ~l;
+                };
+            };
+        };
+        ret false;
+    };
+    ret true;
+};
+
+bool compare_gens(vec<Expr> gens1, vec<Expr> gens2) {
+    if gens1.len != gens2.len {
+        ret false;
+    };
+
+    for i = 0, (i) < gens1.len, i += 1 {
+        vec<PathPart> path1 = gens1.buf[i].kind.u.u2.path;
+        vec<PathPart> path2 = gens2.buf[i].kind.u.u2.path;
+
+        if compare_paths(path1, path2) == false {
+            ret false;
+        };
+    };
+    ret true;
 };

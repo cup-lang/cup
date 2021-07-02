@@ -1,4 +1,4 @@
-sub REMOVE_ME() { vec<PathPart>:new(0); vec<VarName>:new(0); };
+sub REMOVE_ME() { vec<VarName>:new(0); };
 
 comp PathPart {
     ptr<u8> name,
