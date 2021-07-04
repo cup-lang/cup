@@ -126,7 +126,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
 
     vec<Expr> ast = vec<Expr>:new(8);
     lex_parse_recursive(input, ast$);
-    `` Analyze
+    analyze(ast);
     vec<u8> out = vec<u8>:new(1024);
     generate(out$, ast);
     out.buf[out.len] = '\0';
@@ -233,6 +233,7 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                 });
 
                 mem:free(data.buf);
+                mem:free(tokens.buf);
             };
             mem:free(new_path);
         };

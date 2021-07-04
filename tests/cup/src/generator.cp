@@ -1,4 +1,4 @@
-sub REMOVE_ME2() { vec<PathPart>:new(0); };
+sub REMOVE_ME3() { vec<PathPart>:new(0); };
 
 comp MangledPath {
     vec<PathPart> path,
@@ -14,8 +14,6 @@ sub generate(ptr<vec<u8>> out, vec<Expr> ast) {
 };
 
 sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool comma) {
-    ` let out = '';
-    ` vars.push({});
     for i = 0, (i) < exprs.len, i += 1 {
         bool is_last = i + 1 == exprs.len;
         generate_expr(out, exprs.buf[i], is_last, semicolon, 0);
@@ -23,80 +21,130 @@ sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool co
             vec<u8>:push(out, ',');
         };
     };
-    ` vars.pop();
 };
 
 sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int parenths) {
-    ` if (expr.gen && expr.gen.length > 0) {
-    `     return '';
-    ` }
-
-    ` if (expr.tags) {
-    `     for (let i = 0; i < expr.tags.length; ++i) {
-    `         const tag = expr.tags[i];
-    `         switch (tag.name) {
-    `             case 'os':
-    `                 switch (tag.args[0].value) {
-    `                     case 'win':
-    `                         if (process.platform !== 'win32') {
-    `                             return '';
-    `                         }
-    `                         break;
-    `                     case 'linux':
-    `                         if (process.platform !== 'linux') {
-    `                             return '';
-    `                         }
-    `                         break;
-    `                 }
-    `                 break;
-    `             case 'req':
-    `                 if (!reqs.includes(tag.args[0].value)) {
-    `                     reqs.push(tag.args[0].value);
-    `                 }
-    `                 break;
-    `             case 'bind':
-    `                 break;
-    `             case 'raw':
-    `                 output += tag.args[0].value;
-    `                 break;
-    `         }
-    `     }
-    ` }
-
-    ` let oldScopeGens = [].concat(scopeGens);
-    ` if (expr.gen) {
-    `     for (let i = 0; i < expr.gen.length; ++i) {
-    `         scopeGens.push(expr.gen[i]);
-    `     }
-    `     expr.gen = oldScopeGens.concat(expr.gen);
-    ` }
-
-    ` let out = '';
+    for i = 0, (i) < expr.tags.len, i += 1 {
+        match expr.tags.buf[i].kind {
+            ExprKind:Tag(name, args) {
+                if str:cmp(name, "os") == 0 {
+                    match args.buf[0].kind {
+                        ExprKind:StringLit(value) {
+                            #raw("#if defined _WIN32") 0+0;
+                            if str:cmp(value, "win") != 0 {
+                                ret;
+                            };
+                            #raw("#elif defined __linux__") 0+0;
+                            if str:cmp(value, "linux") != 0 {
+                                ret;
+                            };
+                            #raw("#elif defined __APPLE__") 0+0;
+                            if str:cmp(value, "mac") != 0 {
+                                ret;
+                            };
+                            #raw("#endif") 0+0;
+                        },
+                    };
+                } elif str:cmp(name, "req") == 0 {
+                    ` add to reqs
+                } elif str:cmp(name, "raw") == 0 {
+                    match args.buf[0].kind {
+                        ExprKind:StringLit(value) {
+                            vec<u8>:join(out, value);
+                        },
+                    };
+                };
+            },
+        };
+    };
 
     match expr.kind {
         ExprKind:Block(body) {
             generate_expr_vec(out, body, false, false);
         },
-        ExprKind:Field {},
-        ExprKind:Comp {},
-        ExprKind:Enum {},
-        ExprKind:Option {},
+        ExprKind:Field(_type, name) {
+            generate_mangle(out, _type@);
+            vec<u8>:push(out, ' ');
+            vec<u8>:join(out, name);
+            if semicolon {
+                vec<u8>:push(out, ';');
+            } elif last == false {
+                vec<u8>:push(out, ',');
+            };
+        },
+        ExprKind:Comp(path, fields, body) {
+            vec<u8>:join(out, "typedef struct{");
+            generate_expr_vec(out, fields, true, false);
+            vec<u8>:push(out, '}');
+            generate_mangle(out, path@);
+            vec<u8>:push(out, ';');
+        },
+        ExprKind:Enum(path, opts, body) {
+            vec<u8>:join(out, "typedef struct{");
+            vec<u8>:join(out, "int t;union{");
+            for i = 0, (i) < opts.len, i += 1 {
+                vec<u8>:join(out, "struct{");
+                vec<u8>:join(out, "}u");
+                ptr<u8> name = new_mangle(i + 1);
+                vec<u8>:join(out, name);
+                mem:free(name);
+                vec<u8>:push(out, ';');
+            };
+            vec<u8>:join(out, "}u;}");
+            generate_mangle(out, path@);
+            vec<u8>:push(out, ';');
+        },
         ExprKind:Prop {},
         ExprKind:Def {},
-        ExprKind:SubDef {},
+        ExprKind:SubDef(ret_type, path, args, body) {
+            if ret_type != none {
+                generate_mangle(out, ret_type@);
+                vec<u8>:push(out, ' ');
+            } else {
+                vec<u8>:join(out, "void ");
+            };
+            generate_mangle(out, path@);
+            vec<u8>:push(out, '(');
+            generate_expr_vec(out, args, false, false);
+            vec<u8>:join(out, "){");
+            generate_expr_vec(out, body, true, false);
+            vec<u8>:join(out, "};");
+        },
         ExprKind:VarDef(_type, path, value) {
-            vec<u8>:join(out, mangle(_type@));
+            generate_mangle(out, _type@);
             vec<u8>:push(out, ' ');
-            vec<u8>:join(out, mangle(path@));
+            generate_mangle(out, path@);
             if value != none {
                 vec<u8>:push(out, '=');
                 generate_expr(out, value@, false, false, 0);
             };
             vec<u8>:push(out, ';');
         },
-        ExprKind:LocalVarDef {},
-        ExprKind:SubCall {},
-        ExprKind:VarUse {},
+        ExprKind:LocalVarDef(_type, name, value) {
+            generate_mangle(out, _type@);
+            vec<u8>:push(out, ' ');
+            vec<u8>:join(out, name);
+            if value != none {
+                vec<u8>:push(out, '=');
+                generate_expr(out, value@, false, false, 0);
+            };
+            vec<u8>:push(out, ';');
+        },
+        ExprKind:SubCall(path, args) {
+            generate_mangle(out, path@);
+            vec<u8>:push(out, '(');
+            generate_expr_vec(out, args, false, true);
+            vec<u8>:push(out, ')');
+            if semicolon {
+                vec<u8>:push(out, ';');
+            };
+        },
+        ExprKind:VarUse(path) {
+            generate_mangle(out, path@);
+            if semicolon {
+                vec<u8>:push(out, ';');
+            };
+        },
         ExprKind:StringLit(value) {
             vec<u8>:push(out, '"');
             vec<u8>:join(out, value);
@@ -125,7 +173,28 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr_vec(out, body, true, false);
             vec<u8>:push(out, '}');
         },
-        ExprKind:If {},
+        ExprKind:If(_if, _elif, _else) {
+            generate_expr(out, _if@, false, false, 0);
+            for i = 0, (i) < _elif.len, i += 1 {
+                vec<u8>:join(out, "else ");
+                generate_expr(out, _elif.buf[i], false, false, 0);
+            };
+            if _else != none {
+                generate_expr(out, _else@, false, false, 0);
+            };
+        },
+        ExprKind:IfBranch(cond, body) {
+            vec<u8>:join(out, "if(");
+            generate_expr(out, cond@, false, false, 0);
+            vec<u8>:join(out, "){");
+            generate_expr_vec(out, body, true, false);
+            vec<u8>:push(out, '}');
+        },
+        ExprKind:ElseBranch(body) {
+            vec<u8>:join(out, "else{");
+            generate_expr_vec(out, body, true, false);
+            vec<u8>:push(out, '}');
+        },
         ExprKind:Loop(body) {
             vec<u8>:join(out, "for(;;){");
             generate_expr_vec(out, body, true, false);
@@ -138,7 +207,21 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr_vec(out, body, true, false);
             vec<u8>:push(out, '}');
         },
-        ExprKind:For {},
+        ExprKind:For(iter, iter_value, cond, _next, body) {
+            vec<u8>:join(out, "for(int ");
+            vec<u8>:join(out, iter);
+            if iter_value != none {
+                vec<u8>:push(out, '=');
+                generate_expr(out, iter_value@, false, false, 0);
+            };
+            vec<u8>:push(out, ';');
+            generate_expr(out, cond@, false, false, 0);
+            vec<u8>:push(out, ';');
+            generate_expr(out, _next@, false, false, 0);
+            vec<u8>:join(out, "){");
+            generate_expr_vec(out, body, true, false);
+            vec<u8>:push(out, '}');
+        },
         ExprKind:Each {},
         ExprKind:Match {},
         ExprKind:Case {},
@@ -289,12 +372,11 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr(out, valueB@, false, false, parenths + 1);
         },
     };
+};
 
-    ` if (expr.label) {
-    `     out += `brk_${expr.label}:`;
-    ` }
-
-    ` scopeGens = oldScopeGens;
+sub generate_mangle(ptr<vec<u8>> out, Expr expr) {
+    vec<u8>:push(out, '_');
+    vec<u8>:join(out, mangle(expr));
 };
 
 ptr<u8> mangle(Expr expr) {
@@ -315,7 +397,7 @@ ptr<u8> mangle(Expr expr) {
     vec<MangledPath>:push(mangled_paths.buf[path.len - 1]$, MangledPath {
         path = path,
         name = name,
-    }); 
+    });
     ret name;
 };
 

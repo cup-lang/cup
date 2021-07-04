@@ -1,1 +1,1 @@
-1 2;3 4;5 6;7 8;9 A;B C;D E;F G;H I;J K;
+_1 _2(){_3 b;};typedef struct{_1 a;_4 b;}_5;

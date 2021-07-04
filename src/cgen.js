@@ -315,7 +315,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                 case 'bind':
                     break;
                 case 'raw':
-                    output += tag.args[0].value;
+                    output += '\n' + tag.args[0].value + '\n';
                     break;
             }
         }

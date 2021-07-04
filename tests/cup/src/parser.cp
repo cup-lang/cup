@@ -19,7 +19,7 @@ enum ExprKind {
     Use(ptr<Expr> path),
     Field(ptr<Expr> _type, ptr<u8> name),
     Comp(ptr<Expr> path, vec<Expr> fields, vec<Expr> body),
-    Enum(ptr<Expr> path, vec<Expr> fields, vec<Expr> opts, vec<Expr> body),
+    Enum(ptr<Expr> path, vec<Expr> opts, vec<Expr> body),
     Option(ptr<u8> name, vec<Expr> fields),
     Prop(ptr<Expr> path, vec<Expr> body),
     Def(ptr<Expr> _prop, ptr<Expr> target, vec<Expr> body),
@@ -42,7 +42,7 @@ enum ExprKind {
     ElseBranch(vec<Expr> body),
     Loop(vec<Expr> body),
     While(ptr<Expr> cond, vec<Expr> body),
-    For(ptr<u8> iter, ptr<Expr> iter_value, ptr<Expr> cond, vec<Expr> _next, vec<Expr> body),
+    For(ptr<u8> iter, ptr<Expr> iter_value, ptr<Expr> cond, ptr<Expr> _next, vec<Expr> body),
     Each(vec<VarName> vars, ptr<Expr> iter, vec<Expr> body),
     Match(ptr<Expr> value, vec<Expr> cases),
     Case(vec<Expr> values, vec<Expr> body),
@@ -926,10 +926,9 @@ sub print_expr(Expr expr, int depth) {
             print_opt_expr_vec(fields, depth, "fields", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:Enum(path, fields, opts, body) {
+        ExprKind:Enum(path, opts, body) {
             fmt:print("path = ");
             print_expr(path@, depth);
-            print_opt_expr_vec(fields, depth, "fields", true);
             print_opt_expr_vec(opts, depth, "opts", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
@@ -1052,7 +1051,8 @@ sub print_expr(Expr expr, int depth) {
             };
             fmt:print(", cond = ");
             print_expr(cond@, depth);
-            print_opt_expr_vec(_next, depth, "next", true);
+            fmt:print(", next = ");
+            print_expr(_next@, depth);
             print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Each(vars, iter, body) {
