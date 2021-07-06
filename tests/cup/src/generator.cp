@@ -1,15 +1,4 @@
-sub REMOVE_ME3() { vec<PathPart>:new(0); };
-
-comp MangledPath {
-    vec<PathPart> path,
-    ptr<u8> name,
-};
-
-int mangle_index = 0;
-vec<vec<MangledPath>> mangled_paths;
-
 sub generate(ptr<vec<u8>> out, vec<Expr> ast) {
-    mangled_paths = vec<vec<MangledPath>>:new(8);
     generate_expr_vec(out, ast, false, false);    
 };
 
@@ -27,18 +16,20 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
     for i = 0, (i) < expr.tags.len, i += 1 {
         match expr.tags.buf[i].kind {
             ExprKind:Tag(name, args) {
-                if str:cmp(name, "os") == 0 {
+                if str:cmp(name, "gen") == 0 {
+                    ret;
+                } elif str:cmp(name, "os") == 0 {
                     match args.buf[0].kind {
                         ExprKind:StringLit(value) {
-                            #raw("#if defined _WIN32") 0+0;
+                            #raw("#if defined _WIN32")
                             if str:cmp(value, "win") != 0 {
                                 ret;
                             };
-                            #raw("#elif defined __linux__") 0+0;
+                            #raw("#elif defined __linux__")
                             if str:cmp(value, "linux") != 0 {
                                 ret;
                             };
-                            #raw("#elif defined __APPLE__") 0+0;
+                            #raw("#elif defined __APPLE__")
                             if str:cmp(value, "mac") != 0 {
                                 ret;
                             };
@@ -122,6 +113,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         },
         ExprKind:LocalVarDef(_type, name, value) {
             generate_mangle(out, _type@);
+            register_path_use(out, _type@);
             vec<u8>:push(out, ' ');
             vec<u8>:join(out, name);
             if value != none {
@@ -374,81 +366,47 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
     };
 };
 
+comp GenericInstance {
+    ptr<u8> name,
+    ptr<Expr> path,
+};
+
+sub generate_generic_expr(ptr<vec<u8>> out, Expr expr, vec<GenericInstance> gens) {
+    match expr.kind {
+        ExprKind:Comp(path, fields, body) {
+            vec<u8>:join(out, "typedef struct{");
+            generate_expr_vec(out, fields, true, false);
+            vec<u8>:push(out, '}');
+            generate_mangle(out, path@);
+            vec<u8>:push(out, ';');
+        },
+        ExprKind:Enum(path, opts, body) {},
+        ExprKind:SubDef(ret_type, path, args, body) {},
+    };
+};
+
+sub register_path_use(ptr<vec<u8>> out, Expr expr) {
+    ptr<u8> name = mangle(expr, false);
+    for i = 0, (i) < gen_types.len, i += 1 {
+        GenericType gen = gen_types.buf[i];
+        if gen.name == name {
+            match expr.kind {
+                ExprKind:Path(path) {
+                    vec<GenericInstance> gens = vec<GenericInstance>:new(2);
+                    for ii = 0, (ii) < gen.gens.len, ii += 1 {
+                        gens.push(GenericInstance {
+                            name = gen.gens.buf[i].name,
+                            path = path.buf[path.len - 1].gens.buf + i,
+                        });
+                    };
+                    generate_generic_expr(out, gen._type@, gens);
+                }
+            };
+        };
+    };
+};
+
 sub generate_mangle(ptr<vec<u8>> out, Expr expr) {
     vec<u8>:push(out, '_');
-    vec<u8>:join(out, mangle(expr));
-};
-
-ptr<u8> mangle(Expr expr) {
-    vec<PathPart> path = expr.kind.u.u2.path;
-    if path.len <= mangled_paths.len {
-        vec<MangledPath> paths = mangled_paths.buf[path.len - 1];
-        ~l for i = 0, (i) < paths.len, i += 1 {
-            if compare_paths(path, paths.buf[i].path) {
-                ret (paths.buf[i].name);
-            };
-        };
-    } else {
-        while path.len > mangled_paths.len {
-            mangled_paths.push(vec<MangledPath>:new(32));
-        };
-    };
-    ptr<u8> name = new_mangle(mangle_index += 1);
-    vec<MangledPath>:push(mangled_paths.buf[path.len - 1]$, MangledPath {
-        path = path,
-        name = name,
-    });
-    ret name;
-};
-
-ptr<u8> new_mangle(int index) {
-    vec<u8> name = vec<u8>:new(4);
-
-    while index > 0 {
-        int i = index % 62;
-        if (i) < 10 {
-            i += 48;
-        } elif (i) < 36 {
-            i += 55;
-        } else {
-            i += 61;
-        };
-        name.push(i);
-        index /= 62;
-    };
-
-    name.buf[name.len] = '\0';
-    ret (name.buf);
-};
-
-bool compare_paths(vec<PathPart> path1, vec<PathPart> path2) {
-    ~l for i = 0, (i) < path1.len, i += 1 {
-        PathPart part1 = path1.buf[i];
-        PathPart part2 = path2.buf[i];
-        if part1.gens.len == part2.gens.len {
-            if str:cmp(part1.name, part2.name) == 0 {
-                if compare_gens(part1.gens, part2.gens) {
-                    next ~l;
-                };
-            };
-        };
-        ret false;
-    };
-    ret true;
-};
-
-bool compare_gens(vec<Expr> gens1, vec<Expr> gens2) {
-    if gens1.len != gens2.len {
-        ret false;
-    };
-
-    for i = 0, (i) < gens1.len, i += 1 {
-        vec<PathPart> path1 = gens1.buf[i].kind.u.u2.path;
-        vec<PathPart> path2 = gens2.buf[i].kind.u.u2.path;
-
-        if compare_paths(path1, path2) == false {
-            ret false;
-        };
-    };
-    ret true;
+    vec<u8>:join(out, mangle(expr, true));
 };

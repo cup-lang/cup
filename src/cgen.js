@@ -289,6 +289,8 @@ function generateExpr(expr, last, semicolon, parenths) {
         return '';
     }
 
+    let out = '';
+
     if (expr.tags) {
         for (let i = 0; i < expr.tags.length; ++i) {
             const tag = expr.tags[i];
@@ -315,7 +317,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                 case 'bind':
                     break;
                 case 'raw':
-                    output += '\n' + tag.args[0].value + '\n';
+                    out += '\n' + tag.args[0].value + '\n';
                     break;
             }
         }
@@ -328,8 +330,6 @@ function generateExpr(expr, last, semicolon, parenths) {
         }
         expr.gen = oldScopeGens.concat(expr.gen);
     }
-
-    let out = '';
 
     s: switch (expr.kind) {
         case exprKind.USE:

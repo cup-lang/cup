@@ -53,7 +53,6 @@ comp Foo(
     T b,
 );
 
-
 `` TODO:
     ` cgen
     ` combo ops
