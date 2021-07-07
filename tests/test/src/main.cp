@@ -43,14 +43,20 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-int main() {
-    Foo<int> b;
+` order (types first, subs second)
+` headers
+
+int main () {
+    Foo:Bar<int, f32, f64> a;
 };
 
 #gen("T")
-comp Foo(
-    int a,
-    T b,
+#gen("U")
+#gen("V")
+comp Foo:Bar<T, U, V> (
+    T a,
+    U b,
+    V c,
 );
 
 `` TODO:

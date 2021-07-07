@@ -16,7 +16,7 @@ comp GenName {
 
 comp GenericType {
     ptr<u8> name,
-    vec<GenName> gens,
+    ptr<Expr> path,
     ptr<Expr> _type,
 };
 
@@ -33,48 +33,33 @@ sub analyze_expr_vec(vec<Expr> exprs) {
 };
 
 sub analyze_expr(ptr<Expr> expr) {
-    Expr path;
+    ptr<Expr> path;
     match expr@.kind {
         ExprKind:Block(body) {
             analyze_expr_vec(body);
             ret;
         },
         ExprKind:Comp(_path) {
-            path = _path@;
+            path = _path;
         },
         ExprKind:Enum(_path) {
-            path = _path@;
+            path = _path;
         },
         ExprKind:SubDef(_, _path) {
-            path = _path@;
+            path = _path;
         },
         _ {
             ret;
         }
     };
 
-    vec<GenName> gens = vec<GenName>:new(2);
-    for i = 0, (i) < expr@.tags.len, i += 1 {
-        match expr@.tags.buf[i].kind {
-            ExprKind:Tag(name, args) {
-                if str:cmp(name, "gen") == 0 {
-                    match args.buf[0].kind {
-                        ExprKind:StringLit(value) {
-                            gens.push(GenName {
-                                name = value,
-                            });
-                        },
-                    };
-                };
-            },
-        };
+    if has_generics(path@) {
+        gen_types.push(GenericType {
+            name = mangle(path@, false),
+            path = path,
+            _type = expr,
+        });
     };
-
-    gen_types.push(GenericType {
-        name = mangle(path, false),
-        gens = gens,
-        _type = expr,
-    });
 };
 
 ptr<u8> mangle(Expr expr, bool gens) {

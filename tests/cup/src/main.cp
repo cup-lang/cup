@@ -127,11 +127,10 @@ int main(int argc, ptr<ptr<u8>> argv) {
     vec<Expr> ast = vec<Expr>:new(8);
     lex_parse_recursive(input, ast$);
     analyze(ast);
-    vec<u8> out = vec<u8>:new(1024);
-    generate(out$, ast);
-    out.buf[out.len] = '\0';
+    ptr<u8> out = generate(ast);
     ptr<FILE> file_point = file:open(output, "w");
-    file:print(file_point, "%s", out.buf);
+    file:print(file_point, "%s", out);
+    mem:free(out);
 
     fmt:print("Compilation ");
     set_color(Color:Green);

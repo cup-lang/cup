@@ -494,7 +494,7 @@ function generateExpr(expr, last, semicolon, parenths) {
         case exprKind.WHILE:
             out += 'while(';
             out += generateExpr(expr.cond, 0, 0, 0);
-            out += ') {';
+            out += '){';
             out += generateBlock(expr.body, 1, 0);
             if (expr.label) {
                 out += `${expr.label}:`;
@@ -502,20 +502,20 @@ function generateExpr(expr, last, semicolon, parenths) {
             out += '}';
             break;
         case exprKind.IF:
-            out += 'if (';
+            out += 'if(';
             out += generateExpr(expr.if.cond, 0, 0, 0);
-            out += ') {';
+            out += '){';
             out += generateBlock(expr.if.body, 1, 0);
             out += '}';
             for (let i = 0; i < expr.elif.length; ++i) {
-                out += ' else if (';
+                out += ' else if(';
                 out += generateExpr(expr.elif[i].cond, 0, 0, 0);
-                out += ') {';
+                out += '){';
                 out += generateBlock(expr.elif[i].body, 1, 0);
                 out += '}';
             }
             if (expr.else) {
-                out += ' else {';
+                out += ' else{';
                 out += generateBlock(expr.else, 1, 0);
                 out += '}';
             }
@@ -525,7 +525,7 @@ function generateExpr(expr, last, semicolon, parenths) {
             out += generateExpr(expr.cond, 0, 0, 0);
             out += ';';
             out += generateExpr(expr.next, 0, 0, 0);
-            out += ') {';
+            out += '){';
             out += generateBlock(expr.body, 1, 0);
             if (expr.label) {
                 out += `${expr.label}:`;

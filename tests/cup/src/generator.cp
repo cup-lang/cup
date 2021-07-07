@@ -1,5 +1,12 @@
-sub generate(ptr<vec<u8>> out, vec<Expr> ast) {
-    generate_expr_vec(out, ast, false, false);    
+vec<GenericInstance> gens;
+vec<u8> out;
+
+ptr<u8> generate(vec<Expr> ast) {
+    gens = vec<GenericInstance>:new(2);
+    out = vec<u8>:new(1024);
+    generate_expr_vec(out$, ast, false, false); 
+    out.buf[out.len] = '\0';
+    ret (out.buf);
 };
 
 sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool comma) {
@@ -16,9 +23,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
     for i = 0, (i) < expr.tags.len, i += 1 {
         match expr.tags.buf[i].kind {
             ExprKind:Tag(name, args) {
-                if str:cmp(name, "gen") == 0 {
-                    ret;
-                } elif str:cmp(name, "os") == 0 {
+                if str:cmp(name, "os") == 0 {
                     match args.buf[0].kind {
                         ExprKind:StringLit(value) {
                             #raw("#if defined _WIN32")
@@ -64,6 +69,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             };
         },
         ExprKind:Comp(path, fields, body) {
+            if (gens.len == 0) & has_generics(path@) {
+                ret;
+            };
             vec<u8>:join(out, "typedef struct{");
             generate_expr_vec(out, fields, true, false);
             vec<u8>:push(out, '}');
@@ -71,6 +79,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, ';');
         },
         ExprKind:Enum(path, opts, body) {
+            if (gens.len == 0) & has_generics(path@) {
+                ret;
+            };
             vec<u8>:join(out, "typedef struct{");
             vec<u8>:join(out, "int t;union{");
             for i = 0, (i) < opts.len, i += 1 {
@@ -88,18 +99,25 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         ExprKind:Prop {},
         ExprKind:Def {},
         ExprKind:SubDef(ret_type, path, args, body) {
-            if ret_type != none {
-                generate_mangle(out, ret_type@);
-                vec<u8>:push(out, ' ');
-            } else {
-                vec<u8>:join(out, "void ");
+            if (gens.len == 0) & has_generics(path@) {
+                ret;
             };
-            generate_mangle(out, path@);
-            vec<u8>:push(out, '(');
-            generate_expr_vec(out, args, false, false);
-            vec<u8>:join(out, "){");
-            generate_expr_vec(out, body, true, false);
-            vec<u8>:join(out, "};");
+            vec<u8> sub_out = vec<u8>:new(256);
+            if ret_type != none {
+                generate_mangle(sub_out$, ret_type@);
+                vec<u8>:push(sub_out$, ' ');
+            } else {
+                vec<u8>:join(sub_out$, "void ");
+            };
+            generate_mangle(sub_out$, path@);
+            vec<u8>:push(sub_out$, '(');
+            generate_expr_vec(sub_out$, args, false, false);
+            vec<u8>:join(sub_out$, "){");
+            generate_expr_vec(sub_out$, body, true, false);
+            vec<u8>:join(sub_out$, "};");
+            sub_out.buf[sub_out.len] = '\0';
+            vec<u8>:join(out, sub_out.buf);
+            mem:free(sub_out.buf);
         },
         ExprKind:VarDef(_type, path, value) {
             generate_mangle(out, _type@);
@@ -113,7 +131,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         },
         ExprKind:LocalVarDef(_type, name, value) {
             generate_mangle(out, _type@);
-            register_path_use(out, _type@);
+            register_path_use(_type@);
             vec<u8>:push(out, ' ');
             vec<u8>:join(out, name);
             if value != none {
@@ -366,42 +384,54 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
     };
 };
 
+bool has_generics(Expr expr) {
+    match expr.kind {
+        ExprKind:Path(path) {
+            for i = 0, (i) < path.len, i += 1 {
+                if path.buf[i].gens.len > 0 {
+                    ret true;
+                };
+            };
+        },
+    };
+    ret false;
+};
+
 comp GenericInstance {
     ptr<u8> name,
     ptr<Expr> path,
 };
 
-sub generate_generic_expr(ptr<vec<u8>> out, Expr expr, vec<GenericInstance> gens) {
-    match expr.kind {
-        ExprKind:Comp(path, fields, body) {
-            vec<u8>:join(out, "typedef struct{");
-            generate_expr_vec(out, fields, true, false);
-            vec<u8>:push(out, '}');
-            generate_mangle(out, path@);
-            vec<u8>:push(out, ';');
-        },
-        ExprKind:Enum(path, opts, body) {},
-        ExprKind:SubDef(ret_type, path, args, body) {},
-    };
-};
-
-sub register_path_use(ptr<vec<u8>> out, Expr expr) {
+sub register_path_use(Expr expr) {
     ptr<u8> name = mangle(expr, false);
     for i = 0, (i) < gen_types.len, i += 1 {
         GenericType gen = gen_types.buf[i];
         if gen.name == name {
             match expr.kind {
                 ExprKind:Path(path) {
-                    vec<GenericInstance> gens = vec<GenericInstance>:new(2);
-                    for ii = 0, (ii) < gen.gens.len, ii += 1 {
-                        gens.push(GenericInstance {
-                            name = gen.gens.buf[i].name,
-                            path = path.buf[path.len - 1].gens.buf + i,
-                        });
+                    match gen.path@.kind {
+                        ExprKind:Path(type_path) {
+                            int old_gens_len = gens.len;
+                            for ii = 0, (ii) < type_path.len, ii += 1 {
+                                PathPart part = type_path.buf[ii];
+                                for iii = 0, (iii) < part.gens.len, iii += 1 {
+                                    match part.gens.buf[iii].kind {
+                                        ExprKind:Path(gen_path) {
+                                            gens.push(GenericInstance {
+                                                name = gen_path.buf[0].name,
+                                                path = path.buf[ii].gens.buf[iii]$,
+                                            });
+                                        },
+                                    };
+                                };
+                            };
+                            generate_expr(out$, gen._type@, false, false, 0);
+                            gens.len = old_gens_len;
+                        },
                     };
-                    generate_generic_expr(out, gen._type@, gens);
-                }
+                },
             };
+            ret;
         };
     };
 };

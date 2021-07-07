@@ -1,1 +1,1 @@
-_3 _1(){_4typedef struct{_3 a;_5 b;}_2; b;};
+typedef struct{_5 a;_6 b;_7 c;}_1;_2 _3(){_4 a;};
