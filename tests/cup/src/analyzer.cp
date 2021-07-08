@@ -105,14 +105,16 @@ ptr<u8> new_mangle(int index) {
 };
 
 bool compare_paths(vec<PathPart> path1, vec<PathPart> path2, bool gens) {
+    if path1.len != path2.len {
+        ret false;
+    };
+    
     ~l for i = 0, (i) < path1.len, i += 1 {
         PathPart part1 = path1.buf[i];
         PathPart part2 = path2.buf[i];
-        if (gens == false) | (part1.gens.len == part2.gens.len) {
-            if str:cmp(part1.name, part2.name) == 0 {
-                if (gens == false) | compare_gens(part1.gens, part2.gens) {
-                    next ~l;
-                };
+        if str:cmp(part1.name, part2.name) == 0 {
+            if (gens == false) | compare_gens(part1.gens, part2.gens) {
+                next ~l;
             };
         };
         ret false;

@@ -1,1 +1,2 @@
-typedef struct{_5 a;_6 b;_7 c;}_1;_2 _3(){_4 a;};
+#include "stdio.h"
+typedef struct _4 _4;typedef struct _4 _4;typedef struct _4 _4;typedef struct _4 _4;typedef struct _4 _4;_2 _3();typedef struct _4{_2 a;_5 b;_6 c;}_4;typedef struct _4{_2 a;_5 b;_6 c;}_4;typedef struct _4{_2 a;_5 b;_6 c;}_4;typedef struct _4{_2 a;_5 b;_6 c;}_4;typedef struct _4{_2 a;_5 b;_6 c;}_4;_2 _3(){_4 a;_4 a;_4 a;_4 a;_4 a;};

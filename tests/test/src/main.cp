@@ -43,9 +43,17 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` order (types first, subs second)
-` headers
+` gen replacement everywhere
+` dont generate gen twice
 
+` apply mods
+` binds
+` keep main
+` keep basic types
+
+` free exprs & generic replaced paths
+
+#req("stdio.h")
 int main () {
     Foo:Bar<int, f32, f64> a;
 };
@@ -58,7 +66,3 @@ comp Foo:Bar<T, U, V> (
     U b,
     V c,
 );
-
-`` TODO:
-    ` cgen
-    ` combo ops
