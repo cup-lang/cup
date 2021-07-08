@@ -91,6 +91,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                             vec<u8>:join(out, value);
                         },
                     };
+                } elif str:cmp(name, "bind") == 0 {
+                    ret;
                 };
             },
         };
@@ -100,10 +102,13 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         ExprKind:Block(body) {
             generate_expr_vec(out, body, false, false);
         },
+        ExprKind:Mod(_, body) {
+            generate_expr_vec(out, body, false, false);
+        },
         ExprKind:Field(_type, name) {
             Expr __type = apply_genenerics(_type@);
-            generate_mangle(out, __type);
             register_path_use(__type);
+            vec<u8>:join(out, mangle(__type, true, false));
             vec<u8>:push(out, ' ');
             vec<u8>:join(out, name);
             if semicolon {
@@ -113,24 +118,28 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             };
         },
         ExprKind:Comp(path, fields, body) {
-            if (gens.len == 0) & has_generics(path@) {
+            bool has_gens = has_generics(path@);
+            if (gens.len == 0) & has_gens {
                 ret;
             };
             Expr _path = apply_genenerics(path@);
-            ptr<u8> name = mangle(_path, true);
+            ptr<u8> name = mangle(_path, true, has_gens);
+            if has_gens & (name == none) {
+                ret;
+            };
 
-            vec<u8>:join(types_headers$, "typedef struct _");
+            vec<u8>:join(types_headers$, "typedef struct ");
             vec<u8>:join(types_headers$, name);
-            vec<u8>:join(types_headers$, " _");
+            vec<u8>:push(types_headers$, ' ');
             vec<u8>:join(types_headers$, name);
             vec<u8>:push(types_headers$, ';');
 
             vec<u8> comp_out = vec<u8>:new(128);
-            vec<u8>:join(comp_out$, "typedef struct _");
+            vec<u8>:join(comp_out$, "typedef struct ");
             vec<u8>:join(comp_out$, name);
             vec<u8>:push(comp_out$, '{');
             generate_expr_vec(comp_out$, fields, true, false);
-            vec<u8>:join(comp_out$, "}_");
+            vec<u8>:push(comp_out$, '}');
             vec<u8>:join(comp_out$, name);
             vec<u8>:push(comp_out$, ';');
             comp_out.buf[comp_out.len] = '\0';
@@ -138,19 +147,24 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             mem:free(comp_out.buf);
         },
         ExprKind:Enum(path, opts, body) {
-            if (gens.len == 0) & has_generics(path@) {
+            bool has_gens = has_generics(path@);
+            if (gens.len == 0) & has_gens {
                 ret;
             };
-            ptr<u8> name = mangle(path@, true);
+            Expr _path = apply_genenerics(path@);
+            ptr<u8> name = mangle(_path, true, has_gens);
+            if has_gens & (name == none) {
+                ret;
+            };
 
-            vec<u8>:join(types_headers$, "typedef struct _");
+            vec<u8>:join(types_headers$, "typedef struct ");
             vec<u8>:join(types_headers$, name);
-            vec<u8>:join(types_headers$, " _");
+            vec<u8>:push(types_headers$, ' ');
             vec<u8>:join(types_headers$, name);
             vec<u8>:push(types_headers$, ';');
 
             vec<u8> enum_out = vec<u8>:new(256);
-            vec<u8>:join(enum_out$, "typedef struct _");
+            vec<u8>:join(enum_out$, "typedef struct ");
             vec<u8>:join(enum_out$, name);
             vec<u8>:push(enum_out$, '{');
             vec<u8>:join(enum_out$, "int t;union{");
@@ -162,7 +176,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 mem:free(union_name);
                 vec<u8>:push(enum_out$, ';');
             };
-            vec<u8>:join(enum_out$, "}u;}_");
+            vec<u8>:join(enum_out$, "}u;}");
             vec<u8>:join(enum_out$, name);
             vec<u8>:push(enum_out$, ';');
             enum_out.buf[enum_out.len] = '\0';
@@ -172,18 +186,25 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         ExprKind:Prop {},
         ExprKind:Def {},
         ExprKind:SubDef(ret_type, path, args, body) {
-            if (gens.len == 0) & has_generics(path@) {
+            bool has_gens = has_generics(path@);
+            if (gens.len == 0) & has_gens {
                 ret;
             };
 
+            Expr _path = apply_genenerics(path@);
+            ptr<u8> name = mangle(_path, true, has_gens);
+            if has_gens & (name == none) {
+                ret;
+            };
             vec<u8> sub_out = vec<u8>:new(256);
             if ret_type != none {
-                generate_mangle(sub_out$, ret_type@);
+                Expr _ret_type = apply_genenerics(ret_type@);
+                vec<u8>:join(sub_out$, mangle(_ret_type, true, false));
                 vec<u8>:push(sub_out$, ' ');
             } else {
                 vec<u8>:join(sub_out$, "void ");
             };
-            generate_mangle(sub_out$, path@);
+            vec<u8>:join(sub_out$, name);
             vec<u8>:push(sub_out$, '(');
             generate_expr_vec(sub_out$, args, false, false);
             sub_out.buf[sub_out.len] = '\0';
@@ -198,10 +219,13 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             mem:free(sub_out.buf);
         },
         ExprKind:VarDef(_type, path, value) {
-            generate_mangle(out, _type@);
-            register_path_use(_type@);
+            Expr __type = apply_genenerics(_type@);
+            register_path_use(__type);
+            vec<u8>:join(out, mangle(__type, true, false));
             vec<u8>:push(out, ' ');
-            generate_mangle(out, path@);
+            Expr _path = apply_genenerics(path@);
+            register_path_use(_path);
+            vec<u8>:join(out, mangle(_path, true, false));
             if value != none {
                 vec<u8>:push(out, '=');
                 generate_expr(out, value@, false, false, 0);
@@ -209,8 +233,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, ';');
         },
         ExprKind:LocalVarDef(_type, name, value) {
-            register_path_use(_type@);
-            generate_mangle(out, _type@);
+            Expr __type = apply_genenerics(_type@);
+            register_path_use(__type);
+            vec<u8>:join(out, mangle(__type, true, false));
             vec<u8>:push(out, ' ');
             vec<u8>:join(out, name);
             if value != none {
@@ -220,8 +245,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, ';');
         },
         ExprKind:SubCall(path, args) {
-            generate_mangle(out, path@);
-            register_path_use(path@);
+            Expr _path = apply_genenerics(path@);
+            register_path_use(_path);
+            vec<u8>:join(out, mangle(_path, true, false));
             vec<u8>:push(out, '(');
             generate_expr_vec(out, args, false, true);
             vec<u8>:push(out, ')');
@@ -230,7 +256,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             };
         },
         ExprKind:VarUse(path) {
-            generate_mangle(out, path@);
+            Expr _path = apply_genenerics(path@);
+            register_path_use(_path);
+            vec<u8>:join(out, mangle(_path, true, false));
             if semicolon {
                 vec<u8>:push(out, ';');
             };
@@ -478,7 +506,7 @@ bool has_generics(Expr expr) {
 };
 
 sub register_path_use(Expr expr) {
-    ptr<u8> name = mangle(expr, false);
+    ptr<u8> name = mangle(expr, false, false);
     for i = 0, (i) < gen_types.len, i += 1 {
         GenericType gen = gen_types.buf[i];
         if gen.name == name {
@@ -535,9 +563,4 @@ Expr apply_genenerics(Expr expr) {
         },
     };
     ret expr;
-};
-
-sub generate_mangle(ptr<vec<u8>> out, Expr expr) {
-    vec<u8>:push(out, '_');
-    vec<u8>:join(out, mangle(expr, true));
 };

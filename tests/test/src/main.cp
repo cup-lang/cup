@@ -43,19 +43,23 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` gen replacement everywhere
-` dont generate gen twice
-
-` apply mods
-` binds
+` dont mangle locals
 ` keep main
 ` keep basic types
+` #self
+` match/case
 
 ` free exprs & generic replaced paths
 
 #req("stdio.h")
 int main () {
     Foo:Bar<int, f32, f64> a;
+    mem:alloc(1);
+};
+
+mod mem {
+    #bind("malloc")
+    ptr<int> alloc(int size);
 };
 
 #gen("T")

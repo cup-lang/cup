@@ -210,7 +210,7 @@ function generateEnum(expr, gen) {
             out += `${gname + '_' + expr.body[i].name} u${i};`;
         }
     }
-    out += `char _;};struct ${gname}{int type;union ${gname}Union u;};`;
+    out += `char _;};struct ${gname}{int _type;union ${gname}Union u;};`;
     return out;
 }
 
@@ -403,7 +403,7 @@ function generateExpr(expr, last, semicolon, parenths) {
                 let _enum = enumExprs[enumName];
                 if (_enum) {
                     const index = _enum.body.map(e => e.name).indexOf(expr.path[expr.path.length - 1].name);
-                    out += `(${enumName}){.type=${index},.u={.u${index}={`;
+                    out += `(${enumName}){._type=${index},.u={.u${index}={`;
                     if (expr.args.length > 0) {
                         for (let i = 0; i < expr.args.length; ++i) {
                             out += '.';
@@ -542,15 +542,15 @@ function generateExpr(expr, last, semicolon, parenths) {
                 const name = _case.path[_case.path.length - 1].name;
                 let index = _enum.body.map(e => e.name).indexOf(name);
                 if (index === -1) {
-                    index = `${generateExpr(_case, 0, 0, 0)}.type`;
+                    index = `${generateExpr(_case, 0, 0, 0)}._type`;
                 }
                 if (name === '_') {
                     out += `}else{`;
                 } else {
                     if (i === 0) {
-                        out += `if(${value}.type==${index}){`;
+                        out += `if(${value}._type==${index}){`;
                     } else {
-                        out += `}else if(${value}.type==${index}){`;
+                        out += `}else if(${value}._type==${index}){`;
                     }
                 }
                 if (_case.kind === exprKind.SUB_CALL) {

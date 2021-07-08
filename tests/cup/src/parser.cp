@@ -15,7 +15,7 @@ enum ExprKind {
     Path(vec<PathPart> path),
     TagDef(ptr<Expr> path, vec<Expr> args, vec<Expr> body),
     Block(vec<Expr> body),
-    Mod(ptr<Expr> path),
+    Mod(ptr<Expr> path, vec<Expr> body),
     Use(ptr<Expr> path),
     Field(ptr<Expr> _type, ptr<u8> name),
     Comp(ptr<Expr> path, vec<Expr> fields, vec<Expr> body),
@@ -508,7 +508,13 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         TokenKind:Mod {
             index@ += 1;
             ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
-            expr.kind = ExprKind:Mod(path);
+            vec<Expr> body;
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
+                body = parse_block(file, tokens, index, false);
+            } else {
+                body.len = 0;
+            };
+            expr.kind = ExprKind:Mod(path, body);
         },
         TokenKind:Use {
             index@ += 1;
@@ -522,7 +528,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             vec<Expr> fields = parse_fields(file, tokens, index);
             vec<Expr> body;
             if opt_token(tokens, index, TokenKind:LeftBrace) {
-                body = parse_block(file, tokens, index, true);
+                body = parse_block(file, tokens, index, false);
             } else {
                 body.len = 0;
             };
@@ -535,7 +541,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             vec<Expr> opts = parse_options(file, tokens, index);
             vec<Expr> body;
             if opt_token(tokens, index, TokenKind:LeftBrace) {
-                body = parse_block(file, tokens, index, true);
+                body = parse_block(file, tokens, index, false);
             } else {
                 body.len = 0;
             };
@@ -907,9 +913,10 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:Block(body) {
             print_opt_expr_vec(body, depth, "body", false);
         },
-        ExprKind:Mod(path) {
+        ExprKind:Mod(path, body) {
             fmt:print("path = ");
             print_expr(path@, depth);
+            print_opt_expr_vec(body, depth, "body", false);
         },
         ExprKind:Use(path) {
             fmt:print("path = ");
