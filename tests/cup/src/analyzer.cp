@@ -7,8 +7,14 @@ comp MangledPath {
     ptr<u8> name,
 };
 
+comp MangledLocalName {
+    ptr<u8> local_name,
+    ptr<u8> name,
+};
+
 int mangle_index = 0;
 vec<vec<MangledPath>> mangled_paths;
+vec<MangledLocalName> mangled_local_names;
 
 comp GenericType {
     ptr<u8> name,
@@ -21,6 +27,7 @@ vec<GenericType> gen_types;
 sub analyze(vec<Expr> ast) {
     mods = vec<PathPart>:new(4);
     mangled_paths = vec<vec<MangledPath>>:new(8);
+    mangled_local_names = vec<MangledLocalName>:new(16);
     gen_types = vec<GenericType>:new(8);
     analyze_expr_vec(ast);
 };
@@ -98,6 +105,13 @@ sub analyze_expr(ptr<Expr> expr) {
 
 ptr<u8> mangle(Expr expr, bool gens, bool new) {
     vec<PathPart> path = expr.kind.u.u2.path;
+    if (path.len == 1) & (path.buf[0].gens.len == 0) {
+        for i = 0, (i) < mangled_local_names.len, i += 1 {
+            if str:cmp(path.buf[0].name, mangled_local_names.buf[i].local_name) == 0 {
+                ret (mangled_local_names.buf[i].name);
+            };
+        };
+    };
     if path.len <= mangled_paths.len {
         vec<MangledPath> paths = mangled_paths.buf[path.len - 1];
         ~l for i = 0, (i) < paths.len, i += 1 {
@@ -114,7 +128,7 @@ ptr<u8> mangle(Expr expr, bool gens, bool new) {
             mangled_paths.push(vec<MangledPath>:new(32));
         };
     };
-    ptr<u8> name = new_mangle(mangle_index += 1);
+    ptr<u8> name = new_mangle(mangle_index += 1, false);
     vec<MangledPath>:push(mangled_paths.buf[path.len - 1]$, MangledPath {
         path = path,
         name = name,
@@ -122,9 +136,13 @@ ptr<u8> mangle(Expr expr, bool gens, bool new) {
     ret name;
 };
 
-ptr<u8> new_mangle(int index) {
+ptr<u8> new_mangle(int index, bool local) {
     vec<u8> name = vec<u8>:new(4);
-    name.push('_');
+    if local {
+        name.join("__");
+    } else {
+        name.push('_');
+    };
 
     while index > 0 {
         int i = index % 62;

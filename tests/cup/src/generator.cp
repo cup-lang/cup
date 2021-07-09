@@ -41,6 +41,7 @@ ptr<u8> generate(vec<Expr> ast) {
 };
 
 sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool comma) {
+    int old_local_names_len = mangled_local_names.len;
     for i = 0, (i) < exprs.len, i += 1 {
         bool is_last = i + 1 == exprs.len;
         generate_expr(out, exprs.buf[i], is_last, semicolon, 0);
@@ -48,6 +49,7 @@ sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool co
             vec<u8>:push(out, ',');
         };
     };
+    clean_local_names(old_local_names_len);
 };
 
 sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int parenths) {
@@ -171,7 +173,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             for i = 0, (i) < opts.len, i += 1 {
                 vec<u8>:join(enum_out$, "struct{");
                 vec<u8>:join(enum_out$, "}u");
-                ptr<u8> union_name = new_mangle(i + 1);
+                ptr<u8> union_name = new_mangle(i + 1, false);
                 vec<u8>:join(enum_out$, union_name);
                 mem:free(union_name);
                 vec<u8>:push(enum_out$, ';');
@@ -237,7 +239,12 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             register_path_use(__type);
             vec<u8>:join(out, mangle(__type, true, false));
             vec<u8>:push(out, ' ');
-            vec<u8>:join(out, name);
+            ptr<u8> _name = new_mangle(mangled_local_names.len + 1, true);
+            mangled_local_names.push(MangledLocalName {
+                local_name = name, 
+                name = _name,
+            });
+            vec<u8>:join(out, _name);
             if value != none {
                 vec<u8>:push(out, '=');
                 generate_expr(out, value@, false, false, 0);
@@ -490,6 +497,13 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr(out, valueB@, false, false, parenths + 1);
         },
     };
+};
+
+sub clean_local_names(int old_len) {
+    for i = old_len, (i) < mangled_local_names.len, i += 1 {
+        mem:free(mangled_local_names.buf[i].name);
+    };
+    mangled_local_names.len = old_len;
 };
 
 bool has_generics(Expr expr) {

@@ -213,7 +213,7 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                 data.buf[data.len] = '\0';
                 file:close(file_point);
                 
-                fmt:print("Compiling %s:\n", new_path);
+                ` fmt:print("Compiling %s:\n", new_path);
                 File file = File {
                     name = new_path,
                     data = data,

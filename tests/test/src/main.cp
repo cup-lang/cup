@@ -43,7 +43,6 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` dont mangle locals
 ` keep main
 ` keep basic types
 ` #self
@@ -52,9 +51,9 @@
 ` free exprs & generic replaced paths
 
 #req("stdio.h")
-int main () {
+int main (int argc, ptr<ptr<u8>> argv) {
     Foo:Bar<int, f32, f64> a;
-    mem:alloc(1);
+    mem:alloc(a);
 };
 
 mod mem {
