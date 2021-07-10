@@ -43,29 +43,7 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` keep main
-` keep basic types
 ` #self
 ` match/case
 
 ` free exprs & generic replaced paths
-
-#req("stdio.h")
-int main (int argc, ptr<ptr<u8>> argv) {
-    Foo:Bar<int, f32, f64> a;
-    mem:alloc(a);
-};
-
-mod mem {
-    #bind("malloc")
-    ptr<int> alloc(int size);
-};
-
-#gen("T")
-#gen("U")
-#gen("V")
-comp Foo:Bar<T, U, V> (
-    T a,
-    U b,
-    V c,
-);

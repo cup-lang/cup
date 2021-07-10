@@ -1,18 +1,17 @@
-comp GenericInstance {
+comp GenericInstance (
     ptr<u8> name,
     ptr<Expr> path,
-};
+);
 
 vec<GenericInstance> gens;
 
-comp Req {
+comp Req (
     ptr<u8> name,
-};
+);
 
 vec<Req> reqs;
 vec<u8> types_headers;
 vec<u8> funcs_headers;
-vec<u8> globals;
 vec<u8> types;
 vec<u8> funcs;
 
@@ -21,12 +20,11 @@ ptr<u8> generate(vec<Expr> ast) {
     reqs = vec<Req>:new(4);
     types_headers = vec<u8>:new(256);
     funcs_headers = vec<u8>:new(256);
-    globals = vec<u8>:new(512); 
     types = vec<u8>:new(1024);
     funcs = vec<u8>:new(1024);
-    generate_expr_vec(globals$, ast, false, false, false);
-    vec<u8> out = vec<u8>:new((reqs.len * 32) + types_headers.len + funcs_headers.len + globals.len + types.len + funcs.len);
-    types_headers.buf[types_headers.len] = funcs_headers.buf[funcs_headers.len] = globals.buf[globals.len] = types.buf[types.len] = funcs.buf[funcs.len] = '\0';
+    generate_expr_vec(none, ast, false, false, false);
+    vec<u8> out = vec<u8>:new((reqs.len * 32) + types_headers.len + funcs_headers.len + types.len + funcs.len);
+    types_headers.buf[types_headers.len] = funcs_headers.buf[funcs_headers.len] = types.buf[types.len] = funcs.buf[funcs.len] = '\0';
     for i = 0, (i) < reqs.len, i += 1 {
         out.join("#include ");
         out.push('"');
@@ -36,7 +34,6 @@ ptr<u8> generate(vec<Expr> ast) {
     };
     out.join(types_headers.buf);
     out.join(funcs_headers.buf);
-    ` out.join(globals.buf);
     out.join(types.buf);
     out.join(funcs.buf);
     out.buf[out.len] = '\0';
@@ -90,9 +87,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                     next ~l;
                                 };
                             };
-                            reqs.push(Req {
+                            reqs.push(Req(
                                 name = value,
-                            });
+                            ));
                         },
                     };
                 } elif str:cmp(name, "raw") == 0 {
@@ -534,10 +531,10 @@ sub register_path_use(Expr expr) {
                                 for iii = 0, (iii) < part.gens.len, iii += 1 {
                                     match part.gens.buf[iii].kind {
                                         ExprKind:Path(gen_path) {
-                                            gens.push(GenericInstance {
+                                            gens.push(GenericInstance(
                                                 name = gen_path.buf[0].name,
                                                 path = path.buf[ii].gens.buf[iii]$,
-                                            });
+                                            ));
                                         },
                                     };
                                 };
@@ -555,10 +552,10 @@ sub register_path_use(Expr expr) {
 
 ptr<u8> register_local_name(ptr<u8> local_name) {
     ptr<u8> name = new_mangle(mangled_local_names.len + 1, true).buf;
-    mangled_local_names.push(MangledLocalName {
+    mangled_local_names.push(MangledLocalName(
         local_name = local_name, 
         name = name,
-    });
+    ));
     ret name;
 };
 

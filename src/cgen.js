@@ -70,7 +70,7 @@ function generateType(type, raw) {
         else if (path === 'float' || path === 'f64') {
             out += 'double';
         }
-        else if (path === 'int' || path === 'u32') {
+        else if (path === 'uint' || path === 'u32') {
             out += 'uint32_t';
         }
         else if (path === 'i64') {

@@ -150,12 +150,12 @@ ptr<u8> get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
     ret none;
 };
 
-enum Color {
+enum Color (
     Reset,
     Magenta,
     Green,
     Red,
-};
+);
 
 #os("win")
 sub set_color(Color color) {
@@ -213,23 +213,23 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                 data.buf[data.len] = '\0';
                 file:close(file_point);
                 
-                fmt:print("Compiling %s:\n", new_path);
-                File file = File {
+                ` fmt:print("Compiling %s:\n", new_path);
+                File file = File(
                     name = new_path,
                     data = data,
-                };
+                );
                 vec<Token> tokens = lex(file);
                 `print_tokens(tokens);
                 vec<Expr> exprs = parse(file, tokens);
                 `print_exprs(exprs);
                 
-                vec<Expr>:push(ast, Expr {
-                    tags = vec<Expr> {
+                vec<Expr>:push(ast, Expr(
+                    tags = vec<Expr>(
                         len = 0,
-                    },
+                    ),
                     label = none,
                     kind = ExprKind:Block(exprs),
-                });
+                ));
 
                 mem:free(data.buf);
                 mem:free(tokens.buf);
@@ -240,7 +240,7 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
     dir:close(dir);
 };
 
-comp File {
+comp File (
     ptr<u8> name,
     arr<u8> data,
-};
+);
