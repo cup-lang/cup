@@ -94,6 +94,17 @@ sub analyze_expr(ptr<Expr> expr) {
         ExprKind:Enum(_path) {
             path = _path;
         },
+        ExprKind:Def(_prop, target, body) {
+            int old_mods_len = mods.len;
+            match _prop@.kind {
+                ExprKind:Path(_path) {
+                    mods.join_vec(_path);
+                },
+            };
+            analyze_expr_vec(body);
+            mods.len = old_mods_len;
+            ret;
+        },
         ExprKind:SubDef(_, _path) {
             path = _path;
         },

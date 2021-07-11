@@ -1,1 +1,2 @@
-_1* main();_1* main(){};
+#include "stdint.h"
+typedef struct _3 _3;int32_t main();void _4(_3* this,uint8_t __2);typedef struct _3{uint8_t* buf;int32_t len;int32_t cap;}_3;void _4(_3* this,uint8_t __2){(((*this)._5)[((*this)._6)])=__2;((*this)._6)+=1;if(((*this)._6)==((*this)._7)){((*this)._7)*=2;((*this)._5)=_8((*this)._5,_9()*((*this)._7));}};int32_t main(){_3 __1;_4((&__1),1);};

@@ -27,9 +27,26 @@ def vec<T> {
     };
 
     #self
+    sub push_back(T item) {
+        this.len += 1;
+
+        if this.len == this.cap {
+            this.cap *= 2;
+            this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
+        };
+
+        mem:copy(this.buf, this.buf + 1, mem:size<T>() * (this.len - 1));
+        this.buf[0] = item;
+    };
+
+    #self
     sub join(ptr<T> other) {
+        int other_len = str:len(other);
+        if other_len == 0 {
+            ret;
+        };
         int old_len = this.len;
-        this.len += str:len(other);
+        this.len += other_len;
         while this.len >= this.cap {
             this.cap *= 2;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
@@ -70,16 +87,4 @@ def vec<T> {
     sub empty() {
         this.buf[0] = this.len = 0;
     };
-};
-
-sub push_char(ptr<vec<u8>> v, u8 c) {
-    v@.buf[v@.len] = c;
-    v@.len += 1;
-
-    if v@.len == v@.cap {
-        v@.cap *= 2;
-        v@.buf = mem:realloc(v@.buf, mem:size<u8>() * v@.cap);
-    };
-
-    v@.buf[v@.len] = 0;
 };

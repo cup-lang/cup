@@ -564,9 +564,11 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         TokenKind:Def {
             index@ += 1;
             ptr<Expr> _prop = alloc<Expr>(parse_path(file, tokens, index));
-            ptr<Expr> _target = none;
+            ptr<Expr> target;
             if opt_token(tokens, index, TokenKind:Comma) {
-                _target = alloc<Expr>(parse_path(file, tokens, index));
+                target = alloc<Expr>(parse_path(file, tokens, index));
+            } else {
+                target = none;
             };
             vec<Expr> body;
             if opt_token(tokens, index, TokenKind:LeftBrace) {
@@ -574,7 +576,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
             } else {
                 body.len = 0;
             };
-            expr.kind = ExprKind:Def(_prop, _target, body);
+            expr.kind = ExprKind:Def(_prop, target, body);
         },
         TokenKind:Sub {
             index@ += 1;

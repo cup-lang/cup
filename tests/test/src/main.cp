@@ -43,7 +43,39 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` #self
+#req("stdint.h")
+int main() {
+    vec<u8> foo;
+    ` foo.push('1');
+    ` foo.push('2');
+    ` foo.push('3');
+    vec<u8>:push(foo$, 1);
+};
+
+#gen("T")
+comp vec<T> (
+    ptr<T> buf,
+    int len,
+    int cap,
+);
+
+#gen("T")
+def vec<T> {
+    #self
+    sub push(T item) {
+        this.buf[this.len] = item;
+        this.len += 1;
+
+        if this.len == this.cap {
+            this.cap *= 2;
+            this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
+        };
+    };
+};
+
+` dont mangle . rhs
+` auto #self from .
+` sizeof
 ` match/case
 
 ` free exprs & generic replaced paths

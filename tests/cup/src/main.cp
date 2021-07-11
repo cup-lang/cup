@@ -219,9 +219,9 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                     data = data,
                 };
                 vec<Token> tokens = lex(file);
-                `print_tokens(tokens);
+                ` print_tokens(tokens);
                 vec<Expr> exprs = parse(file, tokens);
-                `print_exprs(exprs);
+                ` print_exprs(exprs);
                 
                 vec<Expr>:push(ast, Expr {
                     tags = vec<Expr> {

@@ -36,7 +36,7 @@ ptr<u8> generate(vec<Expr> ast) {
     };
     out.join(types_headers.buf);
     out.join(funcs_headers.buf);
-    ` out.join(globals.buf);
+    out.join(globals.buf);
     out.join(types.buf);
     out.join(funcs.buf);
     out.buf[out.len] = '\0';
@@ -123,7 +123,11 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             if semicolon {
                 vec<u8>:join(out, name);
             } else {
-                vec<u8>:join(out, register_local_name(name));
+                if str:cmp(name, "this") == 0 {
+                    vec<u8>:join(out, "this");
+                } else {
+                    vec<u8>:join(out, register_local_name(name));
+                };
             };
             if semicolon {
                 vec<u8>:push(out, ';');
@@ -205,6 +209,18 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 ret;
             };
 
+            bool is_self = false;
+            ~t for i = 0, (i) < expr.tags.len, i += 1 {
+                match expr.tags.buf[i].kind {
+                    ExprKind:Tag(name, args) {
+                        if str:cmp(name, "self") == 0 {
+                            is_self = true;
+                            ret ~t;
+                        };
+                    },
+                };
+            };
+
             Expr _path = apply_genenerics(path@);
             ptr<u8> name = mangle(_path, true, has_gens, 0);
             if has_gens & (name == none) {
@@ -220,7 +236,46 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             };
             vec<u8>:join(sub_out$, name);
             vec<u8>:push(sub_out$, '(');
-            generate_expr_vec(sub_out$, args, false, false, false);
+
+            if is_self {
+                vec<Expr> _args = vec<Expr>:new(args.len + 1);
+                mem:copy(_args.buf + 1, args.buf, mem:size<Expr>() * args.len);
+                _args.len = args.len + 1;
+                match _path.kind {
+                    ExprKind:Path(__path) {
+                        __path.len -= 1;
+                        vec<PathPart> this_ptr = vec<PathPart>:new(1);
+                        vec<Expr> this_ptr_gens = vec<Expr>:new(1);
+                        this_ptr_gens.buf[0] = Expr {
+                            kind = ExprKind:Path(__path),
+                            tags = vec<Expr> { len = 0, },
+                            label = none,
+                        };
+                        this_ptr_gens.len = 1;
+                        this_ptr.buf[0] = PathPart {
+                            name = "ptr",
+                            gens = this_ptr_gens,
+                        };
+                        this_ptr.len = 1;
+                        _args.buf[0] = Expr {
+                            kind = ExprKind:Field(
+                                alloc<Expr>(Expr {
+                                    kind = ExprKind:Path(this_ptr),
+                                    tags = vec<Expr> { len = 0, },
+                                    label = none,
+                                }),
+                                "this",
+                            ),
+                            tags = vec<Expr> { len = 0, },
+                            label = none,
+                        };
+                    },
+                };
+                generate_expr_vec(sub_out$, _args, false, false, false);
+            } else {
+                generate_expr_vec(sub_out$, args, false, false, false);
+            };
+            
             sub_out.buf[sub_out.len] = '\0';
             vec<u8>:join(funcs_headers$, sub_out.buf);
             vec<u8>:join(funcs_headers$, ");");
@@ -299,6 +354,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             } else {
                 vec<u8>:push(out, '0');
             };
+        },
+        ExprKind:ThisLit {
+            vec<u8>:join(out, "(*this)");
         },
         ExprKind:LocalBlock(body) {
             vec<u8>:push(out, '{');

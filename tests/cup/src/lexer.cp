@@ -230,7 +230,8 @@ sub add_to_value(File file, ptr<vec<u8>> value, int i, u8 c, u8 is_literal) {
     if (is_literal == 2) & (value@.len == 4) {
         throw(file, i, "too many characters in character literal");
     };
-    push_char(value, c);
+    vec<u8>:push(value, c);
+    value@.buf[value@.len] = '\0';
 };
 
 TokenKind get_keyword(ptr<u8> value) {
