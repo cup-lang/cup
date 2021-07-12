@@ -1,8 +1,13 @@
-sub REMOVE_ME() { vec<VarName>:new(0); };
+sub REMOVE_ME() { vec<FieldValue>:new(0); vec<VarName>:new(0); };
 
 comp PathPart {
     ptr<u8> name,
     vec<Expr> gens,
+};
+
+comp FieldValue {
+    ptr<u8> name,
+    ptr<Expr> value,
 };
 
 comp VarName {
@@ -29,6 +34,7 @@ enum ExprKind {
     LocalVarDef(ptr<Expr> _type, ptr<u8> name, ptr<Expr> value),
     SubCall(ptr<Expr> path, vec<Expr> args),
     VarUse(ptr<Expr> path),
+    CompInst(ptr<Expr> _type, vec<FieldValue> field_vals),
     StringLit(ptr<u8> value),
     CharLit(ptr<u8> value),
     IntLit(ptr<u8> value),
@@ -166,7 +172,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
             ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
 
             if opt_token(tokens, index, TokenKind:LeftParen) {
-                vec<Expr> args = vec<Expr>:new(2);
+                vec<Expr> args = vec<Expr>:new(4);
                 ~ll loop {
                     if opt_token(tokens, index, TokenKind:RightParen) {
                         ret ~ll;
@@ -180,7 +186,31 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                     };
                 };
                 expr.kind = ExprKind:SubCall(path, args);
-                ` sub call
+                ret ~l;
+            };
+
+            if opt_token(tokens, index, TokenKind:LeftBrace) {
+                vec<FieldValue> field_vals = vec<FieldValue>:new(4);
+
+                ~f loop {
+                    if opt_token(tokens, index, TokenKind:RightBrace) {
+                        ret ~f;
+                    };
+
+                    ptr<u8> name = expect_token(file, tokens, index, TokenKind:Ident, "expected field name").value;
+                    expect_token(file, tokens, index, TokenKind:Assign, "expected '=' after field name");
+                    field_vals.push(FieldValue {
+                        name = name,
+                        value = alloc<Expr>(parse_local(file, tokens, index, 0, false)),
+                    });
+
+                    if opt_token(tokens, index, TokenKind:Comma) == false {
+                        expect_token(file, tokens, index, TokenKind:RightBrace, "expected '}' after last field");
+                        ret ~f;
+                    };
+                };
+
+                expr.kind = ExprKind:CompInst(path, field_vals);
                 ret ~l;
             };
 
@@ -1007,6 +1037,19 @@ sub print_expr(Expr expr, int depth) {
             fmt:print("path = ");
             print_expr(path@, depth);
         },
+        ExprKind:CompInst(_type, field_vals) {
+            fmt:print("type = ");
+            print_expr(_type@, depth);
+            fmt:print(", field_vals = [");
+            for i = 0, (i) < field_vals.len, i += 1 {
+                if i != 0 {
+                    fmt:print(", ");
+                };
+                fmt:print("%s = ", field_vals.buf[i].name);
+                print_expr(field_vals.buf[i].value@, depth);
+            };
+            fmt:print("]");
+        },
         ExprKind:StringLit(value) {
             fmt:print("%s", value);
         },
@@ -1154,6 +1197,7 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:LocalVarDef { ret "LOCAL_VAR_DEF"; },
         ExprKind:SubCall { ret "SUB_CALL"; },
         ExprKind:VarUse { ret "VAR_USE"; },
+        ExprKind:CompInst { ret "COMP_INST"; },
         ExprKind:StringLit { ret "STRING_LIT"; },
         ExprKind:CharLit { ret "CHAR_LIT"; },
         ExprKind:IntLit { ret "INT_LIT"; },

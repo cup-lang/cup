@@ -43,13 +43,23 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
+vec<u8> foo;
+
 #req("stdint.h")
-int main() {
-    vec<u8> foo;
-    ` foo.push('1');
-    ` foo.push('2');
-    ` foo.push('3');
-    vec<u8>:push(foo$, 1);
+int main(vec<u8> bar) {
+    foo.push('1');
+    foo.push('2');
+    foo.push('3');
+
+    bar.push('1');
+    bar.push('2');
+    bar.push('3');
+
+    vec<f32> bar = vec<f32> {
+        buf = buf,
+        len = len,
+        cap = cap,
+    };
 };
 
 #gen("T")
@@ -73,9 +83,14 @@ def vec<T> {
     };
 };
 
-` dont mangle . rhs
-` auto #self from .
-` sizeof
-` match/case
+#req("stdlib.h")
+mod mem {
+    #bind("realloc")
+    sub realloc();
+};
+
+` add comp inst
+` fix globals value
+` add match/case
 
 ` free exprs & generic replaced paths

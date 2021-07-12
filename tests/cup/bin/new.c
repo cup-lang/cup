@@ -1,2 +1,3 @@
 #include "stdint.h"
-typedef struct _3 _3;int32_t main();void _4(_3* this,uint8_t __2);typedef struct _3{uint8_t* buf;int32_t len;int32_t cap;}_3;void _4(_3* this,uint8_t __2){(((*this)._5)[((*this)._6)])=__2;((*this)._6)+=1;if(((*this)._6)==((*this)._7)){((*this)._7)*=2;((*this)._5)=_8((*this)._5,_9()*((*this)._7));}};int32_t main(){_3 __1;_4((&__1),1);};
+#include "stdlib.h"
+typedef struct _4 _4;int main(_4 __1);void _5(_4* this,uint8_t __2);_4 _1;typedef struct _4{uint8_t* buf;int len;int cap;}_4;void _5(_4* this,uint8_t __2){(((*this).buf)[((*this).len)])=__2;((*this).len)+=1;if(((*this).len)==((*this).cap)){((*this).cap)*=2;((*this).buf)=realloc((*this).buf,sizeof(uint8_t)*((*this).cap));}};int main(_4 __1){_5((&_1),'1');_5((&_1),'2');_5((&_1),'3');_5((&__1),'1');_5((&__1),'2');_5((&__1),'3');};

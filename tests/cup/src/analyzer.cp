@@ -24,11 +24,13 @@ comp GenericType {
 
 vec<GenericType> gen_types;
 
+vec<MangledPath> vars;
+
 sub analyze(vec<Expr> ast) {
     mods = vec<PathPart>:new(4);
     mangled_paths = vec<vec<MangledPath>>:new(8);
     vec<MangledPath> core_binds = vec<MangledPath>:new(64);
-    core_binds.push(make_core_bind("int", "int32_t"));
+    core_binds.push(make_core_bind("int", "int"));
     core_binds.push(make_core_bind("i32", "int32_t"));
     core_binds.push(make_core_bind("f32", "float"));
     core_binds.push(make_core_bind("u8", "uint8_t"));
@@ -37,7 +39,7 @@ sub analyze(vec<Expr> ast) {
     core_binds.push(make_core_bind("i8", "int8_t"));
     core_binds.push(make_core_bind("float", "double"));
     core_binds.push(make_core_bind("f64", "double"));
-    core_binds.push(make_core_bind("uint", "uint32_t"));
+    core_binds.push(make_core_bind("uint", "unsigned int"));
     core_binds.push(make_core_bind("u32", "uint32_t"));
     core_binds.push(make_core_bind("i64", "int64_t"));
     core_binds.push(make_core_bind("i16", "int16_t"));
@@ -46,6 +48,7 @@ sub analyze(vec<Expr> ast) {
     mangled_paths.push(core_binds);
     mangled_local_names = vec<MangledLocalName>:new(16);
     gen_types = vec<GenericType>:new(8);
+    vars = vec<MangledPath>:new(8);
     analyze_expr_vec(ast);
 };
 
@@ -107,6 +110,16 @@ sub analyze_expr(ptr<Expr> expr) {
         },
         ExprKind:SubDef(_, _path) {
             path = _path;
+        },
+        ExprKind:VarDef(_type, path) {
+            match _type@.kind {
+                ExprKind:Path(__type) {
+                    vars.push(MangledPath {
+                        path = __type,
+                        name = mangle(path@, false, false, 0),
+                    });
+                },
+            };
         },
         _ {
             ret;

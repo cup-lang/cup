@@ -35,7 +35,7 @@ def vec<T> {
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
 
-        mem:copy(this.buf, this.buf + 1, mem:size<T>() * (this.len - 1));
+        mem:copy(this.buf + 1, this.buf, mem:size<T>() * (this.len - 1));
         this.buf[0] = item;
     };
 

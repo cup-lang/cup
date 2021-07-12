@@ -16,7 +16,7 @@ vec<u8> globals;
 vec<u8> types;
 vec<u8> funcs;
 
-ptr<u8> generate(vec<Expr> ast) {
+sub generate(ptr<u8> output, vec<Expr> ast) {
     gens = vec<GenericInstance>:new(2);
     reqs = vec<Req>:new(4);
     types_headers = vec<u8>:new(256);
@@ -25,26 +25,22 @@ ptr<u8> generate(vec<Expr> ast) {
     types = vec<u8>:new(1024);
     funcs = vec<u8>:new(1024);
     generate_expr_vec(globals$, ast, false, false, false);
-    vec<u8> out = vec<u8>:new((reqs.len * 32) + types_headers.len + funcs_headers.len + globals.len + types.len + funcs.len);
     types_headers.buf[types_headers.len] = funcs_headers.buf[funcs_headers.len] = globals.buf[globals.len] = types.buf[types.len] = funcs.buf[funcs.len] = '\0';
+    
+    ptr<FILE> file_point = file:open(output, "w");
     for i = 0, (i) < reqs.len, i += 1 {
-        out.join("#include ");
-        out.push('"');
-        out.join(reqs.buf[i].name);
-        out.push('"');
-        out.join("\n");
+        file:print(file_point, "#include %c%s%c\n", 34, reqs.buf[i].name,  34);
     };
-    out.join(types_headers.buf);
-    out.join(funcs_headers.buf);
-    out.join(globals.buf);
-    out.join(types.buf);
-    out.join(funcs.buf);
-    out.buf[out.len] = '\0';
-    ret (out.buf);
+    file:print(file_point, "%s", types_headers.buf);
+    file:print(file_point, "%s", funcs_headers.buf);
+    file:print(file_point, "%s", globals.buf);
+    file:print(file_point, "%s", types.buf);
+    file:print(file_point, "%s", funcs.buf);
 };
 
 sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool comma, bool clean_locals) {
     int old_local_names_len = mangled_local_names.len;
+    int old_vars_len = vars.len;
     for i = 0, (i) < exprs.len, i += 1 {
         bool is_last = i + 1 == exprs.len;
         generate_expr(out, exprs.buf[i], is_last, semicolon, 0);
@@ -57,6 +53,7 @@ sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool co
             mem:free(mangled_local_names.buf[i].name);
         };
         mangled_local_names.len = old_local_names_len;
+        vars.len = old_vars_len;
     };
 };
 
@@ -126,7 +123,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 if str:cmp(name, "this") == 0 {
                     vec<u8>:join(out, "this");
                 } else {
-                    vec<u8>:join(out, register_local_name(name));
+                    vec<u8>:join(out, register_local_name(__type, name));
                 };
             };
             if semicolon {
@@ -209,18 +206,6 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 ret;
             };
 
-            bool is_self = false;
-            ~t for i = 0, (i) < expr.tags.len, i += 1 {
-                match expr.tags.buf[i].kind {
-                    ExprKind:Tag(name, args) {
-                        if str:cmp(name, "self") == 0 {
-                            is_self = true;
-                            ret ~t;
-                        };
-                    },
-                };
-            };
-
             Expr _path = apply_genenerics(path@);
             ptr<u8> name = mangle(_path, true, has_gens, 0);
             if has_gens & (name == none) {
@@ -237,6 +222,17 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:join(sub_out$, name);
             vec<u8>:push(sub_out$, '(');
 
+            bool is_self = false;
+            ~t for i = 0, (i) < expr.tags.len, i += 1 {
+                match expr.tags.buf[i].kind {
+                    ExprKind:Tag(name, args) {
+                        if str:cmp(name, "self") == 0 {
+                            is_self = true;
+                            ret ~t;
+                        };
+                    },
+                };
+            };
             if is_self {
                 vec<Expr> _args = vec<Expr>:new(args.len + 1);
                 mem:copy(_args.buf + 1, args.buf, mem:size<Expr>() * args.len);
@@ -306,7 +302,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             register_path_use(__type);
             vec<u8>:join(out, mangle(__type, true, false, 0));
             vec<u8>:push(out, ' ');
-            vec<u8>:join(out, register_local_name(name));
+            vec<u8>:join(out, register_local_name(__type, name));
             if value != none {
                 vec<u8>:push(out, '=');
                 generate_expr(out, value@, false, false, 0);
@@ -315,10 +311,20 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         },
         ExprKind:SubCall(path, args) {
             Expr _path = apply_genenerics(path@);
-            register_path_use(_path);
-            vec<u8>:join(out, mangle(_path, true, false, 0));
-            vec<u8>:push(out, '(');
-            generate_expr_vec(out, args, false, true, false);
+            match _path.kind {
+                ExprKind:Path(__path) {
+                    if ((((__path.len == 2) & (__path.buf[0].gens.len == 0)) & (__path.buf[1].gens.len == 1)) & (str:cmp(__path.buf[0].name, "mem") == 0)) & (str:cmp(__path.buf[1].name, "size") == 0) {
+                        vec<u8>:join(out, "sizeof(");
+                        vec<u8>:join(out, mangle(__path.buf[1].gens.buf[0], true, false, 0));
+                    } else {
+                        register_path_use(_path);
+                        ptr<u8> name = mangle(_path, true, false, 0);
+                        vec<u8>:join(out, name);
+                        vec<u8>:push(out, '(');
+                        generate_expr_vec(out, args, false, true, false);
+                    };
+                },
+            };
             vec<u8>:push(out, ')');
             if semicolon {
                 vec<u8>:push(out, ';');
@@ -464,7 +470,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 vec<u8>:push(out, '(');
             };
 
-            match kind {
+            ~m match kind {
                 TokenKind:As {
                     vec<u8>:push(out, '(');
                     ` generate_type(rhs);
@@ -472,6 +478,36 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                     generate_expr(out, lhs@, false, false, parenths + 1);
                 },
                 _ {
+                    match kind {
+                        TokenKind:Dot {
+                            match lhs@.kind {
+                                ExprKind:VarUse(path) {
+                                    match rhs@.kind {
+                                        ExprKind:SubCall(_path, args) {
+                                            ptr<u8> name = mangle(path@, true, false, 0);
+                                            for i = 0, (i) < vars.len, i += 1 {
+                                                if str:cmp(name, vars.buf[i].name) == 0 {
+                                                    vec<PathPart> p = vars.buf[i].path;
+                                                    vec<PathPart>:join_back(rhs@.kind.u.u16.path@.kind.u.u2.path$, p);
+                                                    vec<Expr>:push_back(rhs@.kind.u.u16.args$, Expr {
+                                                        kind = ExprKind:UnaryOp(
+                                                            lhs,
+                                                            TokenKind:Address
+                                                        ),
+                                                        tags = vec<Expr> { len = 0, },
+                                                        label = none,
+                                                    });
+                                                    generate_expr(out, rhs@, false, false, parenths + 1);
+                                                    ret ~m;
+                                                };
+                                            };
+                                        },
+                                    };
+                                },
+                            };
+                        },
+                    };
+
                     generate_expr(out, lhs@, false, false, parenths + 1);
                     match kind {
                         TokenKind:Assign {
@@ -533,6 +569,12 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                         },
                         TokenKind:Dot {
                             vec<u8>:push(out, '.');
+                            match rhs@.kind {
+                                ExprKind:VarUse(path) {
+                                    vec<u8>:join(out, path@.kind.u.u2.path.buf[0].name);
+                                },
+                            };
+                            ret ~m;
                         },
                         TokenKind:LeftBracket {
                             vec<u8>:push(out, '[');
@@ -611,12 +653,20 @@ sub register_path_use(Expr expr) {
     };
 };
 
-ptr<u8> register_local_name(ptr<u8> local_name) {
+ptr<u8> register_local_name(Expr path, ptr<u8> local_name) {
     ptr<u8> name = new_mangle(mangled_local_names.len + 1, true).buf;
     mangled_local_names.push(MangledLocalName {
         local_name = local_name, 
         name = name,
     });
+    match path.kind {
+        ExprKind:Path(_path) {
+            vars.push(MangledPath {
+                path = _path,
+                name = name,
+            });
+        },
+    };
     ret name;
 };
 
