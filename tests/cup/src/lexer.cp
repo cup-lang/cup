@@ -21,6 +21,7 @@ enum TokenKind {
     Sub,
     Var,
     Where,
+    New,
 
     If,
     Elif,
@@ -92,6 +93,7 @@ int get_token_length(TokenKind kind) {
         TokenKind:Sub { ret 3; },
         TokenKind:Var { ret 3; },
         TokenKind:Where { ret 5; },
+        TokenKind:New { ret 3; },
         TokenKind:If { ret 2; },
         TokenKind:Elif { ret 4; },
         TokenKind:Else { ret 4; },
@@ -167,6 +169,7 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:Sub { ret "SUB"; },
         TokenKind:Var { ret "VAR"; },
         TokenKind:Where { ret "WHERE"; },
+        TokenKind:New { ret "NEW"; },
         TokenKind:If { ret "IF"; },
         TokenKind:Elif { ret "ELIF"; },
         TokenKind:Else { ret "ELSE"; },
@@ -259,6 +262,8 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:Type;
     } elif str:cmp(value, "where") == 0 {
         ret TokenKind:Where;
+    } elif str:cmp(value, "new") == 0 {
+        ret TokenKind:New;
     } elif str:cmp(value, "true") == 0 {
         ret TokenKind:True;
     } elif str:cmp(value, "false") == 0 {

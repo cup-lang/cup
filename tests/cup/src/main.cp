@@ -133,7 +133,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
     set_color(Color:Green);
     fmt:print("successful");
     set_color(Color:Reset);
-    fmt:print(" (%.1lfs elapsed)\n", (clock() as f64) / CLOCKS_PER_SEC);
+    fmt:print(" (%.2lfs elapsed)\n", (clock() as f64) / CLOCKS_PER_SEC);
 
     ret 0;
 };

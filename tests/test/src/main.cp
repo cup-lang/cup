@@ -43,24 +43,41 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-vec<u8> foo;
+` no empty enum ops
+` match
+
+` free exprs & generic replaced paths
 
 #req("stdint.h")
 int main(vec<u8> bar) {
+    vec<f32> foo = vec<f32>:new_with_cap(2);
     foo.push('1');
     foo.push('2');
     foo.push('3');
 
-    bar.push('1');
-    bar.push('2');
-    bar.push('3');
+    SomeEnum bar1 = SomeEnum:Opt1();
+    SomeEnum bar2 = SomeEnum:Opt2(1);
+    SomeEnum bar3 = SomeEnum:Opt3(1, 2);
 
-    vec<f32> bar = vec<f32> {
-        buf = buf,
-        len = len,
-        cap = cap,
+    match bar1 {
+        SomeEnum:Opt1 {},
+        SomeEnum:Opt2(a) {},
+        SomeEnum:Opt3(a, b) {},
     };
 };
+
+enum SomeEnum (
+    Opt1(),
+    Opt2(int a),
+    Opt3(int a, int b),
+);
+
+#gen("T")
+enum SomeGenEnum (
+    Opt1(),
+    Opt2(T a),
+    Opt3(int a, T b),
+);
 
 #gen("T")
 comp vec<T> (
@@ -71,6 +88,14 @@ comp vec<T> (
 
 #gen("T")
 def vec<T> {
+    vec<T> new_with_cap(int cap) {
+        ret new vec<T> {
+            buf = mem:alloc(mem:size<T>() * cap),
+            len = 0,
+            cap = cap,
+        };
+    };
+
     #self
     sub push(T item) {
         this.buf[this.len] = item;
@@ -85,12 +110,9 @@ def vec<T> {
 
 #req("stdlib.h")
 mod mem {
+    #bind("malloc")
+    sub alloc();
+
     #bind("realloc")
     sub realloc();
 };
-
-` add comp inst
-` fix globals value
-` add match/case
-
-` free exprs & generic replaced paths

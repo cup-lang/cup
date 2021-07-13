@@ -24,6 +24,8 @@ comp GenericType {
 
 vec<GenericType> gen_types;
 
+vec<Expr> enum_types;
+
 vec<MangledPath> vars;
 
 sub analyze(vec<Expr> ast) {
@@ -48,6 +50,7 @@ sub analyze(vec<Expr> ast) {
     mangled_paths.push(core_binds);
     mangled_local_names = vec<MangledLocalName>:new(16);
     gen_types = vec<GenericType>:new(8);
+    enum_types = vec<Expr>:new(8);
     vars = vec<MangledPath>:new(8);
     analyze_expr_vec(ast);
 };
@@ -95,6 +98,7 @@ sub analyze_expr(ptr<Expr> expr) {
             path = _path;
         },
         ExprKind:Enum(_path) {
+            enum_types.push(expr@);
             path = _path;
         },
         ExprKind:Def(_prop, target, body) {

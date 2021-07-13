@@ -21,7 +21,7 @@ def vec<T> {
         this.len += 1;
 
         if this.len == this.cap {
-            this.cap *= 2;
+            this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
     };

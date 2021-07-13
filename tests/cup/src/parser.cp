@@ -189,31 +189,6 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 ret ~l;
             };
 
-            if opt_token(tokens, index, TokenKind:LeftBrace) {
-                vec<FieldValue> field_vals = vec<FieldValue>:new(4);
-
-                ~f loop {
-                    if opt_token(tokens, index, TokenKind:RightBrace) {
-                        ret ~f;
-                    };
-
-                    ptr<u8> name = expect_token(file, tokens, index, TokenKind:Ident, "expected field name").value;
-                    expect_token(file, tokens, index, TokenKind:Assign, "expected '=' after field name");
-                    field_vals.push(FieldValue {
-                        name = name,
-                        value = alloc<Expr>(parse_local(file, tokens, index, 0, false)),
-                    });
-
-                    if opt_token(tokens, index, TokenKind:Comma) == false {
-                        expect_token(file, tokens, index, TokenKind:RightBrace, "expected '}' after last field");
-                        ret ~f;
-                    };
-                };
-
-                expr.kind = ExprKind:CompInst(path, field_vals);
-                ret ~l;
-            };
-
             if opt_token(tokens, index, TokenKind:Ident) {
                 ptr<u8> name = tokens.buf[index@ - 1].value;
                 ptr<Expr> value = none;
@@ -234,6 +209,30 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 value = alloc<Expr>(parse_local(file, tokens, index, 0, false));
             };
             expr.kind = ExprKind:LocalVarDef(none, name, value);
+        },
+        TokenKind:New {
+            index@ += 1;
+            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'new' path");
+            vec<FieldValue> field_vals = vec<FieldValue>:new(4);
+            ~f loop {
+                if opt_token(tokens, index, TokenKind:RightBrace) {
+                    ret ~f;
+                };
+
+                ptr<u8> name = expect_token(file, tokens, index, TokenKind:Ident, "expected field name").value;
+                expect_token(file, tokens, index, TokenKind:Assign, "expected '=' after field name");
+                field_vals.push(FieldValue {
+                    name = name,
+                    value = alloc<Expr>(parse_local(file, tokens, index, 0, false)),
+                });
+
+                if opt_token(tokens, index, TokenKind:Comma) == false {
+                    expect_token(file, tokens, index, TokenKind:RightBrace, "expected '}' after last field");
+                    ret ~f;
+                };
+            };
+            expr.kind = ExprKind:CompInst(path, field_vals);
         },
         TokenKind:StringLit {
             expr.kind = ExprKind:StringLit(token.value);
@@ -632,7 +631,6 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
 
             ptr<Expr> value = none;
             if opt_token(tokens, index, TokenKind:Assign) {
-                index@ += 1;
                 value = alloc<Expr>(parse_local(file, tokens, index, 0, false));
             };
             expr.kind = ExprKind:VarDef(none, path, value);
@@ -661,7 +659,6 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
                 _ {
                     ptr<Expr> value = none;
                     if opt_token(tokens, index, TokenKind:Assign) {
-                        index@ += 1;
                         value = alloc<Expr>(parse_local(file, tokens, index, 0, false));
                     };
                     expr.kind = ExprKind:VarDef(_type, path, value);
