@@ -43,8 +43,10 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
-` no empty enum ops
 ` match
+    ` get a enum path somehow
+    ` handle args
+    ` handle _
 
 ` free exprs & generic replaced paths
 
@@ -55,7 +57,7 @@ int main(vec<u8> bar) {
     foo.push('2');
     foo.push('3');
 
-    SomeEnum bar1 = SomeEnum:Opt1();
+    SomeEnum bar1 = SomeEnum:Opt1;
     SomeEnum bar2 = SomeEnum:Opt2(1);
     SomeEnum bar3 = SomeEnum:Opt3(1, 2);
 
@@ -70,13 +72,6 @@ enum SomeEnum (
     Opt1(),
     Opt2(int a),
     Opt3(int a, int b),
-);
-
-#gen("T")
-enum SomeGenEnum (
-    Opt1(),
-    Opt2(T a),
-    Opt3(int a, T b),
 );
 
 #gen("T")
