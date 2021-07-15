@@ -43,15 +43,37 @@
 ` var bar = 1;
 ````````````````````````````````````````````````
 
+` analyzer
+    ` check paths
+        ` when used if not defined bad
+    ` check types
+        ` when assigning check if type matches
+        ` when giving to sub_call check
+        ` when giving to comp_inst
+        ` when giving to enum_inst
+` binding types/vars
 ` match
     ` get a enum path somehow
     ` handle args
     ` handle _
+` op overloading
+` combo ops
+` combo var_defs
+` prop
+` def
+` each
 
-` free exprs & generic replaced paths
+` free exprs 
+` fix generic replaced paths leak
 
 #req("stdint.h")
 int main(vec<u8> bar) {
+    foo; ` undeclered foo
+    abc; ` good
+    int foo;
+    foo; ` good
+    bar; ` good
+
     vec<f32> foo = vec<f32>:new_with_cap(2);
     foo.push('1');
     foo.push('2');
@@ -67,6 +89,8 @@ int main(vec<u8> bar) {
         SomeEnum:Opt3(a, b) {},
     };
 };
+
+int abc;
 
 enum SomeEnum (
     Opt1(),

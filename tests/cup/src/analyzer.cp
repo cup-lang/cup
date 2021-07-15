@@ -24,11 +24,13 @@ comp GenericType {
 
 vec<GenericType> gen_types;
 
+vec<Expr> comp_types;
 vec<Expr> enum_types;
+vec<Expr> sub_types;
 
 vec<MangledPath> vars;
 
-sub analyze(vec<Expr> ast) {
+sub init_analyzer() {
     mods = vec<PathPart>:new(4);
     mangled_paths = vec<vec<MangledPath>>:new(8);
     vec<MangledPath> core_binds = vec<MangledPath>:new(64);
@@ -50,9 +52,14 @@ sub analyze(vec<Expr> ast) {
     mangled_paths.push(core_binds);
     mangled_local_names = vec<MangledLocalName>:new(16);
     gen_types = vec<GenericType>:new(8);
+    comp_types = vec<Expr>:new(8);
     enum_types = vec<Expr>:new(8);
+    sub_types = vec<Expr>:new(8);
     vars = vec<MangledPath>:new(8);
-    analyze_expr_vec(ast);
+};
+
+sub analyze(File file, vec<Expr> ast) {
+    analyze_expr_vec(file, ast);
 };
 
 MangledPath make_core_bind(ptr<u8> from, ptr<u8> to) {
@@ -70,34 +77,69 @@ MangledPath make_core_bind(ptr<u8> from, ptr<u8> to) {
     };
 };
 
-sub analyze_expr_vec(vec<Expr> exprs) {
+sub analyze_expr_vec(File file, vec<Expr> exprs) {
     for i = 0, (i) < exprs.len, i += 1 {
-        analyze_expr(exprs.buf + i);
+        analyze_expr(file, exprs.buf + i);
     };
 };
 
-sub analyze_expr(ptr<Expr> expr) {
+sub analyze_expr(File file, ptr<Expr> expr) {
     ptr<Expr> path;
     match expr@.kind {
         ExprKind:Block(body) {
-            analyze_expr_vec(body);
+            analyze_expr_vec(file, body);
             ret;
         },
-        ExprKind:Mod(path, body) {
+        ExprKind:Mod(_path, body) {
             int old_mods_len = mods.len;
-            match path@.kind {
-                ExprKind:Path(_path) {
-                    mods.join_vec(_path);
+            match _path@.kind {
+                ExprKind:Path(__path) {
+                    mods.join_vec(__path);
                 },
             };
-            analyze_expr_vec(body);
+            analyze_expr_vec(file, body);
             mods.len = old_mods_len;
             ret;
         },
         ExprKind:Comp(_path) {
+            match _path@.kind {
+                ExprKind:Path(__path, index) {
+                    for i = 0, (i) < comp_types.len, i += 1 {
+                        match comp_types.buf[i].kind {
+                            ExprKind:Comp(comp_path) {
+                                match comp_path@.kind {
+                                    ExprKind:Path(_comp_path) {
+                                        if compare_paths(__path, _comp_path, false) {
+                                            throw(file, index, "redefinition of comp");
+                                        };
+                                    },
+                                };
+                            },
+                        };
+                    };
+                },
+            };
+            comp_types.push(expr@);
             path = _path;
         },
         ExprKind:Enum(_path) {
+            match _path@.kind {
+                ExprKind:Path(__path, index) {
+                    for i = 0, (i) < enum_types.len, i += 1 {
+                        match enum_types.buf[i].kind {
+                            ExprKind:Enum(enum_path) {
+                                match enum_path@.kind {
+                                    ExprKind:Path(_enum_path) {
+                                        if compare_paths(__path, _enum_path, false) {
+                                            throw(file, index, "redefinition of enum");
+                                        };
+                                    },
+                                };
+                            },
+                        };
+                    };
+                },
+            };
             enum_types.push(expr@);
             path = _path;
         },
@@ -108,22 +150,47 @@ sub analyze_expr(ptr<Expr> expr) {
                     mods.join_vec(_path);
                 },
             };
-            analyze_expr_vec(body);
+            analyze_expr_vec(file, body);
             mods.len = old_mods_len;
             ret;
         },
         ExprKind:SubDef(_, _path) {
+            match _path@.kind {
+                ExprKind:Path(__path, index) {
+                    for i = 0, (i) < sub_types.len, i += 1 {
+                        match sub_types.buf[i].kind {
+                            ExprKind:SubDef(_, sub_path) {
+                                match sub_path@.kind {
+                                    ExprKind:Path(_sub_path) {
+                                        if compare_paths(__path, _sub_path, false) {
+                                            throw(file, index, "redefinition of subroutine");
+                                        };
+                                    },
+                                };
+                            },
+                        };
+                    };
+                },
+            };
+            sub_types.push(expr@);
             path = _path;
         },
         ExprKind:VarDef(_type, path) {
             match _type@.kind {
                 ExprKind:Path(__type) {
+                    ptr<u8> name = mangle(path@, false, false, 0);
+                    for i = 0, (i) < vars.len, i += 1 {
+                        if str:cmp(name, vars.buf[i].name) == 0 {
+                            throw(file, 0, "redefinition of variable");
+                        };
+                    };
                     vars.push(MangledPath {
                         path = __type,
-                        name = mangle(path@, false, false, 0),
+                        name = name,
                     });
                 },
             };
+            ret;
         },
         _ {
             ret;
@@ -283,13 +350,3 @@ bool compare_gens(vec<Expr> gens1, vec<Expr> gens2) {
     };
     ret true;
 };
-
-` sub main(int abc) {
-`     foo; ` undeclered foo
-`     bar; ` good
-`     int foo;
-`     foo; ` good
-`     abc; ` good
-` }
-` 
-` int bar;

@@ -449,9 +449,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, '}');
         },
         ExprKind:Each {},
-        ExprKind:Match(value, cases) {
-            
-        },
+        ExprKind:Match(value, cases) {},
         ExprKind:Case {},
         ExprKind:Ret(label, value) {
             if label != none {

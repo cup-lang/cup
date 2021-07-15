@@ -125,8 +125,8 @@ int main(int argc, ptr<ptr<u8>> argv) {
     };
 
     vec<Expr> ast = vec<Expr>:new(8);
-    lex_parse_recursive(input, ast$);
-    analyze(ast);
+    init_analyzer();
+    lex_parse_analyze_recursive(input, ast$);
     generate(output, ast);
 
     fmt:print("Compilation ");
@@ -177,7 +177,7 @@ sub set_color(Color color) {
     };
 };
 
-sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
+sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
     ptr<DIR> dir = dir:open(path);
     if dir == none {
         set_color(Color:Red);
@@ -199,7 +199,7 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
             mem:copy(new_path + length + 1, ent@.d_name, new_length);
             new_path[length + new_length + 1] = '\0';
             if ent@.d_type == DT_DIR {
-                lex_parse_recursive(new_path, ast);
+                lex_parse_analyze_recursive(new_path, ast);
             } elif ent@.d_type == DT_REG {
                 ptr<FILE> file_point = file:open(new_path, "r");
                 file:seek(file_point, 0 as i32, SEEK_END);
@@ -219,6 +219,7 @@ sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                 ` print_tokens(tokens);
                 vec<Expr> exprs = parse(file, tokens);
                 ` print_exprs(exprs);
+                analyze(file, exprs);
                 
                 vec<Expr>:push(ast, Expr {
                     tags = vec<Expr> {

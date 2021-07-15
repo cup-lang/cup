@@ -17,7 +17,7 @@ comp VarName {
 enum ExprKind {
     Empty,
     Tag(ptr<u8> name, vec<Expr> args),
-    Path(vec<PathPart> path),
+    Path(vec<PathPart> path, int index),
     TagDef(ptr<Expr> path, vec<Expr> args, vec<Expr> body),
     Block(vec<Expr> body),
     Mod(ptr<Expr> path, vec<Expr> body),
@@ -751,6 +751,7 @@ Expr parse_path(File file, vec<Token> tokens, ptr<int> index) {
 };
 
 Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
+    int start_index = index@;
     vec<PathPart> path = vec<PathPart>:new(2);
     bool need_colon = false;
     ~l loop {
@@ -812,7 +813,7 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
         index@ += 1;
     };
     ret Expr {
-        kind = ExprKind:Path(path),
+        kind = ExprKind:Path(path, tokens.buf[start_index].index),
         tags = vec<Expr> {
             len = 0,
         },
