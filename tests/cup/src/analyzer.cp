@@ -24,11 +24,10 @@ comp GenericType {
 
 vec<GenericType> gen_types;
 
-vec<Expr> comp_types;
-vec<Expr> enum_types;
-vec<Expr> sub_types;
-
-vec<MangledPath> vars;
+vec<Expr> type_paths;
+vec<Expr> sub_paths;
+vec<Expr> var_paths;
+vec<Expr> enum_paths;
 
 sub init_analyzer() {
     mods = vec<PathPart>:new(4);
@@ -52,14 +51,10 @@ sub init_analyzer() {
     mangled_paths.push(core_binds);
     mangled_local_names = vec<MangledLocalName>:new(16);
     gen_types = vec<GenericType>:new(8);
-    comp_types = vec<Expr>:new(8);
-    enum_types = vec<Expr>:new(8);
-    sub_types = vec<Expr>:new(8);
-    vars = vec<MangledPath>:new(8);
-};
-
-sub analyze(File file, vec<Expr> ast) {
-    analyze_expr_vec(file, ast);
+    type_paths = vec<Expr>:new(8);
+    sub_paths = vec<Expr>:new(8);
+    var_paths = vec<Expr>:new(8);
+    enum_paths = vec<Expr>:new(4);
 };
 
 MangledPath make_core_bind(ptr<u8> from, ptr<u8> to) {
@@ -77,17 +72,22 @@ MangledPath make_core_bind(ptr<u8> from, ptr<u8> to) {
     };
 };
 
-sub analyze_expr_vec(File file, vec<Expr> exprs) {
+sub analyze(File file, vec<Expr> exprs) {
+    analyze_global_vec(file, exprs);
+    analyze_local_vec(file, exprs);
+};
+
+sub analyze_global_vec(File file, vec<Expr> exprs) {
     for i = 0, (i) < exprs.len, i += 1 {
-        analyze_expr(file, exprs.buf + i);
+        analyze_global(file, exprs.buf + i);
     };
 };
 
-sub analyze_expr(File file, ptr<Expr> expr) {
+sub analyze_global(File file, ptr<Expr> expr) {
     ptr<Expr> path;
     match expr@.kind {
         ExprKind:Block(body) {
-            analyze_expr_vec(file, body);
+            analyze_global_vec(file, body);
             ret;
         },
         ExprKind:Mod(_path, body) {
@@ -97,50 +97,17 @@ sub analyze_expr(File file, ptr<Expr> expr) {
                     mods.join_vec(__path);
                 },
             };
-            analyze_expr_vec(file, body);
+            analyze_global_vec(file, body);
             mods.len = old_mods_len;
             ret;
         },
         ExprKind:Comp(_path) {
-            match _path@.kind {
-                ExprKind:Path(__path, index) {
-                    for i = 0, (i) < comp_types.len, i += 1 {
-                        match comp_types.buf[i].kind {
-                            ExprKind:Comp(comp_path) {
-                                match comp_path@.kind {
-                                    ExprKind:Path(_comp_path) {
-                                        if compare_paths(__path, _comp_path, false) {
-                                            throw(file, index, "redefinition of comp");
-                                        };
-                                    },
-                                };
-                            },
-                        };
-                    };
-                },
-            };
-            comp_types.push(expr@);
+            type_paths.push(_path@);
             path = _path;
         },
         ExprKind:Enum(_path) {
-            match _path@.kind {
-                ExprKind:Path(__path, index) {
-                    for i = 0, (i) < enum_types.len, i += 1 {
-                        match enum_types.buf[i].kind {
-                            ExprKind:Enum(enum_path) {
-                                match enum_path@.kind {
-                                    ExprKind:Path(_enum_path) {
-                                        if compare_paths(__path, _enum_path, false) {
-                                            throw(file, index, "redefinition of enum");
-                                        };
-                                    },
-                                };
-                            },
-                        };
-                    };
-                },
-            };
-            enum_types.push(expr@);
+            type_paths.push(_path@);
+            enum_paths.push(expr@);
             path = _path;
         },
         ExprKind:Def(_prop, target, body) {
@@ -150,51 +117,21 @@ sub analyze_expr(File file, ptr<Expr> expr) {
                     mods.join_vec(_path);
                 },
             };
-            analyze_expr_vec(file, body);
+            analyze_global_vec(file, body);
             mods.len = old_mods_len;
             ret;
         },
         ExprKind:SubDef(_, _path) {
-            match _path@.kind {
-                ExprKind:Path(__path, index) {
-                    for i = 0, (i) < sub_types.len, i += 1 {
-                        match sub_types.buf[i].kind {
-                            ExprKind:SubDef(_, sub_path) {
-                                match sub_path@.kind {
-                                    ExprKind:Path(_sub_path) {
-                                        if compare_paths(__path, _sub_path, false) {
-                                            throw(file, index, "redefinition of subroutine");
-                                        };
-                                    },
-                                };
-                            },
-                        };
-                    };
-                },
-            };
-            sub_types.push(expr@);
+            sub_paths.push(_path@);
             path = _path;
         },
-        ExprKind:VarDef(_type, path) {
-            match _type@.kind {
-                ExprKind:Path(__type) {
-                    ptr<u8> name = mangle(path@, false, false, 0);
-                    for i = 0, (i) < vars.len, i += 1 {
-                        if str:cmp(name, vars.buf[i].name) == 0 {
-                            throw(file, 0, "redefinition of variable");
-                        };
-                    };
-                    vars.push(MangledPath {
-                        path = __type,
-                        name = name,
-                    });
-                },
-            };
+        ExprKind:VarDef(_type, _path) {
+            var_paths.push(_path@);
             ret;
         },
         _ {
             ret;
-        }
+        },
     };
 
     vec<PathPart>:join_back(path@.kind.u.u2.path$, mods);
@@ -224,9 +161,116 @@ sub analyze_expr(File file, ptr<Expr> expr) {
                             });
                         },
                     };
+                    ret;
                 };
             },
         };
+    };
+};
+
+sub analyze_local_vec(File file, vec<Expr> exprs) {
+    for i = 0, (i) < exprs.len, i += 1 {
+        analyze_local(file, exprs.buf + i);
+    };
+};
+
+sub analyze_local(File file, ptr<Expr> expr) {
+    match expr@.kind {
+        ExprKind:Block(body) {
+            analyze_local_vec(file, body);
+        },
+        ExprKind:Mod(_, body) {
+            analyze_local_vec(file, body);
+        },
+        ExprKind:Field(_type) {
+            check_type_defined(file, _type@);
+        },
+        ExprKind:Comp(_, fields) {
+            analyze_local_vec(file, fields);
+        },
+        ExprKind:Enum(_, opts) {
+            analyze_local_vec(file, opts);
+        },
+        ExprKind:Option(_, fields) {
+            analyze_local_vec(file, fields);
+        },
+        ExprKind:Def(_, __, body) {
+            analyze_local_vec(file, body);
+        },
+        ExprKind:SubDef(_, __, args, body) {
+            analyze_local_vec(file, args);
+            analyze_local_vec(file, body);
+        },
+        ExprKind:VarDef(_type, _, value) {
+            check_type_defined(file, _type@);
+            if value != none {
+                analyze_local(file, value);
+            };
+        },
+        ExprKind:LocalVarDef(_type, _, value) {
+            check_type_defined(file, _type@);
+            if value != none {
+                analyze_local(file, value);
+            };
+        },
+        ExprKind:SubCall(path, args) {
+            check_sub_defined(file, path@);
+            analyze_local_vec(file, args);
+        },
+        ExprKind:VarUse(path) {
+            check_var_defined(file, path@);
+        },
+    };
+};
+
+sub check_type_defined(File file, Expr path) {
+    match path.kind {
+        ExprKind:Path(_path, index) {
+            for i = 0, (i) < type_paths.len, i += 1 {
+                match type_paths.buf[i].kind {
+                    ExprKind:Path(type_path) {
+                        if compare_paths(_path, type_path, false) {
+                            ret;
+                        };
+                    },
+                };
+            };
+            throw(file, index, "type not defined");
+        },
+    };
+};
+
+sub check_sub_defined(File file, Expr path) {
+    match path.kind {
+        ExprKind:Path(_path, index) {
+            for i = 0, (i) < sub_paths.len, i += 1 {
+                match sub_paths.buf[i].kind {
+                    ExprKind:Path(sub_path) {
+                        if compare_paths(_path, sub_path, false) {
+                            ret;
+                        };
+                    },
+                };
+            };
+            throw(file, index, "subroutine not defined");
+        },
+    };
+};
+
+sub check_var_defined(File file, Expr path) {
+    match path.kind {
+        ExprKind:Path(_path, index) {
+            for i = 0, (i) < var_paths.len, i += 1 {
+                match var_paths.buf[i].kind {
+                    ExprKind:Path(var_path) {
+                        if compare_paths(_path, var_path, false) {
+                            ret;
+                        };
+                    },
+                };
+            };
+            throw(file, index, "variable not defined");
+        },
     };
 };
 

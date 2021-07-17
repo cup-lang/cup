@@ -187,6 +187,7 @@ sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
         exit(1);
     };
     ptr<dirent> ent;
+    vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new(4);
     while (ent = dir:read(dir)) != none {
         int new_length = str:len(ent@.d_name);
         if (new_length == 1) & (ent@.d_name[0] == '.') { }
@@ -218,8 +219,13 @@ sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                 vec<Token> tokens = lex(file);
                 ` print_tokens(tokens);
                 vec<Expr> exprs = parse(file, tokens);
+                mem:free(tokens.buf);
                 ` print_exprs(exprs);
-                analyze(file, exprs);
+                analyze_global_vec(file, exprs);
+                to_analyze.push(ToAnalyze {
+                    file = file,
+                    exprs = exprs,
+                });
                 
                 vec<Expr>:push(ast, Expr {
                     tags = vec<Expr> {
@@ -228,17 +234,25 @@ sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
                     label = none,
                     kind = ExprKind:Block(exprs),
                 });
-
-                mem:free(data.buf);
-                mem:free(tokens.buf);
             };
-            mem:free(new_path);
         };
     };
+    for i = 0, (i) < to_analyze.len, i += 1 {
+        ToAnalyze analyze = to_analyze.buf[i];
+        analyze_local_vec(analyze.file, analyze.exprs);
+        mem:free(analyze.file.name);
+        mem:free(analyze.file.data.buf);
+    };
+    mem:free(to_analyze.buf);
     dir:close(dir);
 };
 
 comp File {
     ptr<u8> name,
     arr<u8> data,
+};
+
+comp ToAnalyze {
+    File file,
+    vec<Expr> exprs,
 };

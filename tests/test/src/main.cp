@@ -45,12 +45,16 @@
 
 ` analyzer
     ` check paths
-        ` when used if not defined bad
+        ` allow generics
+        ` redefinitons bad
     ` check types
         ` when assigning check if type matches
         ` when giving to sub_call check
         ` when giving to comp_inst
         ` when giving to enum_inst
+    ` apply type
+        ` var_def
+        ` local_var_def
 ` binding types/vars
 ` match
     ` get a enum path somehow
@@ -62,17 +66,18 @@
 ` prop
 ` def
 ` each
+` local variable shadowing
 
 ` free exprs 
 ` fix generic replaced paths leak
 
 #req("stdint.h")
-int main(vec<u8> bar) {
-    foo; ` undeclered foo
-    abc; ` good
-    int foo;
-    foo; ` good
-    bar; ` good
+int main(vec<int> bar) {
+    ` foo; ` undeclered foo
+    ` abc; ` good
+    ` int foo;
+    ` foo; ` good
+    ` bar; ` good
 
     vec<f32> foo = vec<f32>:new_with_cap(2);
     foo.push('1');
@@ -135,3 +140,6 @@ mod mem {
     #bind("realloc")
     sub realloc();
 };
+
+#gen("T")
+comp ptr<T> ();
