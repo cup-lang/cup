@@ -32,6 +32,13 @@ vec<Expr> enum_paths;
 sub init_analyzer() {
     mods = vec<PathPart>:new(4);
     mangled_paths = vec<vec<MangledPath>>:new(8);
+    mangled_local_names = vec<MangledLocalName>:new(16);
+    gen_types = vec<GenericType>:new(8);
+    type_paths = vec<Expr>:new(8);
+    sub_paths = vec<Expr>:new(8);
+    var_paths = vec<Expr>:new(8);
+    enum_paths = vec<Expr>:new(4);
+
     vec<MangledPath> core_binds = vec<MangledPath>:new(64);
     core_binds.push(make_core_bind("int", "int"));
     core_binds.push(make_core_bind("i32", "int32_t"));
@@ -49,25 +56,25 @@ sub init_analyzer() {
     core_binds.push(make_core_bind("u64", "uint64_t"));
     core_binds.push(make_core_bind("u16", "uint16_t"));
     mangled_paths.push(core_binds);
-    mangled_local_names = vec<MangledLocalName>:new(16);
-    gen_types = vec<GenericType>:new(8);
-    type_paths = vec<Expr>:new(8);
-    sub_paths = vec<Expr>:new(8);
-    var_paths = vec<Expr>:new(8);
-    enum_paths = vec<Expr>:new(4);
 };
 
 MangledPath make_core_bind(ptr<u8> from, ptr<u8> to) {
+    vec<PathPart> path = vec<PathPart> {
+        buf = alloc<PathPart>(PathPart {
+            name = from,
+            gens = vec<Expr> {
+                len = 0,
+            },
+        }),
+        len = 1,
+    };
+    type_paths.push(Expr {
+        kind = ExprKind:Path(path, 0),
+        tags = vec<Expr> { len=0, },
+        label = none
+    });
     ret MangledPath {
-        path = vec<PathPart> {
-            buf = alloc<PathPart>(PathPart {
-                name = from,
-                gens = vec<Expr> {
-                    len = 0,
-                },
-            }),
-            len = 1,
-        },
+        path = path,
         name = to,
     };
 };
@@ -102,10 +109,12 @@ sub analyze_global(File file, ptr<Expr> expr) {
             ret;
         },
         ExprKind:Comp(_path) {
+            vec<PathPart>:join_back(_path@.kind.u.u2.path$, mods);
             type_paths.push(_path@);
             path = _path;
         },
         ExprKind:Enum(_path) {
+            vec<PathPart>:join_back(_path@.kind.u.u2.path$, mods);
             type_paths.push(_path@);
             enum_paths.push(expr@);
             path = _path;
@@ -122,10 +131,13 @@ sub analyze_global(File file, ptr<Expr> expr) {
             ret;
         },
         ExprKind:SubDef(_, _path) {
+            vec<PathPart>:join_back(_path@.kind.u.u2.path$, mods);
             sub_paths.push(_path@);
             path = _path;
+            ret;
         },
         ExprKind:VarDef(_type, _path) {
+            vec<PathPart>:join_back(path@.kind.u.u2.path$, mods);
             var_paths.push(_path@);
             ret;
         },
@@ -133,8 +145,6 @@ sub analyze_global(File file, ptr<Expr> expr) {
             ret;
         },
     };
-
-    vec<PathPart>:join_back(path@.kind.u.u2.path$, mods);
 
     if has_generics(path@) {
         gen_types.push(GenericType {
@@ -169,9 +179,11 @@ sub analyze_global(File file, ptr<Expr> expr) {
 };
 
 sub analyze_local_vec(File file, vec<Expr> exprs) {
+    int old_types_len = type_paths.len;
     for i = 0, (i) < exprs.len, i += 1 {
         analyze_local(file, exprs.buf + i);
     };
+    type_paths.len = old_types_len;
 };
 
 sub analyze_local(File file, ptr<Expr> expr) {
@@ -179,25 +191,30 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:Block(body) {
             analyze_local_vec(file, body);
         },
-        ExprKind:Mod(_, body) {
+        ExprKind:Mod(path, body) {
+            register_generic_paths(path@);
             analyze_local_vec(file, body);
         },
         ExprKind:Field(_type) {
             check_type_defined(file, _type@);
         },
-        ExprKind:Comp(_, fields) {
+        ExprKind:Comp(path, fields) {
+            register_generic_paths(path@);
             analyze_local_vec(file, fields);
         },
-        ExprKind:Enum(_, opts) {
+        ExprKind:Enum(path, opts) {
+            register_generic_paths(path@);
             analyze_local_vec(file, opts);
         },
         ExprKind:Option(_, fields) {
             analyze_local_vec(file, fields);
         },
-        ExprKind:Def(_, __, body) {
+        ExprKind:Def(_prop, __, body) {
+            register_generic_paths(_prop@);
             analyze_local_vec(file, body);
         },
-        ExprKind:SubDef(_, __, args, body) {
+        ExprKind:SubDef(_, path, args, body) {
+            register_generic_paths(path@);
             analyze_local_vec(file, args);
             analyze_local_vec(file, body);
         },
@@ -207,8 +224,18 @@ sub analyze_local(File file, ptr<Expr> expr) {
                 analyze_local(file, value);
             };
         },
-        ExprKind:LocalVarDef(_type, _, value) {
+        ExprKind:LocalVarDef(_type, name, value) {
             check_type_defined(file, _type@);
+            vec<PathPart> parts = vec<PathPart>:new(1);
+            parts.push(PathPart {
+                name = name,
+                gens = vec<Expr> { len = 0, }
+            });
+            var_paths.push(Expr {
+                kind = ExprKind:Path(parts, 0),
+                tags = vec<Expr> { len = 0, },
+                label = none,
+            });
             if value != none {
                 analyze_local(file, value);
             };
@@ -219,6 +246,114 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:VarUse(path) {
             check_var_defined(file, path@);
+        },
+        ExprKind:CompInst(_type, fields) {
+            check_type_defined(file, _type@);
+            for i = 0, (i) < fields.len, i += 1 {
+                analyze_local(file, fields.buf[i].value);
+            };
+        },
+        ExprKind:LocalBlock(body) {
+            analyze_local_vec(file, body);
+        },
+        ExprKind:If(_if, _elif, _else) {
+            analyze_local(file, _if);
+            analyze_local_vec(file, _elif);
+            if _else != none {
+                analyze_local(file, _else);
+            };
+        },
+        ExprKind:IfBranch(cond, body) {
+            analyze_local(file, cond);
+            analyze_local_vec(file, body);
+        },
+        ExprKind:ElseBranch(body) {
+            analyze_local_vec(file, body);
+        },
+        ExprKind:Loop(body) {
+            analyze_local_vec(file, body);
+        },
+        ExprKind:While(cond, body) {
+            analyze_local(file, cond);
+            analyze_local_vec(file, body);
+        },
+        ExprKind:For(_, iter_value, cond, _next, body) {
+            analyze_local(file, iter_value);
+            analyze_local(file, cond);
+            analyze_local(file, _next);
+            analyze_local_vec(file, body);
+        },
+        ExprKind:Each(_, iter, body) {
+            analyze_local(file, iter);
+            analyze_local_vec(file, body);
+        },
+        ExprKind:Match(value, cases) {
+            analyze_local(file, value);
+            analyze_local_vec(file, cases);
+        },
+        ExprKind:Case(values, body) {
+            analyze_local_vec(file, values);
+            analyze_local_vec(file, body);
+        },
+        ExprKind:Ret(_, value) {
+            analyze_local(file, value);
+        },
+        ExprKind:Try(_, value) {
+            analyze_local(file, value);
+        },
+        ExprKind:UnaryOp(value) {
+            analyze_local(file, value);
+        },
+        ExprKind:BinaryOp(lhs, rhs, kind) {
+            match kind {
+                TokenKind:Dot {
+                    match lhs@.kind {
+                        ExprKind:VarUse(path) {
+                            match rhs@.kind {
+                                ExprKind:SubCall(_path, args) {
+                                    ptr<u8> name = mangle(path@, true, false, 0);
+                                    ` for i = 0, (i) < vars.len, i += 1 {
+                                    `     if str:cmp(name, vars.buf[i].name) == 0 {
+                                    `         vec<PathPart> p = vars.buf[i].path;
+                                    `         vec<PathPart>:join_back(rhs@.kind.u.u16.path@.kind.u.u2.path$, p);
+                                    `         vec<Expr>:push_back(rhs@.kind.u.u16.args$, Expr {
+                                    `             kind = ExprKind:UnaryOp(
+                                    `                 lhs,
+                                    `                 TokenKind:Address
+                                    `             ),
+                                    `             tags = vec<Expr> { len = 0, },
+                                    `             label = none,
+                                    `         });
+                                    `         generate_expr(out, rhs@, false, false, parenths + 1);
+                                    `         ret ~m;
+                                    `     };
+                                    ` };
+                                },
+                            };
+                        },
+                    };
+                },
+            };
+            analyze_local(file, lhs);
+            analyze_local(file, rhs);
+        },
+        ExprKind:TernaryOp(cond, valueA, valueB) {
+            analyze_local(file, cond);
+            analyze_local(file, valueA);
+            analyze_local(file, valueB);
+        },
+    };
+};
+
+sub register_generic_paths(Expr path) {
+    match path.kind {
+        ExprKind:Path(_path) {
+            for i = 0, (i) < _path.len, i += 1 {
+                PathPart part = _path.buf[i];
+                for ii = 0, (ii) < part.gens.len, ii += 1 {
+                    type_paths.push(part.gens.buf[ii]);
+                };
+            };
         },
     };
 };

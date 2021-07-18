@@ -45,8 +45,9 @@
 
 ` analyzer
     ` check paths
-        ` allow generics
         ` redefinitons bad
+    ` check if label defined
+    ` check if comp_inst field exists
     ` check types
         ` when assigning check if type matches
         ` when giving to sub_call check
@@ -84,9 +85,9 @@ int main(vec<int> bar) {
     foo.push('2');
     foo.push('3');
 
-    SomeEnum bar1 = SomeEnum:Opt1;
-    SomeEnum bar2 = SomeEnum:Opt2(1);
-    SomeEnum bar3 = SomeEnum:Opt3(1, 2);
+    ` SomeEnum bar1 = SomeEnum:Opt1;
+    ` SomeEnum bar2 = SomeEnum:Opt2(1);
+    ` SomeEnum bar3 = SomeEnum:Opt3(1, 2);
 
     match bar1 {
         SomeEnum:Opt1 {},
