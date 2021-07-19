@@ -195,8 +195,18 @@ sub analyze_local(File file, ptr<Expr> expr) {
             register_generic_paths(path@);
             analyze_local_vec(file, body);
         },
-        ExprKind:Field(_type) {
+        ExprKind:Field(_type, name) {
             check_type_defined(file, _type@);
+            vec<PathPart> parts = vec<PathPart>:new(1);
+            parts.push(PathPart {
+                name = name,
+                gens = vec<Expr> { len = 0, }
+            });
+            var_paths.push(Expr {
+                kind = ExprKind:Path(parts, 0),
+                tags = vec<Expr> { len = 0, },
+                label = none,
+            });
         },
         ExprKind:Comp(path, fields) {
             register_generic_paths(path@);
@@ -308,26 +318,32 @@ sub analyze_local(File file, ptr<Expr> expr) {
             match kind {
                 TokenKind:Dot {
                     match lhs@.kind {
-                        ExprKind:VarUse(path) {
-                            match rhs@.kind {
-                                ExprKind:SubCall(_path, args) {
-                                    ptr<u8> name = mangle(path@, true, false, 0);
-                                    ` for i = 0, (i) < vars.len, i += 1 {
-                                    `     if str:cmp(name, vars.buf[i].name) == 0 {
-                                    `         vec<PathPart> p = vars.buf[i].path;
-                                    `         vec<PathPart>:join_back(rhs@.kind.u.u16.path@.kind.u.u2.path$, p);
-                                    `         vec<Expr>:push_back(rhs@.kind.u.u16.args$, Expr {
-                                    `             kind = ExprKind:UnaryOp(
-                                    `                 lhs,
-                                    `                 TokenKind:Address
-                                    `             ),
-                                    `             tags = vec<Expr> { len = 0, },
-                                    `             label = none,
-                                    `         });
-                                    `         generate_expr(out, rhs@, false, false, parenths + 1);
-                                    `         ret ~m;
-                                    `     };
-                                    ` };
+                        ExprKind:VarUse(lhs_path) {
+                            match lhs_path@.kind {
+                                ExprKind:Path(_lhs_path) {
+                                    match rhs@.kind {
+                                        ExprKind:SubCall(_) {
+                                            for i = 0, (i) < var_paths.len, i += 1 {
+                                                match var_paths.buf[i].kind {
+                                                    ExprKind:Path(var_path) {
+                                                        if compare_paths(_lhs_path, var_path, false) {
+                                                            vec<PathPart>:join_back(rhs@.kind.u.u16.path@.kind.u.u2.path$, var_path);
+                                                            vec<Expr>:push_back(rhs@.kind.u.u16.args$, Expr {
+                                                                kind = ExprKind:UnaryOp(
+                                                                    lhs,
+                                                                    TokenKind:Address
+                                                                ),
+                                                                tags = vec<Expr> { len = 0, },
+                                                                label = none,
+                                                            });
+                                                            expr@ = rhs@;
+                                                            ret;
+                                                        };
+                                                    },
+                                                };
+                                            };
+                                        },
+                                    };
                                 },
                             };
                         },

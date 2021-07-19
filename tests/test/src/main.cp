@@ -69,17 +69,10 @@
 ` each
 ` local variable shadowing
 
-` free exprs 
-` fix generic replaced paths leak
+` fix leaks 
 
 #req("stdint.h")
 int main(vec<int> bar) {
-    ` foo; ` undeclered foo
-    ` abc; ` good
-    ` int foo;
-    ` foo; ` good
-    ` bar; ` good
-
     vec<f32> foo = vec<f32>:new_with_cap(2);
     foo.push('1');
     foo.push('2');
@@ -89,11 +82,11 @@ int main(vec<int> bar) {
     ` SomeEnum bar2 = SomeEnum:Opt2(1);
     ` SomeEnum bar3 = SomeEnum:Opt3(1, 2);
 
-    match bar1 {
-        SomeEnum:Opt1 {},
-        SomeEnum:Opt2(a) {},
-        SomeEnum:Opt3(a, b) {},
-    };
+    ` match bar1 {
+    `     SomeEnum:Opt1 {},
+    `     SomeEnum:Opt2(a) {},
+    `     SomeEnum:Opt3(a, b) {},
+    ` };
 };
 
 int abc;
@@ -140,6 +133,9 @@ mod mem {
 
     #bind("realloc")
     sub realloc();
+
+    #bind("sizeof")
+    sub size();
 };
 
 #gen("T")

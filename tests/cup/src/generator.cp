@@ -40,7 +40,6 @@ sub generate(ptr<u8> output, vec<Expr> ast) {
 
 sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool comma, bool clean_locals) {
     int old_local_names_len = mangled_local_names.len;
-    ` int old_vars_len = vars.len;
     for i = 0, (i) < exprs.len, i += 1 {
         bool is_last = i + 1 == exprs.len;
         generate_expr(out, exprs.buf[i], is_last, semicolon, 0);
@@ -53,7 +52,6 @@ sub generate_expr_vec(ptr<vec<u8>> out, vec<Expr> exprs, bool semicolon, bool co
             mem:free(mangled_local_names.buf[i].name);
         };
         mangled_local_names.len = old_local_names_len;
-        ` vars.len = old_vars_len;
     };
 };
 
@@ -503,41 +501,11 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             ~m match kind {
                 TokenKind:As {
                     vec<u8>:push(out, '(');
-                    ` generate_type(rhs);
+                    generate_expr(out, rhs@, false, false, parenths + 1);
                     vec<u8>:push(out, ')');
                     generate_expr(out, lhs@, false, false, parenths + 1);
                 },
                 _ {
-                    ` match kind {
-                    `     TokenKind:Dot {
-                    `         match lhs@.kind {
-                    `             ExprKind:VarUse(path) {
-                    `                 match rhs@.kind {
-                    `                     ExprKind:SubCall(_path, args) {
-                    `                         ptr<u8> name = mangle(path@, true, false, 0);
-                    `                         for i = 0, (i) < vars.len, i += 1 {
-                    `                             if str:cmp(name, vars.buf[i].name) == 0 {
-                    `                                 vec<PathPart> p = vars.buf[i].path;
-                    `                                 vec<PathPart>:join_back(rhs@.kind.u.u16.path@.kind.u.u2.path$, p);
-                    `                                 vec<Expr>:push_back(rhs@.kind.u.u16.args$, Expr {
-                    `                                     kind = ExprKind:UnaryOp(
-                    `                                         lhs,
-                    `                                         TokenKind:Address
-                    `                                     ),
-                    `                                     tags = vec<Expr> { len = 0, },
-                    `                                     label = none,
-                    `                                 });
-                    `                                 generate_expr(out, rhs@, false, false, parenths + 1);
-                    `                                 ret ~m;
-                    `                             };
-                    `                         };
-                    `                     },
-                    `                 };
-                    `             },
-                    `         };
-                    `     },
-                    ` };
-
                     generate_expr(out, lhs@, false, false, parenths + 1);
                     match kind {
                         TokenKind:Assign {
@@ -770,14 +738,6 @@ ptr<u8> register_local_name(Expr path, ptr<u8> local_name) {
         local_name = local_name, 
         name = name,
     });
-    ` match path.kind {
-    `     ExprKind:Path(_path) {
-    `         vars.push(MangledPath {
-    `             path = _path,
-    `             name = name,
-    `         });
-    `     },
-    ` };
     ret name;
 };
 
