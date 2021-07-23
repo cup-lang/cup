@@ -35,6 +35,7 @@ enum ExprKind {
     SubCall(ptr<Expr> path, vec<Expr> args),
     VarUse(ptr<Expr> path),
     CompInst(ptr<Expr> _type, vec<FieldValue> field_vals),
+    EnumInst(ptr<Expr> _type, int opt_index, vec<Expr> args),
     StringLit(ptr<u8> value),
     CharLit(ptr<u8> value),
     IntLit(ptr<u8> value),
@@ -373,14 +374,12 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                     };
                 };
                 expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'match' case value");
-                ~b while false {}; 
+                ~b while false {};
                 vec<Expr> case_body = parse_block(file, tokens, index, true);
                 body.push(Expr {
-                    tags = vec<Expr> {
-                        len = 0,
-                    },
-                    label = none,
                     kind = ExprKind:Case(values, case_body),
+                    tags = vec<Expr> { len = 0, },
+                    label = none,
                 });
                 if opt_token(tokens, index, TokenKind:Comma) == false {
                     ret ~lll;
@@ -1196,6 +1195,7 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:SubCall { ret "SUB_CALL"; },
         ExprKind:VarUse { ret "VAR_USE"; },
         ExprKind:CompInst { ret "COMP_INST"; },
+        ExprKind:EnumInst { ret "ENUM_INST"; },
         ExprKind:StringLit { ret "STRING_LIT"; },
         ExprKind:CharLit { ret "CHAR_LIT"; },
         ExprKind:IntLit { ret "INT_LIT"; },

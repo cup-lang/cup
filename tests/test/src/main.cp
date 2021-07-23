@@ -44,23 +44,19 @@
 ````````````````````````````````````````````````
 
 ` analyzer
-    ` check paths
-        ` redefinitons bad
     ` check if label defined
-    ` check if comp_inst field exists
+    ` check if enum_inst arg number is right
+    ` check if comp_inst fields exist
     ` check types
         ` when assigning check if type matches
         ` when giving to sub_call check
         ` when giving to comp_inst
         ` when giving to enum_inst
+        ` when ops
     ` apply type
         ` var_def
         ` local_var_def
 ` binding types/vars
-` match
-    ` get a enum path somehow
-    ` handle args
-    ` handle _
 ` op overloading
 ` combo ops
 ` combo var_defs
@@ -78,15 +74,18 @@ int main(vec<int> bar) {
     foo.push('2');
     foo.push('3');
 
-    ` SomeEnum bar1 = SomeEnum:Opt1;
-    ` SomeEnum bar2 = SomeEnum:Opt2(1);
-    ` SomeEnum bar3 = SomeEnum:Opt3(1, 2);
+    SomeEnum bar1 = SomeEnum:Opt1;
+    SomeEnum bar2 = SomeEnum:Opt2(1);
+    SomeEnum bar3 = SomeEnum:Opt3(1, 2);
 
-    ` match bar1 {
-    `     SomeEnum:Opt1 {},
-    `     SomeEnum:Opt2(a) {},
-    `     SomeEnum:Opt3(a, b) {},
-    ` };
+    match bar1 {
+        SomeEnum:Opt1,
+        _ {},
+        SomeEnum:Opt1,
+        SomeEnum:Opt3(a, b) {},
+        SomeEnum:Opt1 {},
+        SomeEnum:Opt2(a) {},
+    };
 };
 
 int abc;

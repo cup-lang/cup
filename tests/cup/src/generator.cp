@@ -320,9 +320,6 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                         vec<u8>:join(out, mangle(__path.buf[1].gens.buf[0], true, false, 0));
                         vec<u8>:push(out, ')');
                     } else {
-                        if genenerate_enum_inst(out, __path, args) {
-                            ret ~s;
-                        };
                         register_path_use(_path);
                         vec<u8>:join(out, mangle(_path, true, false, 0));
                         vec<u8>:push(out, '(');
@@ -337,17 +334,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         },
         ExprKind:VarUse(path) {
             Expr _path = apply_genenerics(path@);
-            match _path.kind {
-                ExprKind:Path(__path) {
-                    vec<Expr> empty_args = vec<Expr> { len = 0, };
-                    if genenerate_enum_inst(out, __path, empty_args) {
-                        ret;
-                    } else {
-                        register_path_use(_path);
-                        vec<u8>:join(out, mangle(_path, true, false, 0));
-                    };
-                },
-            };
+            register_path_use(_path);
+            vec<u8>:join(out, mangle(_path, true, false, 0));
             if semicolon {
                 vec<u8>:push(out, ';');
             };
@@ -365,6 +353,38 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 vec<u8>:push(out, ',');
             };
             vec<u8>:push(out, '}');
+        },
+        ExprKind:EnumInst(_type, opt_index, args) {
+            match _type@.kind {
+                ExprKind:Enum(path, opts, body) {
+                    vec<u8>:push(out, '(');
+                    vec<u8>:join(out, mangle(path@, true, false, 0));
+                    vec<u8>:join(out, "){.t=");
+                    vec<u8>:join(out, int_to_string(opt_index));
+                    if args.len > 0 {
+                        match opts.buf[opt_index].kind {
+                            ExprKind:Option(name, fields) {
+                                vec<u8>:join(out, ",.u={.");
+                                vec<u8>:join(out, name);
+                                vec<u8>:join(out, "={");
+                                for i = 0, (i) < args.len, i += 1 {
+                                    match fields.buf[i].kind {
+                                        ExprKind:Field(_, field_name) {
+                                            vec<u8>:push(out, '.');
+                                            vec<u8>:join(out, field_name);
+                                            vec<u8>:push(out, '=');
+                                            generate_expr(out, args.buf[i], false, false, 0);
+                                            vec<u8>:push(out, ',');
+                                        },
+                                    };
+                                };
+                                vec<u8>:join(out, "}}");
+                            },
+                        };
+                    };
+                    vec<u8>:push(out, '}');
+                },
+            };
         },
         ExprKind:StringLit(value) {
             vec<u8>:push(out, '"');
@@ -447,8 +467,56 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, '}');
         },
         ExprKind:Each {},
-        ExprKind:Match(value, cases) {},
-        ExprKind:Case {},
+        ExprKind:Match(value, cases) {
+            for i = 0, (i) < cases.len, i += 1 {
+                match cases.buf[i].kind {
+                    ExprKind:Case(values, body) {
+                        if i > 0 {
+                            vec<u8>:join(out, "}else ");
+                        };
+                        vec<u8>:join(out, "if(");
+                        for ii = 0, (ii) < values.len, ii += 1 {
+                            if ii > 0 {
+                                vec<u8>:join(out, "||");
+                            };
+                            match values.buf[ii].kind {
+                                ExprKind:EnumInst(_, index, args) {
+                                    generate_expr(out, value@, false, false, 0);
+                                    vec<u8>:join(out, ".t==");
+                                    vec<u8>:join(out, int_to_string(index));
+                                    vec<u8>:join(out, "){");
+                                    for iii = 0, (iii) < args.len, iii += 1 {
+                                        ` TODO
+                                    };
+                                },
+                                ExprKind:VarUse(path) {
+                                    match path@.kind {
+                                        ExprKind:Path(_path) {
+                                            if (_path.len > 1) | (str:cmp(_path.buf[0].name, "_") != 0) {
+                                                generate_expr(out, value@, false, false, 0);
+                                                vec<u8>:join(out, ".t==");
+                                                generate_expr(out, values.buf[ii], false, false, 0);
+                                                vec<u8>:join(out, ".t){");
+                                            } else {
+                                                vec<u8>:join(out, "1){");
+                                            };
+                                        },
+                                    };
+                                },
+                                _ {
+                                    generate_expr(out, value@, false, false, 0);
+                                    vec<u8>:join(out, ".t==");
+                                    generate_expr(out, values.buf[ii], false, false, 0);
+                                    vec<u8>:join(out, ".t){");
+                                },
+                            };
+                        };
+                        generate_expr_vec(out, body, true, false, true);
+                    },
+                };
+            };
+            vec<u8>:push(out, '}');
+        },
         ExprKind:Ret(label, value) {
             if label != none {
                 vec<u8>:join(out, "goto brk_");
@@ -602,60 +670,6 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr(out, valueB@, false, false, parenths + 1);
         },
     };
-};
-
-bool genenerate_enum_inst(ptr<vec<u8>> out, vec<PathPart> path, vec<Expr> args) {
-    if path.len > 1 {
-        path.len -= 1;
-        for i = 0, (i) < enum_paths.len, i += 1 {
-            Expr _enum = enum_paths.buf[i];
-            match _enum.kind {
-                ExprKind:Enum(enum_path, enum_opts) {
-                    match enum_path@.kind {
-                        ExprKind:Path(_enum_path) {
-                            if compare_paths(_enum_path, path, false) {
-                                ptr<u8> name = path.buf[path.len].name;
-                                for ii = 0, (ii) < enum_opts.len, ii += 1 {
-                                    match enum_opts.buf[ii].kind {
-                                        ExprKind:Option(opt_name, opt_fields) {
-                                            if str:cmp(name, opt_name) == 0 {
-                                                vec<u8>:push(out, '(');
-                                                vec<u8>:join(out, mangle(Expr {
-                                                    kind = ExprKind:Path(path),
-                                                }, true, false, 0));
-                                                vec<u8>:join(out, "){.t=");
-                                                vec<u8>:join(out, int_to_string(ii));
-                                                if opt_fields.len > 0 {
-                                                    vec<u8>:join(out, ",.u={.");
-                                                    vec<u8>:join(out, name);
-                                                    vec<u8>:join(out, "={");
-                                                    for iii = 0, (iii) < opt_fields.len, iii += 1 {
-                                                        match opt_fields.buf[iii].kind {
-                                                            ExprKind:Field(_, field_name) {
-                                                                vec<u8>:push(out, '.');
-                                                                vec<u8>:join(out, field_name);
-                                                                vec<u8>:push(out, '=');
-                                                                generate_expr(out, args.buf[i], false, false, 0);
-                                                                vec<u8>:push(out, ',');
-                                                            },
-                                                        };
-                                                    };
-                                                    vec<u8>:join(out, "}}");
-                                                };
-                                                vec<u8>:push(out, '}');
-                                                ret true;
-                                            };
-                                        },
-                                    };
-                                };
-                            };
-                        },
-                    };
-                },
-            };
-        };
-    };
-    ret false;
 };
 
 ptr<u8> int_to_string(int i) {

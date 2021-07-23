@@ -60,8 +60,9 @@ sub throw(File file, int index, ptr<u8> error) {
     Location loc = get_location(file.data.buf, index);
     fmt:print("%s:%i:%i: ", file.name, loc.line, loc.column);
     set_color(Color:Red);
-    fmt:print("error: ");
+    fmt:print("error:");
     set_color(Color:Reset);
+    fmt:print(" ");
     fmt:vprint(error, args);
     fmt:print("\n");
     print_snippet(file.data, loc);

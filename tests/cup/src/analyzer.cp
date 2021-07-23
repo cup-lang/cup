@@ -26,7 +26,7 @@ vec<GenericType> gen_types;
 
 vec<Expr> type_paths;
 vec<Expr> sub_paths;
-vec<Expr> var_paths;
+vec<MangledPath> var_paths;
 vec<Expr> enum_paths;
 
 sub init_analyzer() {
@@ -36,7 +36,7 @@ sub init_analyzer() {
     gen_types = vec<GenericType>:new(8);
     type_paths = vec<Expr>:new(8);
     sub_paths = vec<Expr>:new(8);
-    var_paths = vec<Expr>:new(8);
+    var_paths = vec<MangledPath>:new(8);
     enum_paths = vec<Expr>:new(4);
 
     vec<MangledPath> core_binds = vec<MangledPath>:new(64);
@@ -134,11 +134,17 @@ sub analyze_global(File file, ptr<Expr> expr) {
             vec<PathPart>:join_back(_path@.kind.u.u2.path$, mods);
             sub_paths.push(_path@);
             path = _path;
-            ret;
         },
         ExprKind:VarDef(_type, _path) {
             vec<PathPart>:join_back(path@.kind.u.u2.path$, mods);
-            var_paths.push(_path@);
+            match _type@.kind {
+                ExprKind:Path(__type) {
+                    var_paths.push(MangledPath {
+                        path = __type,
+                        name = mangle(_path@, false, false, 0),
+                    });
+                },
+            };
             ret;
         },
         _ {
@@ -202,11 +208,18 @@ sub analyze_local(File file, ptr<Expr> expr) {
                 name = name,
                 gens = vec<Expr> { len = 0, }
             });
-            var_paths.push(Expr {
-                kind = ExprKind:Path(parts, 0),
-                tags = vec<Expr> { len = 0, },
-                label = none,
-            });
+            match _type@.kind {
+                ExprKind:Path(__type) {
+                    var_paths.push(MangledPath {
+                        path = __type,
+                        name = mangle(Expr {
+                            kind = ExprKind:Path(parts, 0),
+                            tags = vec<Expr> { len = 0, },
+                            label = none,
+                        }, false, false, 0),
+                    });
+                },
+            };
         },
         ExprKind:Comp(path, fields) {
             register_generic_paths(path@);
@@ -229,7 +242,6 @@ sub analyze_local(File file, ptr<Expr> expr) {
             analyze_local_vec(file, body);
         },
         ExprKind:VarDef(_type, _, value) {
-            check_type_defined(file, _type@);
             if value != none {
                 analyze_local(file, value);
             };
@@ -241,21 +253,41 @@ sub analyze_local(File file, ptr<Expr> expr) {
                 name = name,
                 gens = vec<Expr> { len = 0, }
             });
-            var_paths.push(Expr {
-                kind = ExprKind:Path(parts, 0),
-                tags = vec<Expr> { len = 0, },
-                label = none,
-            });
+            match _type@.kind {
+                ExprKind:Path(__type) {
+                    var_paths.push(MangledPath {
+                        path = __type,
+                        name = mangle(Expr {
+                            kind = ExprKind:Path(parts, 0),
+                            tags = vec<Expr> { len = 0, },
+                            label = none,
+                        }, false, false, 0),
+                    });
+                },
+            };
             if value != none {
                 analyze_local(file, value);
             };
         },
         ExprKind:SubCall(path, args) {
+            if check_enum_inst(file, expr, path@, args) {
+                ret;
+            };
             check_sub_defined(file, path@);
             analyze_local_vec(file, args);
         },
         ExprKind:VarUse(path) {
-            check_var_defined(file, path@);
+            vec<Expr> empty_args = vec<Expr> { len = 0, };
+            if check_enum_inst(file, expr, path@, empty_args) {
+                ret;
+            };
+            match path@.kind {
+                ExprKind:Path(_path) {
+                    if (_path.len > 1) | (str:cmp(_path.buf[0].name, "_") != 0) {
+                        check_var_defined(file, path@);
+                    };
+                },
+            };
         },
         ExprKind:CompInst(_type, fields) {
             check_type_defined(file, _type@);
@@ -319,30 +351,24 @@ sub analyze_local(File file, ptr<Expr> expr) {
                 TokenKind:Dot {
                     match lhs@.kind {
                         ExprKind:VarUse(lhs_path) {
-                            match lhs_path@.kind {
-                                ExprKind:Path(_lhs_path) {
-                                    match rhs@.kind {
-                                        ExprKind:SubCall(_) {
-                                            for i = 0, (i) < var_paths.len, i += 1 {
-                                                match var_paths.buf[i].kind {
-                                                    ExprKind:Path(var_path) {
-                                                        if compare_paths(_lhs_path, var_path, false) {
-                                                            vec<PathPart>:join_back(rhs@.kind.u.u16.path@.kind.u.u2.path$, var_path);
-                                                            vec<Expr>:push_back(rhs@.kind.u.u16.args$, Expr {
-                                                                kind = ExprKind:UnaryOp(
-                                                                    lhs,
-                                                                    TokenKind:Address
-                                                                ),
-                                                                tags = vec<Expr> { len = 0, },
-                                                                label = none,
-                                                            });
-                                                            expr@ = rhs@;
-                                                            ret;
-                                                        };
-                                                    },
-                                                };
-                                            };
-                                        },
+                            match rhs@.kind {
+                                ExprKind:SubCall(_) {
+                                    ptr<u8> name = mangle(lhs_path@, false, false, 0);
+                                    for i = 0, (i) < var_paths.len, i += 1 {
+                                        if str:cmp(name, var_paths.buf[i].name) == 0 {
+                                            expr@ = rhs@;
+                                            vec<PathPart>:join_back(expr@.kind.u.u16.path@.kind.u.u2.path$, var_paths.buf[i].path);
+                                            vec<Expr>:push_back(expr@.kind.u.u16.args$, Expr {
+                                                kind = ExprKind:UnaryOp(
+                                                    lhs,
+                                                    TokenKind:Address
+                                                ),
+                                                tags = vec<Expr> { len = 0, },
+                                                label = none,
+                                            });
+                                            analyze_local(file, expr);
+                                            ret;
+                                        };
                                     };
                                 },
                             };
@@ -411,18 +437,51 @@ sub check_sub_defined(File file, Expr path) {
 sub check_var_defined(File file, Expr path) {
     match path.kind {
         ExprKind:Path(_path, index) {
+            ptr<u8> name = mangle(path, false, false, 0);
             for i = 0, (i) < var_paths.len, i += 1 {
-                match var_paths.buf[i].kind {
-                    ExprKind:Path(var_path) {
-                        if compare_paths(_path, var_path, false) {
-                            ret;
-                        };
-                    },
+                if str:cmp(name, var_paths.buf[i].name) == 0 {
+                    ret;
                 };
             };
             throw(file, index, "variable not defined");
         },
     };
+};
+
+bool check_enum_inst(File file, ptr<Expr> expr, Expr path, vec<Expr> args) {
+    match path.kind {
+        ExprKind:Path(_path, index) {
+            if _path.len > 1 {
+                _path.len -= 1;
+                for i = 0, (i) < enum_paths.len, i += 1 {
+                    Expr _enum = enum_paths.buf[i];
+                    match _enum.kind {
+                        ExprKind:Enum(enum_path, enum_opts) {
+                            match enum_path@.kind {
+                                ExprKind:Path(_enum_path) {
+                                    if compare_paths(_enum_path, _path, false) {
+                                        ptr<u8> name = _path.buf[_path.len].name;
+                                        for ii = 0, (ii) < enum_opts.len, ii += 1 {
+                                            match enum_opts.buf[ii].kind {
+                                                ExprKind:Option(opt_name, opt_fields) {
+                                                    if str:cmp(name, opt_name) == 0 {
+                                                        expr@.kind = ExprKind:EnumInst(enum_paths.buf + i, ii, args);
+                                                        ret true;
+                                                    };
+                                                },
+                                            };
+                                        };
+                                        throw(file, index, "option not defined");
+                                    };
+                                },
+                            };
+                        },
+                    };
+                };
+            };
+        },
+    };
+    ret false;
 };
 
 ptr<u8> mangle(Expr expr, bool gens, bool new, int pointer_count) {
