@@ -348,6 +348,23 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:BinaryOp(lhs, rhs, kind) {
             match kind {
+                TokenKind:LeftBracket {
+                    expr@.kind.u.u42.kind = TokenKind:Dot;
+                    vec<Expr> args = vec<Expr>:new(1);
+                    args.push(rhs@);
+                    vec<PathPart> path = vec<PathPart>:new(1);
+                    path.push(PathPart {
+                        name = "array_get",
+                        gens = vec<Expr> { len = 0, },
+                    });
+                    expr@.kind.u.u42.rhs@.kind = ExprKind:SubCall(alloc<Expr>(Expr {
+                        kind = ExprKind:Path(path),
+                        tags = vec<Expr> { len = 0, },
+                        label = none,
+                    }), args);
+                    analyze_local(file, expr);
+                    ret;
+                },
                 TokenKind:Dot {
                     match lhs@.kind {
                         ExprKind:VarUse(lhs_path) {
@@ -466,6 +483,16 @@ bool check_enum_inst(File file, ptr<Expr> expr, Expr path, vec<Expr> args) {
                                                 ExprKind:Option(opt_name, opt_fields) {
                                                     if str:cmp(name, opt_name) == 0 {
                                                         expr@.kind = ExprKind:EnumInst(enum_paths.buf + i, ii, args);
+                                                        for iii = 0, (iii) < args.len, iii += 1 {
+                                                            match args.buf[iii].kind {
+                                                                ExprKind:VarUse(arg_path) {
+                                                                    var_paths.push(MangledPath {
+                                                                        path = opt_fields.buf[iii].kind.u.u7._type@.kind.u.u2.path,
+                                                                        name = mangle(arg_path@, false, false, 0),
+                                                                    });
+                                                                },
+                                                            };
+                                                        };
                                                         ret true;
                                                     };
                                                 },

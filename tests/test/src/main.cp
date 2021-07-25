@@ -56,7 +56,6 @@
     ` apply type
         ` var_def
         ` local_var_def
-` binding types/vars
 ` op overloading
 ` combo ops
 ` combo var_defs
@@ -65,7 +64,7 @@
 ` each
 ` local variable shadowing
 
-` fix leaks 
+` fix leaks
 
 #req("stdint.h")
 int main(vec<int> bar) {
@@ -73,6 +72,8 @@ int main(vec<int> bar) {
     foo.push('1');
     foo.push('2');
     foo.push('3');
+
+    foo[1];
 
     SomeEnum bar1 = SomeEnum:Opt1;
     SomeEnum bar2 = SomeEnum:Opt2(1);
@@ -82,9 +83,13 @@ int main(vec<int> bar) {
         SomeEnum:Opt1,
         _ {},
         SomeEnum:Opt1,
-        SomeEnum:Opt3(a, b) {},
+        SomeEnum:Opt3(a, b) {
+            a + b;
+        },
         SomeEnum:Opt1 {},
-        SomeEnum:Opt2(a) {},
+        SomeEnum:Opt2(a) {
+            a + a;
+        },
     };
 };
 
@@ -114,8 +119,13 @@ def vec<T> {
     };
 
     #self
+    ptr<T> array_get(int index) {
+        ret this.buf + index;
+    };
+
+    #self
     sub push(T item) {
-        this.buf[this.len] = item;
+        (this.buf + this.len)@ = item;
         this.len += 1;
 
         if this.len == this.cap {

@@ -114,7 +114,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 if str:cmp(name, "this") == 0 {
                     vec<u8>:join(out, "this");
                 } else {
-                    vec<u8>:join(out, register_local_name(__type, name));
+                    vec<u8>:join(out, register_local_name(name));
                 };
             };
             if semicolon {
@@ -304,7 +304,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             register_path_use(__type);
             vec<u8>:join(out, mangle(__type, true, false, 0));
             vec<u8>:push(out, ' ');
-            vec<u8>:join(out, register_local_name(__type, name));
+            vec<u8>:join(out, register_local_name(name));
             if value != none {
                 vec<u8>:push(out, '=');
                 generate_expr(out, value@, false, false, 0);
@@ -442,6 +442,10 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         ExprKind:Loop(body) {
             vec<u8>:join(out, "for(;;){");
             generate_expr_vec(out, body, true, false, true);
+            if expr.label != none {
+                vec<u8>:join(out, expr.label);
+                vec<u8>:push(out, ':');
+            };
             vec<u8>:push(out, '}');
         },
         ExprKind:While(cond, body) {
@@ -449,6 +453,10 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr(out, cond@, false, false, 0);
             vec<u8>:join(out, "){");
             generate_expr_vec(out, body, true, false, true);
+            if expr.label != none {
+                vec<u8>:join(out, expr.label);
+                vec<u8>:push(out, ':');
+            };
             vec<u8>:push(out, '}');
         },
         ExprKind:For(iter, iter_value, cond, _next, body) {
@@ -464,12 +472,17 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             generate_expr(out, _next@, false, false, 0);
             vec<u8>:join(out, "){");
             generate_expr_vec(out, body, true, false, true);
+            if expr.label != none {
+                vec<u8>:join(out, expr.label);
+                vec<u8>:push(out, ':');
+            };
             vec<u8>:push(out, '}');
         },
         ExprKind:Each {},
         ExprKind:Match(value, cases) {
             for i = 0, (i) < cases.len, i += 1 {
-                match cases.buf[i].kind {
+                int old_local_names_len = mangled_local_names.len;
+                ~l match cases.buf[i].kind {
                     ExprKind:Case(values, body) {
                         if i > 0 {
                             vec<u8>:join(out, "}else ");
@@ -480,13 +493,42 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                 vec<u8>:join(out, "||");
                             };
                             match values.buf[ii].kind {
-                                ExprKind:EnumInst(_, index, args) {
-                                    generate_expr(out, value@, false, false, 0);
-                                    vec<u8>:join(out, ".t==");
-                                    vec<u8>:join(out, int_to_string(index));
-                                    vec<u8>:join(out, "){");
-                                    for iii = 0, (iii) < args.len, iii += 1 {
-                                        ` TODO
+                                ExprKind:EnumInst(_type, index, args) {
+                                    match _type@.kind {
+                                        ExprKind:Enum(_, opts) {
+                                            generate_expr(out, value@, false, false, 0);
+                                            vec<u8>:join(out, ".t==");
+                                            vec<u8>:join(out, int_to_string(index));
+                                            if args.len > 0 {
+                                                vec<u8>:join(out, "){");
+                                                match opts.buf[index].kind {
+                                                    ExprKind:Option(name, fields) {
+                                                        for iii = 0, (iii) < args.len, iii += 1 {
+                                                            match fields.buf[iii].kind {
+                                                                ExprKind:Field(field_type, field_name) {
+                                                                    vec<u8>:join(out, mangle(field_type@, false, false, 0));
+                                                                    vec<u8>:push(out, ' ');
+                                                                    match args.buf[iii].kind {
+                                                                        ExprKind:VarUse(path) {
+                                                                            vec<u8>:join(out, register_local_name(path@.kind.u.u2.path.buf[0].name));
+                                                                        },
+                                                                    };
+                                                                    vec<u8>:push(out, '=');
+                                                                    generate_expr(out, value@, false, false, 0);
+                                                                    vec<u8>:join(out, ".u.");
+                                                                    vec<u8>:join(out, name);
+                                                                    vec<u8>:push(out, '.');
+                                                                    vec<u8>:join(out, field_name);
+                                                                    vec<u8>:push(out, ';');
+                                                                },
+                                                            };
+                                                        };
+                                                    },
+                                                };
+                                                generate_expr_vec(out, body, true, false, true);
+                                                ret ~l;
+                                            };
+                                        },
                                     };
                                 },
                                 ExprKind:VarUse(path) {
@@ -496,9 +538,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                                 generate_expr(out, value@, false, false, 0);
                                                 vec<u8>:join(out, ".t==");
                                                 generate_expr(out, values.buf[ii], false, false, 0);
-                                                vec<u8>:join(out, ".t){");
+                                                vec<u8>:join(out, ".t");
                                             } else {
-                                                vec<u8>:join(out, "1){");
+                                                vec<u8>:push(out, '1');
                                             };
                                         },
                                     };
@@ -507,13 +549,15 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                     generate_expr(out, value@, false, false, 0);
                                     vec<u8>:join(out, ".t==");
                                     generate_expr(out, values.buf[ii], false, false, 0);
-                                    vec<u8>:join(out, ".t){");
+                                    vec<u8>:join(out, ".t");
                                 },
                             };
                         };
+                        vec<u8>:join(out, "){");
                         generate_expr_vec(out, body, true, false, true);
                     },
                 };
+                mangled_local_names.len = old_local_names_len;
             };
             vec<u8>:push(out, '}');
         },
@@ -642,16 +686,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                             };
                             ret ~m;
                         },
-                        TokenKind:LeftBracket {
-                            vec<u8>:push(out, '[');
-                        },
                     };
                     generate_expr(out, rhs@, false, false, parenths + 1);
-                    match kind {
-                        TokenKind:LeftBracket {
-                            vec<u8>:push(out, ']');
-                        },
-                    };
                 },
             };
 
@@ -669,6 +705,12 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, ':');
             generate_expr(out, valueB@, false, false, parenths + 1);
         },
+    };
+
+    if expr.label != none {
+        vec<u8>:join(out, "brk_");
+        vec<u8>:join(out, expr.label);
+        vec<u8>:push(out, ':');
     };
 };
 
@@ -746,7 +788,7 @@ sub register_path_use(Expr expr) {
     };
 };
 
-ptr<u8> register_local_name(Expr path, ptr<u8> local_name) {
+ptr<u8> register_local_name(ptr<u8> local_name) {
     ptr<u8> name = new_mangle(mangled_local_names.len + 1, true).buf;
     mangled_local_names.push(MangledLocalName {
         local_name = local_name, 
