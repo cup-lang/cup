@@ -1,18 +1,21 @@
-#os("win") HANDLE console;
-
 int main(int argc, ptr<ptr<u8>> argv) {
-    #os("win") console = GetStdHandle(STD_OUTPUT_HANDLE);
+    #os("win") console = get_std_handle(std_output_handle);
 
-    Command command = get_command(argc, argv);
+    arr<ptr<u8>> args = arr<ptr<u8>>:new_with_len(argc);
+    ` for i = 0, i < args.len, i += 1 {
+    `     args[i]@ = str:new_from_cstr(argv + i);
+    ` };
+
+    Command command = get_command(args);
     ~m match command {
         Command:None {
             set_color(Color:Red);
             fmt:print("error: ");
             set_color(Color:Reset);
-            fmt:print("no such command: '%s", argv[1]);
-            for i = 2, (i) < argc, i += 1 {
-                fmt:print(" %s", argv[i]);
-            };
+            ` fmt:print("no such command: '%s", argv[1]);
+            ` for i = 2, (i) < argc, i += 1 {
+            `     fmt:print(" %s", argv[i]);
+            ` };
             fmt:print("'\n\nSee 'cup help' for the list of available commands.\n");
             ret 1;
         },
@@ -97,150 +100,61 @@ int main(int argc, ptr<ptr<u8>> argv) {
         },
     };
 
-    ptr<u8> input = none;
-    ptr<u8> output = none;
-    for i = 2, (i) < argc, i += 1 {
-        if argv[i][0] == '-' {
-            if argv[i][1] == 'i' {
-                if input == none {
-                    input = get_option(i$, argc, argv);
-                };
-            } elif argv[i][1] == 'o' {
-                if output == none {
-                    output = get_option(i$, argc, argv);
-                };
-            };
-        } else {
-            set_color(Color:Red);
-            fmt:print("error: ");
-            set_color(Color:Reset);
-            fmt:print("invalid option '%s'", argv[i]);
-        };
+    ` ptr<u8> input = none;
+    ` ptr<u8> output = none;
+    for i = 2, i < argc, i += 1 {
+        ` if argv[i][0] == '-' {
+        `     if argv[i][1] == 'i' {
+        `         if input == none {
+        `             input = get_option(i$, argc, argv);
+        `         };
+        `     } elif argv[i][1] == 'o' {
+        `         if output == none {
+        `             output = get_option(i$, argc, argv);
+        `         };
+        `     };
+        ` } else {
+        `     set_color(Color:Red);
+        `     fmt:print("error: ");
+        `     set_color(Color:Reset);
+        `     fmt:print("invalid option '%s'", argv[i]);
+        ` };
     };
-    if input == none {
-        input = ".";
-    };
-    if output == none {
-        output = "out.c";
-    };
-
-    vec<Expr> ast = vec<Expr>:new(8);
-    lex_parse_recursive(input, ast$);
-    analyze(ast);
-    ptr<u8> out = generate(ast);
-    ptr<FILE> file_point = file:open(output, "w");
-    file:print(file_point, "%s", out);
-    mem:free(out);
+    ` if input == none {
+    `     input = ".";
+    ` };
+    ` if output == none {
+    `     output = "out.c";
+    ` };
 
     fmt:print("Compilation ");
     set_color(Color:Green);
     fmt:print("successful");
     set_color(Color:Reset);
-    fmt:print(" (%.1lfs elapsed)\n", (clock() as f64) / CLOCKS_PER_SEC);
+    fmt:print(" (%.2lfs elapsed)\n", time:now());
 
     ret 0;
 };
 
-ptr<u8> get_option(ptr<int> index, int argc, ptr<ptr<u8>> argv) {
-    if str:len(argv[index@]) > 2 {
-        ret (argv[index@] + 1);
-    } elif (argc > index@) {
-        ret (argv[index@ += 1]);
-    };
-    ret none;
-};
-
-enum Color (
-    Reset,
-    Magenta,
-    Green,
-    Red,
+comp foo (
+    ptr<u8> buf,
+    int len,
 );
 
-#os("win")
-sub set_color(Color color) {
-    int color_code; 
-    match color {
-        Color:Reset { color_code = 7; },
-        Color:Magenta { color_code = 5; },
-        Color:Green { color_code = 10; },
-        Color:Red { color_code = 12; },
-    };
-
-    SetConsoleTextAttribute(console, color_code);   
-};
-
-#os("linux")
-sub set_color(Color color) {
-    match color {
-        Color:Reset { fmt:print("\033[0m"); },
-        Color:Magenta { fmt:print("\033[35m"); },
-        Color:Green { fmt:print("\033[32m"); },
-        Color:Red { fmt:print("\033[0;31m"); },
-    };
-};
-
-sub lex_parse_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
-    ptr<DIR> dir = dir:open(path);
-    if dir == none {
-        set_color(Color:Red);
-        fmt:print("error: ");
-        set_color(Color:Reset);
-        fmt:print("no such file or directory: '%s'\n", path);
-        exit(1);
-    };
-    ptr<dirent> ent;
-    while (ent = dir:read(dir)) != none {
-        int new_length = str:len(ent@.d_name);
-        if (new_length == 1) & (ent@.d_name[0] == '.') { }
-        elif ((new_length == 2) & (ent@.d_name[0] == '.')) & (ent@.d_name[1] == '.') { }
-        else {
-            int length = str:len(path);
-            ptr<u8> new_path = mem:alloc(length + 1 + new_length + 1);
-            mem:copy(new_path, path, length);
-            new_path[length] = '/';
-            mem:copy(new_path + length + 1, ent@.d_name, new_length);
-            new_path[length + new_length + 1] = '\0';
-            if ent@.d_type == DT_DIR {
-                lex_parse_recursive(new_path, ast);
-            } elif ent@.d_type == DT_REG {
-                ptr<FILE> file_point = file:open(new_path, "r");
-                file:seek(file_point, 0 as i32, SEEK_END);
-                arr<u8> data = arr<u8>:new(ftell(file_point) + 1);
-                rewind(file_point);
-                data.len -= 1;
-                file:read(data.buf, data.len, 1, file_point);
-                data.buf[data.len] = '\0';
-                file:close(file_point);
-                
-                ` fmt:print("Compiling %s:\n", new_path);
-                File file = File(
-                    name = new_path,
-                    data = data,
-                );
-                vec<Token> tokens = lex(file);
-                `print_tokens(tokens);
-                vec<Expr> exprs = parse(file, tokens);
-                `print_exprs(exprs);
-                
-                vec<Expr>:push(ast, Expr(
-                    tags = vec<Expr>(
-                        len = 0,
-                    ),
-                    label = none,
-                    kind = ExprKind:Block(exprs),
-                ));
-
-                mem:free(data.buf);
-                mem:free(tokens.buf);
-            };
-            mem:free(new_path);
+def foo {
+    foo new_from_cstr(ptr<u8> buf, int len) {
+        ret new foo {
+            buf = buf,
+            len = len,
         };
     };
-    dir:close(dir);
+
+    #self
+    u8 array_get(int index) {
+        ret this.buf + index;
+    };
 };
 
-comp File (
-    ptr<u8> name,
-    arr<u8> data,
-);
+sub b() {
+    arr<foo> foo2 = arr<foo>:new_with_len(2);
+};

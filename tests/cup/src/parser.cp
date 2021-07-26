@@ -494,16 +494,29 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
         };
         index@ += 1;
         ~e while false {};
-        expr = Expr {
-            tags = vec<Expr> {
-                len = 0,
-            },
-            label = none,
-            kind = ExprKind:BinaryOp(alloc<Expr>(expr), alloc<Expr>(parse_local(file, tokens, index, new_op_level, false)), token.kind),
-        };
+        expr.kind = ExprKind:BinaryOp(alloc<Expr>(expr), alloc<Expr>(parse_local(file, tokens, index, new_op_level, false)), token.kind);
         match token.kind {
             TokenKind:LeftBracket {
                 expect_token(file, tokens, index, TokenKind:RightBracket, "expected ']' after '['");
+            },
+            TokenKind:Add {
+                match expr.kind {
+                    ExprKind:BinaryOp(lhs, rhs) {
+                        match lhs@.kind {
+                            ExprKind:StringLit(lhs_str) {
+                                match rhs@.kind {
+                                    ExprKind:StringLit(rhs_str) {
+                                        vec<u8> temp = vec<u8>:new(64);
+                                        temp.join(lhs_str);
+                                        temp.join(rhs_str);
+                                        ` expr.lhs.value += expr.rhs.value;
+                                        expr.kind = ExprKind:StringLit(temp.buf);
+                                    },
+                                };
+                            },
+                        };
+                    },
+                };
             },
         };
     };
@@ -788,6 +801,7 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
                                     ExprKind:Path(gen_path) {
                                         if gen_path.len == 0 {
                                             index@ = old_index;
+                                            part.gens.len = 0;
                                             ret ~ll;
                                         };
                                     },
@@ -813,9 +827,7 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
     };
     ret Expr {
         kind = ExprKind:Path(path, tokens.buf[start_index].index),
-        tags = vec<Expr> {
-            len = 0,
-        },
+        tags = vec<Expr> { len = 0, },
         label = none,
     };
 };

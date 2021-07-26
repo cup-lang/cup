@@ -197,6 +197,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         ExprKind:Prop {},
         ExprKind:Def {},
         ExprKind:SubDef(ret_type, path, args, body) {
+            int old_local_names_len = mangled_local_names.len;
+
             bool has_gens = has_generics(path@);
             if (gens.len == 0) & has_gens {
                 ret;
@@ -284,6 +286,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             sub_out.buf[sub_out.len] = '\0';
             vec<u8>:join(funcs$, sub_out.buf);
             mem:free(sub_out.buf);
+
+            mangled_local_names.len = old_local_names_len;
         },
         ExprKind:VarDef(_type, path, value) {
             Expr __type = apply_genenerics(_type@);
@@ -460,8 +464,10 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8>:push(out, '}');
         },
         ExprKind:For(iter, iter_value, cond, _next, body) {
+            int old_local_names_len = mangled_local_names.len;
+
             vec<u8>:join(out, "for(int ");
-            vec<u8>:join(out, iter);
+            vec<u8>:join(out, register_local_name(iter));
             if iter_value != none {
                 vec<u8>:push(out, '=');
                 generate_expr(out, iter_value@, false, false, 0);
@@ -477,6 +483,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 vec<u8>:push(out, ':');
             };
             vec<u8>:push(out, '}');
+
+            mangled_local_names.len = old_local_names_len;
         },
         ExprKind:Each {},
         ExprKind:Match(value, cases) {
@@ -563,7 +571,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
         },
         ExprKind:Ret(label, value) {
             if label != none {
-                vec<u8>:join(out, "goto brk_");
+                vec<u8>:join(out, "goto ret_");
                 vec<u8>:join(out, label);
             } else {
                 vec<u8>:join(out, "return");
@@ -708,7 +716,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
     };
 
     if expr.label != none {
-        vec<u8>:join(out, "brk_");
+        vec<u8>:join(out, "ret_");
         vec<u8>:join(out, expr.label);
         vec<u8>:push(out, ':');
     };

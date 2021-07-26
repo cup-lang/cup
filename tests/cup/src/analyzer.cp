@@ -136,16 +136,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
             path = _path;
         },
         ExprKind:VarDef(_type, _path) {
-            vec<PathPart>:join_back(path@.kind.u.u2.path$, mods);
-            match _type@.kind {
-                ExprKind:Path(__type) {
-                    var_paths.push(MangledPath {
-                        path = __type,
-                        name = mangle(_path@, false, false, 0),
-                    });
-                },
-            };
-            ret;
+            vec<PathPart>:join_back(_path@.kind.u.u2.path$, mods);
+            path = _path;
         },
         _ {
             ret;
@@ -177,10 +169,22 @@ sub analyze_global(File file, ptr<Expr> expr) {
                             });
                         },
                     };
-                    ret;
                 };
             },
         };
+    };
+
+    match expr@.kind {
+        ExprKind:VarDef(_type, _path) {
+            match _type@.kind {
+                ExprKind:Path(__type) {
+                    var_paths.push(MangledPath {
+                        path = __type,
+                        name = mangle(_path@, false, false, 0),
+                    });
+                },
+            };
+        },
     };
 };
 
@@ -319,7 +323,25 @@ sub analyze_local(File file, ptr<Expr> expr) {
             analyze_local(file, cond);
             analyze_local_vec(file, body);
         },
-        ExprKind:For(_, iter_value, cond, _next, body) {
+        ExprKind:For(iter, iter_value, cond, _next, body) {
+            vec<PathPart> type_path = vec<PathPart>:new(1);
+            type_path.push(PathPart {
+                name = "int",
+                gens = vec<Expr> { len = 0, },
+            });
+            vec<PathPart> parts = vec<PathPart>:new(1);
+            parts.push(PathPart {
+                name = iter,
+                gens = vec<Expr> { len = 0, },
+            });
+            var_paths.push(MangledPath {
+                path = type_path,
+                name = mangle(Expr {
+                    kind = ExprKind:Path(parts, 0),
+                    tags = vec<Expr> { len = 0, },
+                    label = none,
+                }, false, false, 0),
+            });
             analyze_local(file, iter_value);
             analyze_local(file, cond);
             analyze_local(file, _next);
@@ -338,7 +360,9 @@ sub analyze_local(File file, ptr<Expr> expr) {
             analyze_local_vec(file, body);
         },
         ExprKind:Ret(_, value) {
-            analyze_local(file, value);
+            if value != none {
+                analyze_local(file, value);
+            };
         },
         ExprKind:Try(_, value) {
             analyze_local(file, value);
@@ -391,6 +415,12 @@ sub analyze_local(File file, ptr<Expr> expr) {
                             };
                         },
                     };
+                    analyze_local(file, lhs);
+                    ret;
+                },
+                TokenKind:As {
+                    analyze_local(file, lhs);
+                    ret;
                 },
             };
             analyze_local(file, lhs);
