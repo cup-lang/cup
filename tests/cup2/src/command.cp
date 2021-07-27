@@ -48,7 +48,7 @@ enum Command (
     SelfUninstall,
 );
 
-Command get_command(arr<ptr<u8>> args) {
+Command get_command(arr<str> args) {
     if args.len == 1 {
         ret Command:Help;
     };
@@ -60,21 +60,20 @@ Command get_command(arr<ptr<u8>> args) {
             ret ~l;
         };
 
-        ` if args[i][0] == '-' {
-        `     if is_command {
-        `         ret ~l;
-        `     };
-        `     next ~l;
-        ` };
-        ` is_command = true;
+        if args[i][0] == '-' {
+            if is_command {
+                ret ~l;
+            };
+            next ~l;
+        };
+        is_command = true;
 
-        ` int length = cstr:len(args[i]);
-        ` for c = 0, c < length, c += 1 {
-        `     vector.push(args[i][c]);
-        ` };
+        for c = 0, c < args[i].len, c += 1 {
+            vector.push(args[i][c]);
+        };
     };
 
-    vector[vector.len]@ = '\0';
+    vector[vector.len] = '\0';
     ptr<u8> input = vector.buf;
 
     if cstr:cmp(input, "help") == 0 {

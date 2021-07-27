@@ -187,6 +187,21 @@ sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
         exit(1);
     };
     ptr<dirent> ent;
+    while (ent = dir:read(dir)) != none {
+        int new_length = str:len(ent@.d_name);
+        if (new_length == 1) & (ent@.d_name[0] == '.') { }
+        elif ((new_length == 2) & (ent@.d_name[0] == '.')) & (ent@.d_name[1] == '.') { }
+        elif ent@.d_type == DT_DIR {
+            int length = str:len(path);
+            ptr<u8> new_path = mem:alloc(length + 1 + new_length + 1);
+            mem:copy(new_path, path, length);
+            new_path[length] = '/';
+            mem:copy(new_path + length + 1, ent@.d_name, new_length);
+            new_path[length + new_length + 1] = '\0';
+            lex_parse_analyze_recursive(new_path, ast);
+        };
+    };
+    dir:rewind(dir);
     vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new(4);
     while (ent = dir:read(dir)) != none {
         int new_length = str:len(ent@.d_name);
@@ -199,9 +214,7 @@ sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
             new_path[length] = '/';
             mem:copy(new_path + length + 1, ent@.d_name, new_length);
             new_path[length + new_length + 1] = '\0';
-            if ent@.d_type == DT_DIR {
-                lex_parse_analyze_recursive(new_path, ast);
-            } elif ent@.d_type == DT_REG {
+            if ent@.d_type == DT_REG {
                 ptr<FILE> file_point = file:open(new_path, "r");
                 file:seek(file_point, 0 as i32, SEEK_END);
                 arr<u8> data = arr<u8>:new(ftell(file_point) + 1);

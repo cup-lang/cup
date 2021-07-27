@@ -46,3 +46,14 @@ mod mem {
 
 #gen("T")
 comp ptr<T> ();
+
+comp str (
+    ptr<u8> buf,
+    int len,
+);
+
+#gen("T")
+enum opt<T> (
+    Some(T thing),
+    None,
+);

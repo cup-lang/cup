@@ -59,6 +59,7 @@ mod str {
 mod dir {
     #bind("opendir") sub open() {};
     #bind("readdir") sub read() {};
+    #bind("rewinddir") sub rewind() {};
     #bind("closedir") sub close() {};    
 };
 

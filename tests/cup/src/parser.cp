@@ -35,7 +35,7 @@ enum ExprKind {
     SubCall(ptr<Expr> path, vec<Expr> args),
     VarUse(ptr<Expr> path),
     CompInst(ptr<Expr> _type, vec<FieldValue> field_vals),
-    EnumInst(ptr<Expr> _type, int opt_index, vec<Expr> args),
+    EnumInst(ptr<Expr> _type, ptr<Expr> path, int opt_index, vec<Expr> args),
     StringLit(ptr<u8> value),
     CharLit(ptr<u8> value),
     IntLit(ptr<u8> value),

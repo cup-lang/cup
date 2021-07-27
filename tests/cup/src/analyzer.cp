@@ -275,6 +275,7 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:SubCall(path, args) {
             if check_enum_inst(file, expr, path@, args) {
+                analyze_local(file, expr);
                 ret;
             };
             check_sub_defined(file, path@);
@@ -283,6 +284,7 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:VarUse(path) {
             vec<Expr> empty_args = vec<Expr> { len = 0, };
             if check_enum_inst(file, expr, path@, empty_args) {
+                analyze_local(file, expr);
                 ret;
             };
             match path@.kind {
@@ -298,6 +300,9 @@ sub analyze_local(File file, ptr<Expr> expr) {
             for i = 0, (i) < fields.len, i += 1 {
                 analyze_local(file, fields.buf[i].value);
             };
+        },
+        ExprKind:EnumInst(_, __, ___, args) {
+            analyze_local_vec(file, args);
         },
         ExprKind:LocalBlock(body) {
             analyze_local_vec(file, body);
@@ -373,21 +378,26 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:BinaryOp(lhs, rhs, kind) {
             match kind {
                 TokenKind:LeftBracket {
-                    expr@.kind.u.u42.kind = TokenKind:Dot;
-                    vec<Expr> args = vec<Expr>:new(1);
-                    args.push(rhs@);
                     vec<PathPart> path = vec<PathPart>:new(1);
                     path.push(PathPart {
-                        name = "array_get",
+                        name = "buf",
                         gens = vec<Expr> { len = 0, },
                     });
-                    expr@.kind.u.u42.rhs@.kind = ExprKind:SubCall(alloc<Expr>(Expr {
-                        kind = ExprKind:Path(path),
-                        tags = vec<Expr> { len = 0, },
-                        label = none,
-                    }), args);
-                    analyze_local(file, expr);
-                    ret;
+                    expr@.kind.u.u42.lhs@.kind = ExprKind:BinaryOp(
+                        alloc<Expr>(lhs@),
+                        alloc<Expr>(Expr {
+                            kind = ExprKind:VarUse(
+                                alloc<Expr>(Expr {
+                                    kind = ExprKind:Path(path),
+                                    tags = vec<Expr> { len = 0, },
+                                    label = none,
+                                })
+                            ),
+                            tags = vec<Expr> { len = 0, },
+                            label = none,
+                        }),
+                        TokenKind:Dot
+                    );
                 },
                 TokenKind:Dot {
                     match lhs@.kind {
@@ -512,7 +522,9 @@ bool check_enum_inst(File file, ptr<Expr> expr, Expr path, vec<Expr> args) {
                                             match enum_opts.buf[ii].kind {
                                                 ExprKind:Option(opt_name, opt_fields) {
                                                     if str:cmp(name, opt_name) == 0 {
-                                                        expr@.kind = ExprKind:EnumInst(enum_paths.buf + i, ii, args);
+                                                        ptr<Expr> new_path = alloc<Expr>(path);
+                                                        new_path@.kind.u.u2.path.len -= 1;
+                                                        expr@.kind = ExprKind:EnumInst(enum_paths.buf + i, new_path, ii, args);
                                                         for iii = 0, (iii) < args.len, iii += 1 {
                                                             match args.buf[iii].kind {
                                                                 ExprKind:VarUse(arg_path) {
@@ -528,7 +540,6 @@ bool check_enum_inst(File file, ptr<Expr> expr, Expr path, vec<Expr> args) {
                                                 },
                                             };
                                         };
-                                        throw(file, index, "option not defined");
                                     };
                                 },
                             };
@@ -590,15 +601,21 @@ ptr<u8> mangle(Expr expr, bool gens, bool new, int pointer_count) {
     };
 
     vec<u8> name = new_mangle(mangle_index += 1, false);
-    for i = 0, (i) < pointer_count, i += 1 {
-        name.push('*');
-    };
-    name.buf[name.len] = '\0';
 
     vec<MangledPath>:push(mangled_paths.buf[path.len - 1]$, MangledPath {
         path = path,
         name = name.buf,
     });
+
+    if pointer_count > 0 {
+        ptr<u8> old_name = name.buf;
+        name = vec<u8>:new(name.len);
+        name.join(old_name);
+        for i = 0, (i) < pointer_count, i += 1 {
+            name.push('*');
+        };
+        name.buf[name.len] = '\0';
+    };
 
     ret (name.buf);
 };

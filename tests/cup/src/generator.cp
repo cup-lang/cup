@@ -195,7 +195,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             mem:free(enum_out.buf);
         },
         ExprKind:Prop {},
-        ExprKind:Def {},
+        ExprKind:Def(_, __, body) {
+            generate_expr_vec(out, body, false, false, false);
+        },
         ExprKind:SubDef(ret_type, path, args, body) {
             int old_local_names_len = mangled_local_names.len;
 
@@ -358,9 +360,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             };
             vec<u8>:push(out, '}');
         },
-        ExprKind:EnumInst(_type, opt_index, args) {
+        ExprKind:EnumInst(_type, path, opt_index, args) {
             match _type@.kind {
-                ExprKind:Enum(path, opts, body) {
+                ExprKind:Enum(_, opts) {
                     vec<u8>:push(out, '(');
                     vec<u8>:join(out, mangle(path@, true, false, 0));
                     vec<u8>:join(out, "){.t=");
@@ -501,7 +503,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                 vec<u8>:join(out, "||");
                             };
                             match values.buf[ii].kind {
-                                ExprKind:EnumInst(_type, index, args) {
+                                ExprKind:EnumInst(_type, _, index, args) {
                                     match _type@.kind {
                                         ExprKind:Enum(_, opts) {
                                             generate_expr(out, value@, false, false, 0);
@@ -514,7 +516,8 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                                         for iii = 0, (iii) < args.len, iii += 1 {
                                                             match fields.buf[iii].kind {
                                                                 ExprKind:Field(field_type, field_name) {
-                                                                    vec<u8>:join(out, mangle(field_type@, false, false, 0));
+                                                                    Expr _field_type = apply_genenerics(field_type@);
+                                                                    vec<u8>:join(out, mangle(_field_type, false, false, 0));
                                                                     vec<u8>:push(out, ' ');
                                                                     match args.buf[iii].kind {
                                                                         ExprKind:VarUse(path) {
@@ -694,8 +697,16 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                             };
                             ret ~m;
                         },
+                        TokenKind:LeftBracket {
+                            vec<u8>:push(out, '[');
+                        },
                     };
                     generate_expr(out, rhs@, false, false, parenths + 1);
+                    match kind {
+                        TokenKind:LeftBracket {
+                            vec<u8>:push(out, ']');
+                        },
+                    };
                 },
             };
 

@@ -20,11 +20,26 @@ mod fmt {
     #bind("vprintf") sub vprint();
 };
 
+#req("stdarg.h")
+mod rest {
+    #bind("va_list") comp args ();
+    #bind("va_start") sub start ();
+    #bind("va_end") sub end ();
+};
+
 #req("string.h")
 mod cstr {
     #bind("strcmp") sub cmp();
     #bind("strlen") sub len();
     #bind("strcpy") sub copy();
+};
+
+#req("ctype.h")
+mod char {
+    #bind("isspace") sub is_space() {};
+    #bind("isdigit") sub is_num() {};
+    #bind("isalpha") sub is_alpha() {};
+    #bind("isalnum") sub is_alpha_num() {};
 };
 
 #req("time.h")
@@ -37,12 +52,13 @@ mod time {
     };
 };
 
+#bind("exit") sub exit();
+
 #os("win") #bind("HANDLE") comp ConsoleHandle ();
 #os("win") ConsoleHandle console;
 #os("win") #bind("STD_OUTPUT_HANDLE") int std_output_handle;
 
 enum Color (
-    Reset,
     Magenta,
     Green,
     Red,
@@ -51,60 +67,64 @@ enum Color (
 #os("win") #bind("SetConsoleTextAttribute") sub set_console_text_attribute();
 #os("win") #bind("GetStdHandle") sub get_std_handle();
 
-#os("win")
-sub set_color(Color color) {
-    int color_code; 
-    match color {
-        Color:Reset { color_code = 7; },
-        Color:Magenta { color_code = 5; },
-        Color:Green { color_code = 10; },
-        Color:Red { color_code = 12; },
+mod color {
+    #os("win")
+    sub set(Color color) {
+        int color_code; 
+        match color {
+            Color:Magenta { color_code = 5; },
+            Color:Green { color_code = 10; },
+            Color:Red { color_code = 12; },
+        };
+        set_console_text_attribute(console, color_code);   
     };
 
-    set_console_text_attribute(console, color_code);   
-};
+    #os("win")
+    sub reset() {
+        set_console_text_attribute(console, 7);   
+    };
 
-#os("linux")
-sub set_color(Color color) {
-    match color {
-        Color:Reset { fmt:print("\033[0m"); },
-        Color:Magenta { fmt:print("\033[35m"); },
-        Color:Green { fmt:print("\033[32m"); },
-        Color:Red { fmt:print("\033[0;31m"); },
+    #os("linux")
+    sub set(Color color) {
+        match color {
+            Color:Magenta { fmt:print("\033[35m"); },
+            Color:Green { fmt:print("\033[32m"); },
+            Color:Red { fmt:print("\033[0;31m"); },
+        };
+    };
+
+    #os("linux")
+    sub reset() {
+        fmt:print("\033[0m");
     };
 };
 
-` comp dstr (
-`     ptr<u8> buf,
-`     int len,
-`     int cap,
-` );
-` 
-` def dstr {
-`     dstr new_with_cap(int cap) {
-`         ret new dstr {
-`             buf = mem:alloc(mem:size<u8>() * cap),
-`             len = 0,
-`             cap = cap,
-`         };
-`     };
-` 
-`     dstr new_from_cstr(ptr<u8> cstr) {
-`         int len = cstr:len(cstr);
-`         ptr<u8> buf = mem:alloc(mem:size<u8>() * len * 2);
-`         mem:copy(buf, cstr, len + 1);
-`         ret new dstr {
-`             buf = buf,
-`             len = len,
-`             cap = len * 2,
-`         };
-`     };
-` 
-`     #self
-`     u8 array_get(int index) {
-`         ret this.buf + index;
-`     };
-` };
+comp dstr (
+    ptr<u8> buf,
+    int len,
+    int cap,
+);
+
+def dstr {
+    dstr new_with_cap(int cap) {
+        ret new dstr {
+            buf = mem:alloc(mem:size<u8>() * cap),
+            len = 0,
+            cap = cap,
+        };
+    };
+
+    dstr new_from_cstr(ptr<u8> cstr) {
+        int len = cstr:len(cstr) + 1;
+        ptr<u8> buf = mem:alloc(mem:size<u8>() * len * 2);
+        mem:copy(buf, cstr, mem:size<u8>() * len);
+        ret new dstr {
+            buf = buf,
+            len = len - 1,
+            cap = len * 2,
+        };
+    };
+};
 
 comp str (
     ptr<u8> buf,
@@ -112,16 +132,14 @@ comp str (
 );
 
 def str {
-    str new_from_cstr(ptr<u8> buf, int len) {
+    str new_from_cstr(ptr<u8> cstr) {
+        int len = cstr:len(cstr) + 1;
+        ptr<u8> buf = mem:alloc(mem:size<u8>() * len);
+        mem:copy(buf, cstr, mem:size<u8>() * len);
         ret new str {
             buf = buf,
-            len = len,
+            len = len - 1,
         };
-    };
-
-    #self
-    u8 array_get(int index) {
-        ret this.buf + index;
     };
 };
 
@@ -146,11 +164,6 @@ def arr<T> {
             len = len,
         };
     };
-
-    #self
-    ptr<T> array_get(int index) {
-        ret this.buf + index;
-    };
 };
 
 #gen("T")
@@ -168,11 +181,6 @@ def vec<T> {
             len = 0,
             cap = cap,
         };
-    };
-
-    #self
-    ptr<T> array_get(int index) {
-        ret this.buf + index;
     };
 
     #self
@@ -196,7 +204,7 @@ def vec<T> {
         };
 
         mem:copy(this.buf + 1, this.buf, mem:size<T>() * (this.len - 1));
-        this.buf[0] = item;
+        this[0] = item;
     };
 
     #self
@@ -227,9 +235,25 @@ def vec<T> {
         mem:copy(this.buf + other.len, this.buf, mem:size<T>() * old_len);
         mem:copy(this.buf, other.buf, mem:size<T>() * other.len);
     };
+};
 
+#gen("T")
+enum opt<T> (
+    Some(T thing),
+    None,
+);
+
+#gen("T")
+def opt<T> {
     #self
-    sub empty() {
-        this.len = 0;
+    T unwrap() {
+        match this {
+            opt:Some(thing) {
+                ret thing;
+            },
+            opt:None {
+                exit(1);
+            },
+        };
     };
 };

@@ -66,44 +66,6 @@
 
 ` fix leaks
 
-#req("stdint.h")
-int main(vec<int> bar) {
-    for i = 0, i < 10, i += 1 {
-        i + i;
-    };
-    for i = 0, i < bar, i += 1 {
-        i + i;
-    };
-    
-    vec<f32> foo = vec<f32>:new_with_cap(2);
-    foo.push('1');
-    foo.push('2');
-    foo.push('3');
-
-    foo[1];
-
-    SomeEnum bar1 = SomeEnum:Opt1;
-    SomeEnum bar2 = SomeEnum:Opt2(1);
-    SomeEnum bar3 = SomeEnum:Opt3(1, 2);
-
-    match bar1 {
-        SomeEnum:Opt1,
-        _ {},
-        SomeEnum:Opt1,
-        SomeEnum:Opt3(a, b) {
-            a + b;
-        },
-        SomeEnum:Opt1 {},
-        SomeEnum:Opt2(a) {
-            a + a;
-        },
-    };
+int main() {
+    opt<str> foo = opt<str>:None;
 };
-
-int abc;
-
-enum SomeEnum (
-    Opt1(),
-    Opt2(int a),
-    Opt3(int a, int b),
-);
