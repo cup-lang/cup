@@ -214,6 +214,7 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
             vec<u8> sub_out = vec<u8>:new(256);
             if ret_type != none {
                 Expr _ret_type = apply_genenerics(ret_type@);
+                register_path_use(_ret_type);
                 vec<u8>:join(sub_out$, mangle(_ret_type, true, false, 0));
                 vec<u8>:push(sub_out$, ' ');
             } else {

@@ -36,6 +36,7 @@ mod cstr {
 
 #req("ctype.h")
 mod char {
+    #bind("putchar") sub put();
     #bind("isspace") sub is_space() {};
     #bind("isdigit") sub is_num() {};
     #bind("isalpha") sub is_alpha() {};

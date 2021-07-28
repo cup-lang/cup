@@ -81,7 +81,7 @@ MangledPath make_core_bind(ptr<u8> from, ptr<u8> to) {
 
 sub analyze(File file, vec<Expr> exprs) {
     analyze_global_vec(file, exprs);
-    analyze_local_vec(file, exprs);
+    analyze_local_vec(file, exprs, true);
 };
 
 sub analyze_global_vec(File file, vec<Expr> exprs) {
@@ -188,22 +188,26 @@ sub analyze_global(File file, ptr<Expr> expr) {
     };
 };
 
-sub analyze_local_vec(File file, vec<Expr> exprs) {
+sub analyze_local_vec(File file, vec<Expr> exprs, bool clean_vars) {
     int old_types_len = type_paths.len;
+    int old_var__len = var_paths.len;
     for i = 0, (i) < exprs.len, i += 1 {
         analyze_local(file, exprs.buf + i);
     };
     type_paths.len = old_types_len;
+    if clean_vars {
+        var_paths.len = old_var__len;
+    };
 };
 
 sub analyze_local(File file, ptr<Expr> expr) {
     match expr@.kind {
         ExprKind:Block(body) {
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:Mod(path, body) {
             register_generic_paths(path@);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:Field(_type, name) {
             check_type_defined(file, _type@);
@@ -227,23 +231,23 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:Comp(path, fields) {
             register_generic_paths(path@);
-            analyze_local_vec(file, fields);
+            analyze_local_vec(file, fields, true);
         },
         ExprKind:Enum(path, opts) {
             register_generic_paths(path@);
-            analyze_local_vec(file, opts);
+            analyze_local_vec(file, opts, true);
         },
         ExprKind:Option(_, fields) {
-            analyze_local_vec(file, fields);
+            analyze_local_vec(file, fields, true);
         },
         ExprKind:Def(_prop, __, body) {
             register_generic_paths(_prop@);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:SubDef(_, path, args, body) {
             register_generic_paths(path@);
-            analyze_local_vec(file, args);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, args, false);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:VarDef(_type, _, value) {
             if value != none {
@@ -279,7 +283,7 @@ sub analyze_local(File file, ptr<Expr> expr) {
                 ret;
             };
             check_sub_defined(file, path@);
-            analyze_local_vec(file, args);
+            analyze_local_vec(file, args, true);
         },
         ExprKind:VarUse(path) {
             vec<Expr> empty_args = vec<Expr> { len = 0, };
@@ -302,31 +306,31 @@ sub analyze_local(File file, ptr<Expr> expr) {
             };
         },
         ExprKind:EnumInst(_, __, ___, args) {
-            analyze_local_vec(file, args);
+            analyze_local_vec(file, args, true);
         },
         ExprKind:LocalBlock(body) {
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:If(_if, _elif, _else) {
             analyze_local(file, _if);
-            analyze_local_vec(file, _elif);
+            analyze_local_vec(file, _elif, true);
             if _else != none {
                 analyze_local(file, _else);
             };
         },
         ExprKind:IfBranch(cond, body) {
             analyze_local(file, cond);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:ElseBranch(body) {
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:Loop(body) {
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:While(cond, body) {
             analyze_local(file, cond);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:For(iter, iter_value, cond, _next, body) {
             vec<PathPart> type_path = vec<PathPart>:new(1);
@@ -350,19 +354,19 @@ sub analyze_local(File file, ptr<Expr> expr) {
             analyze_local(file, iter_value);
             analyze_local(file, cond);
             analyze_local(file, _next);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:Each(_, iter, body) {
             analyze_local(file, iter);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:Match(value, cases) {
             analyze_local(file, value);
-            analyze_local_vec(file, cases);
+            analyze_local_vec(file, cases, true);
         },
         ExprKind:Case(values, body) {
-            analyze_local_vec(file, values);
-            analyze_local_vec(file, body);
+            analyze_local_vec(file, values, false);
+            analyze_local_vec(file, body, true);
         },
         ExprKind:Ret(_, value) {
             if value != none {
@@ -524,7 +528,7 @@ bool check_enum_inst(File file, ptr<Expr> expr, Expr path, vec<Expr> args) {
                                                     if str:cmp(name, opt_name) == 0 {
                                                         ptr<Expr> new_path = alloc<Expr>(path);
                                                         new_path@.kind.u.u2.path.len -= 1;
-                                                        expr@.kind = ExprKind:EnumInst(enum_paths.buf + i, new_path, ii, args);
+                                                        expr@.kind = ExprKind:EnumInst(alloc<Expr>(enum_paths.buf[i]), new_path, ii, args);
                                                         for iii = 0, (iii) < args.len, iii += 1 {
                                                             match args.buf[iii].kind {
                                                                 ExprKind:VarUse(arg_path) {

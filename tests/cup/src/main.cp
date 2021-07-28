@@ -252,7 +252,7 @@ sub lex_parse_analyze_recursive(ptr<u8> path, ptr<vec<Expr>> ast) {
     };
     for i = 0, (i) < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze.buf[i];
-        analyze_local_vec(analyze.file, analyze.exprs);
+        analyze_local_vec(analyze.file, analyze.exprs, true);
         mem:free(analyze.file.name);
         mem:free(analyze.file.data.buf);
     };
