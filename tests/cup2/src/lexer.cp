@@ -230,17 +230,19 @@ ptr<u8> get_token_name(TokenKind kind) {
     };
 };
 
+` check
 comp Token (
     TokenKind kind,
     int index,
     ptr<u8> value,
 );
 
-sub add_to_value(File file, ptr<vec<u8>> value, int i, u8 c, u8 is_literal) {
+` check
+sub add_to_value(File file, ptr<dstr> value, int i, u8 c, u8 is_literal) {
     if (is_literal == 2) & (value@.len == 4) {
         file.throw(i, "too many characters in character literal");
     };
-    vec<u8>:push(value, c);
+    dstr:push(value, c);
     value@[value@.len] = '\0';
 };
 
@@ -344,13 +346,13 @@ vec<Token> lex(File file) {
     vec<Token> tokens = vec<Token>:new_with_cap(32);
     u8 is_comment = 0;
     u8 is_literal = 0;
-    vec<u8> value = vec<u8>:new_with_cap(8);
+    dstr value = dstr:new_with_cap(8);
     value[value.len] = '\0';
 
     ~l for i = 0, i <= file.data.len, i += 1 {
         u8 c = file.data[i];
 
-        if ((((is_literal != 1) & (is_literal != 2)) & (is_literal != 3)) & (is_literal != 4)) & (c == '`') {
+        if (c == '`') & (is_literal != 1) & (is_literal != 2) & (is_literal != 3) & (is_literal != 4) {
             is_comment = 1;
             next ~l;
         };
@@ -564,7 +566,7 @@ vec<Token> lex(File file) {
                                 },
                             };
 
-                            value = vec<u8>:new_with_cap(8);
+                            value = dstr:new_with_cap(8);
                             value[value.len] = '\0';
                             is_literal = 0;
                         },
@@ -581,13 +583,13 @@ vec<Token> lex(File file) {
                             TokenKind:StringLit {
                                 token.value = value.buf;
                                 token.index = i - value.len;
-                                value = vec<u8>:new_with_cap(8);
+                                value = dstr:new_with_cap(8);
                                 value[value.len] = '\0';
                             },
                             TokenKind:CharLit {
                                 token.value = value.buf;
                                 token.index = i - value.len;
-                                value = vec<u8>:new_with_cap(8);
+                                value = dstr:new_with_cap(8);
                                 value[value.len] = '\0';
                             },
                             _ {

@@ -775,6 +775,16 @@ bool has_generics(Expr expr) {
 };
 
 sub register_path_use(Expr expr) {
+    match expr.kind {
+        ExprKind:Path(path) {
+            for i = 0, (i) < path.len, i += 1 {
+                for ii = 0, (ii) < path.buf[i].gens.len, ii += 1 {
+                    register_path_use(path.buf[i].gens.buf[ii]);
+                };
+            };
+        },
+    };
+
     ptr<u8> name = mangle(expr, false, false, 0);
     for i = 0, (i) < gen_types.len, i += 1 {
         GenericType gen = gen_types.buf[i];

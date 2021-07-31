@@ -130,6 +130,9 @@ int main(int argc, ptr<ptr<u8>> argv) {
         },
     };
 
+    vec<Expr> ast = vec<Expr>:new_with_cap(8);
+    lex_parse_analyze(input.unwrap(), ast$);
+
     fmt:print("Compilation ");
     color:set(Color:Green);
     fmt:print("successful");
@@ -147,25 +150,93 @@ sub expect_option_value(ptr<opt<str>> option, arr<str> args, int index) {
     };
 };
 
-#rest
-sub throw(ptr<u8> error) {
-    rest:args args;
-    rest:start(args, error);
+sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
+    ptr<dir> _dir = dir:open(path.buf);
+    if _dir == 0 {
+        throw("no such file or directory: '%s'\n", path.buf);
+    };
+    ptr<dir:ent> ent;
+    ~d loop {
+        ent = dir:read(_dir);
+        if ent == 0 {
+            ret ~d;
+        };
+        if ent@.d_type == dir:kind:dir {
+            if (cstr:cmp(ent@.d_name, ".") == 0) | (cstr:cmp(ent@.d_name, "..") == 0) {
+                next ~d;
+            };
+            str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
+            lex_parse_analyze(new_path, ast);
+            mem:free(new_path.buf);
+        };
+    };
+    dir:rewind(_dir);
+    ~f loop {
+        ent = dir:read(_dir);
+        if ent == 0 {
+            ret ~f;
+        };
+        if ent@.d_type == dir:kind:file {
+            str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
+            ptr<file> file_point = file:open(new_path.buf, "r");
+            file:seek(file_point, 0, file:seek_end);
+            str data = str:new_with_len(file:size(file_point));
+            file:rewind(file_point);
+            file:read(data.buf, data.len + 1, 1, file_point);
+            file:close(file_point);
 
-    color:set(Color:Red);
-    fmt:print("error:");
-    color:reset();
-    fmt:print(" ");
-    fmt:vprint(error, args);
-    fmt:print("\n");
-    exit(1);
+            fmt:print("Compiling %s:\n", new_path);
+            File file = new File {
+                name = new_path,
+                data = data,
+            };
+            vec<Token> tokens = lex(file);
+            ` print_tokens(tokens);
+            ` vec<Expr> exprs = parse(file, tokens);
+            ` mem:free(tokens.buf);
+            ` print_exprs(exprs);
+            ` analyze_global_vec(file, exprs);
+            ` to_analyze.push(ToAnalyze {
+            `     file = file,
+            `     exprs = exprs,
+            ` });
+            ` 
+            ` vec<Expr>:push(ast, Expr {
+            `     tags = vec<Expr> {
+            `         len = 0,
+            `     },
+            `     label = none,
+            `     kind = ExprKind:Block(exprs),
+            ` });
+        };
+    };
+    dir:close(_dir);
 
-    rest:end(args);
+
+
+    ` dir:rewind(dir);
+    ` vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new(4);
+    ` for i = 0, (i) < to_analyze.len, i += 1 {
+    `     ToAnalyze analyze = to_analyze.buf[i];
+    `     analyze_local_vec(analyze.file, analyze.exprs, true);
+    `     mem:free(analyze.file.name);
+    `     mem:free(analyze.file.data.buf);
+    ` };
+    ` mem:free(to_analyze.buf);
+};
+
+str combine_paths(str a, str b) {
+    str new_path = str:new_with_len(a.len + 1 + b.len);
+    mem:copy(new_path.buf, a.buf, mem:size<u8>() * a.len);
+    new_path[a.len] = '/';
+    mem:copy(new_path.buf + a.len + 1, b.buf, mem:size<u8>() * b.len);
+    new_path[new_path.len] = '\0';
+    ret new_path;
 };
 
 comp File (
-    ptr<u8> name,
-    arr<u8> data,
+    str name,
+    str data,
 );
 
 def File {
@@ -174,46 +245,34 @@ def File {
         rest:args args;
         rest:start(args, error);
 
-        Location loc = get_location(this.data.buf, index);
-        fmt:print("%s:%i:%i: ", this.name, loc.line, loc.column);
+        int line = 1;
+        int column = 1;
+        for i = 0, (i) < index, i += 1 {
+            if this.data[i] == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            };
+        };
+
+        fmt:print("%s:%i:%i: ", this.name.buf, line, column);
         color:set(Color:Red);
         fmt:print("error:");
         color:reset();
         fmt:print(" ");
         fmt:vprint(error, args);
         fmt:print("\n");
-        print_snippet(this.data, loc);
+        print_snippet(this.data, line, column);
         exit(1);
 
         rest:end(args);
     };
 };
 
-comp Location (
-    int line,
-    int column,
-);
-
-` check
-Location get_location(ptr<u8> file, int index) {
-    Location loc;
-    loc.line = 1;
-    loc.column = 1;
-    for i = 0, (i) < index, i += 1 {
-        if (file + i)@ == '\n' {
-            loc.line += 1;
-            loc.column = 1;
-        } else {
-            loc.column += 1;
-        };
-    };
-    ret loc;
-};
-
-` check
-sub print_snippet(arr<u8> file, Location location) {
-    fmt:print(" %i | ", location.line);
-    int i = location.line;
+sub print_snippet(str file, int line, int column) {
+    fmt:print(" %i | ", line);
+    int i = line;
     int length = 2;
     while i != 0 {
         length += 1;
@@ -224,10 +283,10 @@ sub print_snippet(arr<u8> file, Location location) {
         u8 c = file[i];
         if c == '\n' {
             line_index += 1;
-            if line_index > location.line {
+            if line_index > line {
                 ret ~l;
             };
-        } elif line_index == location.line {
+        } elif line_index == line {
             char:put(c);
         };
     };
@@ -236,7 +295,7 @@ sub print_snippet(arr<u8> file, Location location) {
         char:put(' ');
     };
     char:put('|');
-    for i = 0, (i) < location.column, i += 1 {
+    for i = 0, (i) < column, i += 1 {
         char:put(' ');
     };
     color:set(Color:Red);

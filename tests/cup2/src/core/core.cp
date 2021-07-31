@@ -1,7 +1,7 @@
 #req("stdint.h") {};
 
 #gen("T")
-comp ptr<T> ();
+comp ptr<T>();
 
 #req("stdlib.h")
 mod mem {
@@ -34,13 +34,44 @@ mod cstr {
     #bind("strcpy") sub copy();
 };
 
+#req("dirent.h")
+#bind("DIR") comp dir();
+
+#req("dirent.h")
+mod dir {
+    mod kind {
+        #bind("DT_DIR") int dir;
+        #bind("DT_REG") int file;
+    };
+    #bind("struct dirent") comp ent();
+    #bind("opendir") sub open();
+    #bind("readdir") sub read();
+    #bind("rewinddir") sub rewind();
+    #bind("closedir") sub close();
+};
+
+#req("stdio.h")
+#bind("FILE") comp file();
+
+#req("stdio.h")
+mod file {
+    #bind("fopen") sub open();
+    #bind("fclose") sub close();
+    #bind("fread") sub read();
+    #bind("fseek") sub seek();
+    #bind("SEEK_END") int seek_end;
+    #bind("ftell") sub size();
+    #bind("rewind") sub rewind();
+    #bind("fprintf") sub print();
+};
+
 #req("ctype.h")
 mod char {
     #bind("putchar") sub put();
-    #bind("isspace") sub is_space() {};
-    #bind("isdigit") sub is_num() {};
-    #bind("isalpha") sub is_alpha() {};
-    #bind("isalnum") sub is_alpha_num() {};
+    #bind("isspace") sub is_space();
+    #bind("isdigit") sub is_num();
+    #bind("isalpha") sub is_alpha();
+    #bind("isalnum") sub is_alpha_num();
 };
 
 #req("time.h")
@@ -55,7 +86,7 @@ mod time {
 
 #bind("exit") sub exit();
 
-#os("win") #bind("HANDLE") comp ConsoleHandle ();
+#os("win") #bind("HANDLE") comp ConsoleHandle();
 #os("win") ConsoleHandle console;
 #os("win") #bind("STD_OUTPUT_HANDLE") int std_output_handle;
 
@@ -125,6 +156,19 @@ def dstr {
             cap = len * 2,
         };
     };
+
+    #self
+    sub push(u8 item) {
+        this[this.len] = item;
+        this.len += 1;
+
+        if this.len == this.cap {
+            this.cap *= 4;
+            this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
+        };
+
+        this[this.len] = '\0';
+    };
 };
 
 comp str (
@@ -133,6 +177,13 @@ comp str (
 );
 
 def str {
+    str new_with_len(int len) {
+        ret new str {
+            buf = mem:alloc(mem:size<u8>() * len),
+            len = len,
+        };
+    };
+
     str new_from_cstr(ptr<u8> cstr) {
         int len = cstr:len(cstr) + 1;
         ptr<u8> buf = mem:alloc(mem:size<u8>() * len);
@@ -186,7 +237,7 @@ def vec<T> {
 
     #self
     sub push(T item) {
-        (this.buf + this.len)@ = item;
+        this[this.len] = item;
         this.len += 1;
 
         if this.len == this.cap {
@@ -200,7 +251,7 @@ def vec<T> {
         this.len += 1;
 
         if this.len == this.cap {
-            this.cap *= 2;
+            this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
 
@@ -216,7 +267,7 @@ def vec<T> {
         int old_len = this.len;
         this.len += other.len;
         while this.len >= this.cap {
-            this.cap *= 2;
+            this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
         mem:copy(this.buf + old_len, other.buf, other.len * mem:size<T>());
@@ -230,7 +281,7 @@ def vec<T> {
         int old_len = this.len;
         this.len += other.len;
         while this.len >= this.cap {
-            this.cap *= 2;
+            this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
         mem:copy(this.buf + other.len, this.buf, mem:size<T>() * old_len);
@@ -253,8 +304,24 @@ def opt<T> {
                 ret thing;
             },
             opt:None {
-                exit(1);
+                throw("unwrap failed");
             },
         };
     };
+};
+
+#rest
+sub throw(ptr<u8> error) {
+    rest:args args;
+    rest:start(args, error);
+
+    color:set(Color:Red);
+    fmt:print("error:");
+    color:reset();
+    fmt:print(" ");
+    fmt:vprint(error, args);
+    fmt:print("\n");
+    exit(1);
+
+    rest:end(args);
 };
