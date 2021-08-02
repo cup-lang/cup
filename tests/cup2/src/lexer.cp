@@ -230,19 +230,17 @@ ptr<u8> get_token_name(TokenKind kind) {
     };
 };
 
-` check
 comp Token (
     TokenKind kind,
     int index,
-    ptr<u8> value,
+    str value,
 );
 
-` check
-sub add_to_value(File file, ptr<dstr> value, int i, u8 c, u8 is_literal) {
+sub add_to_value(File file, int index, ptr<dstr> value, u8 char, u8 is_literal) {
     if (is_literal == 2) & (value@.len == 4) {
-        file.throw(i, "too many characters in character literal");
+        file.throw(index, "too many characters in character literal");
     };
-    dstr:push(value, c);
+    dstr:push(value, char);
     value@[value@.len] = '\0';
 };
 
@@ -341,10 +339,21 @@ bool is_binary_operator(TokenKind kind) {
     };
 };
 
-` check
+enum LiteralState (
+    None, ` 0
+    Char, ` 2
+    String, ` 1
+    CharJustStarted, ` 4
+    StringJustStarted, ` 3
+    Int, ` 5
+    Float, ` 6
+);
+
+` raw strings
+` change is_literal from u8 to LiteralState
 vec<Token> lex(File file) {
     vec<Token> tokens = vec<Token>:new_with_cap(32);
-    u8 is_comment = 0;
+    bool is_comment = false;
     u8 is_literal = 0;
     dstr value = dstr:new_with_cap(8);
     value[value.len] = '\0';
@@ -353,13 +362,13 @@ vec<Token> lex(File file) {
         u8 c = file.data[i];
 
         if (c == '`') & (is_literal != 1) & (is_literal != 2) & (is_literal != 3) & (is_literal != 4) {
-            is_comment = 1;
+            is_comment = true;
             next ~l;
         };
 
-        if is_comment != 0 {
+        if is_comment {
             if c == '\n' {
-                is_comment = 0;
+                is_comment = false;
             };
             next ~l;
         };
@@ -381,7 +390,31 @@ vec<Token> lex(File file) {
             elif (is_literal == 1) & (c == '"') {}
             elif (is_literal == 2) & (c == 39) {}
             else {
-                add_to_value(file, value$, i, c, is_literal);
+                if c == 92 {
+                    c = file.data[i += 1];
+                    if c == 'b' {
+                        c = 8;
+                    } elif c == 'f' {
+                        c = 12;
+                    } elif c == 'n' {
+                        c = 10;
+                    } elif c == 'r' {
+                        c = 13;
+                    } elif c == 't' {
+                        c = 9;
+                    } elif c == 'v' {
+                        c = 11;
+                    } elif c == 92 {
+                        c = 92;
+                    } elif c == 39 {
+                        c = 39;
+                    } elif c == '"' {
+                        c = '"';
+                    } else {
+                        file.throw(i - 1, "unrecognized character escape");
+                    };
+                };
+                add_to_value(file, i, value$, c, is_literal);
                 next ~l;
             };
         };
@@ -413,7 +446,7 @@ vec<Token> lex(File file) {
                 kind = TokenKind:Comma;
             } elif c == '.' {
                 u8 n = file.data[i + 1];
-                if (is_literal != 5) | ((n == '_') | char:is_alpha(n)) {
+                if (is_literal != 5) | (n == '_') | char:is_alpha(n) {
                     kind = TokenKind:Dot;
                 };
             } elif c == '?' {
@@ -443,35 +476,35 @@ vec<Token> lex(File file) {
             } elif c == '|' {
                 kind = TokenKind:Or;
             } elif c == '=' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:Equal;
                     i += 1;
                 } else {
                     kind = TokenKind:Assign;
                 };
             } elif c == '!' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:NotEqual;
                     i += 1;
                 } else {
                     kind = TokenKind:Not;
                 };
             } elif c == '<' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:LessEqual;
                     i += 1;
                 } else {
                     kind = TokenKind:Less;
                 };
             } elif c == '>' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:GreaterEqual;
                     i += 1;
                 } else {
                     kind = TokenKind:Greater;
                 };
             } elif c == '+' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:AddAssign;
                     i += 1;
                 } else {
@@ -481,28 +514,28 @@ vec<Token> lex(File file) {
                 if is_binary_operator(tokens[tokens.len - 1].kind) & char:is_num(file.data[i + 1]) {
                     ret ~ll;
                 };
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:SubtractAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Subtract;
                 };
             } elif c == '*' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:MultiplyAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Multiply;
                 };
             } elif c == '/' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:DivideAssign;
                     i += 1;
                 } else {
                     kind = TokenKind:Divide;
                 };
             } elif c == '%' {
-                if (i + 1 < file.data.len) & (file.data[i + 1] == '=') {
+                if file.data[i + 1] == '=' {
                     kind = TokenKind:ModuloAssign;
                     i += 1;
                 } else {
@@ -513,7 +546,7 @@ vec<Token> lex(File file) {
 
         match kind {
             TokenKind:Unset {
-                if ((((c == '-') | (c == '_')) | (c == '.')) | (c == ':')) | char:is_alpha_num(c) {
+                if (c == '-') | (c == '_') | (c == '.') | (c == ':') | char:is_alpha_num(c) {
                     if ((value.len == 0) & char:is_num(c)) | (c == '-') {
                         is_literal = 5;
                     } elif (is_literal == 5) | (is_literal == 6) {
@@ -526,7 +559,7 @@ vec<Token> lex(File file) {
                     };
 
                     if ((is_literal != 5) & (is_literal != 6)) | (c != '_') {
-                        add_to_value(file, value$, i, c, is_literal);
+                        add_to_value(file, i, value$, c, is_literal);
                     };
                 } else {
                     file.throw(i, "unexpected symbol %c", c);
@@ -535,7 +568,7 @@ vec<Token> lex(File file) {
             _ {
                 if value.len > 0 {
                     match kind {
-                        TokenKind:StringLit {},
+                        TokenKind:StringLit,
                         TokenKind:CharLit {},
                         _ {
                             TokenKind value_kind = get_keyword(value.buf);
@@ -554,7 +587,7 @@ vec<Token> lex(File file) {
                                         token.kind = TokenKind:Ident;
                                     };
                                     token.index = i - value.len;
-                                    token.value = value.buf;
+                                    token.value = dstr:to_str(value$);
                                     tokens.push(token);
                                 },
                                 _ {
@@ -580,14 +613,9 @@ vec<Token> lex(File file) {
                             kind = kind,
                         };
                         match kind {
-                            TokenKind:StringLit {
-                                token.value = value.buf;
-                                token.index = i - value.len;
-                                value = dstr:new_with_cap(8);
-                                value[value.len] = '\0';
-                            },
+                            TokenKind:StringLit,
                             TokenKind:CharLit {
-                                token.value = value.buf;
+                                token.value = dstr:to_str(value$);
                                 token.index = i - value.len;
                                 value = dstr:new_with_cap(8);
                                 value[value.len] = '\0';
@@ -608,7 +636,7 @@ vec<Token> lex(File file) {
         last = tokens[tokens.len - 1];
         match last.kind {
             TokenKind:Ident {
-                last.index = last.index + cstr:len(last.value);
+                last.index = last.index + last.value.len;
             },
             _ {
                 last.index = last.index + get_token_length(last.kind);

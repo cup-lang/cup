@@ -180,7 +180,7 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
             str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
             ptr<file> file_point = file:open(new_path.buf, "r");
             file:seek(file_point, 0, file:seek_end);
-            str data = str:new_with_len(file:size(file_point));
+            str data = str:new_with_len(file:tell(file_point) - 1);
             file:rewind(file_point);
             file:read(data.buf, data.len + 1, 1, file_point);
             file:close(file_point);
@@ -272,14 +272,14 @@ def File {
 
 sub print_snippet(str file, int line, int column) {
     fmt:print(" %i | ", line);
-    int i = line;
     int length = 2;
-    while i != 0 {
+    int l = line;
+    while l != 0 {
         length += 1;
-        i /= 10;
+        l /= 10;
     };
     int line_index = 1;
-    ~l for i = 0, (i) < file.len, i += 1 {
+    ~l for i = 0, i < file.len, i += 1 {
         u8 c = file[i];
         if c == '\n' {
             line_index += 1;
@@ -291,11 +291,11 @@ sub print_snippet(str file, int line, int column) {
         };
     };
     char:put('\n');
-    for i = 0, (i) < length, i += 1 {
+    for i = 0, i < length, i += 1 {
         char:put(' ');
     };
     char:put('|');
-    for i = 0, (i) < column, i += 1 {
+    for i = 0, i < column, i += 1 {
         char:put(' ');
     };
     color:set(Color:Red);

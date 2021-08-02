@@ -60,7 +60,7 @@ mod file {
     #bind("fread") sub read();
     #bind("fseek") sub seek();
     #bind("SEEK_END") int seek_end;
-    #bind("ftell") sub size();
+    #bind("ftell") sub tell();
     #bind("rewind") sub rewind();
     #bind("fprintf") sub print();
 };
@@ -168,6 +168,14 @@ def dstr {
         };
 
         this[this.len] = '\0';
+    };
+
+    #self
+    str to_str() {
+        ret new str {
+            buf = this.buf,
+            len = this.len,
+        };
     };
 };
 
