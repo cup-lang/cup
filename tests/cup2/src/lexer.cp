@@ -236,8 +236,8 @@ comp Token (
     str value,
 );
 
-sub add_to_value(File file, int index, ptr<dstr> value, u8 char, u8 is_literal) {
-    if (is_literal == 2) & (value@.len == 4) {
+sub add_to_value(File file, int index, ptr<dstr> value, u8 char, LiteralState lit_state) {
+    if (lit_state == LiteralState:Char) & (value@.len == 4) {
         file.throw(index, "too many characters in character literal");
     };
     dstr:push(value, char);
@@ -345,23 +345,25 @@ enum LiteralState (
     String, ` 1
     CharJustStarted, ` 4
     StringJustStarted, ` 3
-    Int, ` 5
-    Float, ` 6
+    RawChar, ` 5
+    RawString, ` 6
+    Int, ` 7
+    Float, ` 8
 );
 
 ` raw strings
-` change is_literal from u8 to LiteralState
+` change lit_state from u8 to LiteralState
 vec<Token> lex(File file) {
     vec<Token> tokens = vec<Token>:new_with_cap(32);
     bool is_comment = false;
-    u8 is_literal = 0;
+    LiteralState lit_state = LiteralState:None;
     dstr value = dstr:new_with_cap(8);
     value[value.len] = '\0';
 
     ~l for i = 0, i <= file.data.len, i += 1 {
         u8 c = file.data[i];
 
-        if (c == '`') & (is_literal != 1) & (is_literal != 2) & (is_literal != 3) & (is_literal != 4) {
+        if (c == '`') & (lit_state != LiteralState:Char) & (lit_state != LiteralState:String) & (lit_state != LiteralState:CharJustStarted) & (lit_state != LiteralState:StringJustStarted) {
             is_comment = true;
             next ~l;
         };
@@ -375,20 +377,22 @@ vec<Token> lex(File file) {
 
         TokenKind kind = TokenKind:Unset;
 
-        if (is_literal == 3) | (is_literal == 4) {
-            is_literal -= 2;
+        if lit_state == LiteralState:CharJustStarted {
+            lit_state = LiteralState:Char;
+        } elif lit_state == LiteralState:StringJustStarted {
+            lit_state = LiteralState:String;
         };
 
-        if (is_literal == 1) | (is_literal == 2) {
+        if (lit_state == LiteralState:Char) | (lit_state == LiteralState:String) {
             if c == 0 {
-                if is_literal == 1 {
-                    file.throw(i - 1, "expected end of string literal");
-                } else {
+                if lit_state == LiteralState:Char {
                     file.throw(i - 1, "expected end of char literal");
+                } else {
+                    file.throw(i - 1, "expected end of string literal");
                 };
             }
-            elif (is_literal == 1) & (c == '"') {}
-            elif (is_literal == 2) & (c == 39) {}
+            elif (lit_state == LiteralState:Char) & (c == 39) {}
+            elif (lit_state == LiteralState:String) & (c == '"') {}
             else {
                 if c == 92 {
                     c = file.data[i += 1];
@@ -411,10 +415,10 @@ vec<Token> lex(File file) {
                     } elif c == '"' {
                         c = '"';
                     } else {
-                        file.throw(i - 1, "unrecognized character escape");
+                        file.throw(i - 1, "unrecognized character escape sequence");
                     };
                 };
-                add_to_value(file, i, value$, c, is_literal);
+                add_to_value(file, i, value$, c, lit_state);
                 next ~l;
             };
         };
@@ -422,21 +426,21 @@ vec<Token> lex(File file) {
         ~ll if (c == 0) | char:is_space(c) {
             kind = TokenKind:Empty;
         } else {
-            if c == '"' {
-                if is_literal == 1 {
-                    kind = TokenKind:StringLit;
-                    is_literal = 0;
-                } else {
-                    kind = TokenKind:Empty;
-                    is_literal = 3;
-                };
-            } elif c == 39 {
-                if is_literal == 2 {
+            if c == 39 {
+                if lit_state == LiteralState:Char {
                     kind = TokenKind:CharLit;
-                    is_literal = 0;
+                    lit_state = LiteralState:None;
                 } else {
                     kind = TokenKind:Empty;
-                    is_literal = 4;
+                    lit_state = LiteralState:CharJustStarted;
+                };
+            } elif c == '"' {
+                if lit_state == LiteralState:String {
+                    kind = TokenKind:StringLit;
+                    lit_state = LiteralState:None;
+                } else {
+                    kind = TokenKind:Empty;
+                    lit_state = LiteralState:StringJustStarted;
                 };
             } elif c == ';' {
                 kind = TokenKind:Semicolon;
@@ -446,7 +450,7 @@ vec<Token> lex(File file) {
                 kind = TokenKind:Comma;
             } elif c == '.' {
                 u8 n = file.data[i + 1];
-                if (is_literal != 5) | (n == '_') | char:is_alpha(n) {
+                if (lit_state != LiteralState:Int) | (n == '_') | char:is_alpha(n) {
                     kind = TokenKind:Dot;
                 };
             } elif c == '?' {
@@ -548,18 +552,18 @@ vec<Token> lex(File file) {
             TokenKind:Unset {
                 if (c == '-') | (c == '_') | (c == '.') | (c == ':') | char:is_alpha_num(c) {
                     if ((value.len == 0) & char:is_num(c)) | (c == '-') {
-                        is_literal = 5;
-                    } elif (is_literal == 5) | (is_literal == 6) {
-                        if (c == '.') & (is_literal == 5) {
-                            is_literal = 6;
+                        lit_state = LiteralState:Int;
+                    } elif (lit_state == LiteralState:Int) | (lit_state == LiteralState:Float) {
+                        if (c == '.') & (lit_state == LiteralState:Int) {
+                            lit_state = LiteralState:Float;
                         } elif (c == '_') | char:is_num(c) {} 
                         else {
                             file.throw(i - value.len, "invalid identifier name starting with a digit");
                         };
                     };
 
-                    if ((is_literal != 5) & (is_literal != 6)) | (c != '_') {
-                        add_to_value(file, i, value$, c, is_literal);
+                    if ((lit_state != LiteralState:Int) & (lit_state != LiteralState:Float)) | (c != '_') {
+                        add_to_value(file, i, value$, c, lit_state);
                     };
                 } else {
                     file.throw(i, "unexpected symbol %c", c);
@@ -576,9 +580,9 @@ vec<Token> lex(File file) {
                             match value_kind {
                                 TokenKind:Empty {
                                     Token token;
-                                    if is_literal == 5 {
+                                    if lit_state == LiteralState:Int {
                                         token.kind = TokenKind:IntLit;
-                                    } elif is_literal == 6 {
+                                    } elif lit_state == LiteralState:Float {
                                         token.kind = TokenKind:FloatLit;
                                         if value[value.len - 1] == '.' {
                                             file.throw(i - 1, "expected a value after the decimal point");
@@ -601,7 +605,7 @@ vec<Token> lex(File file) {
 
                             value = dstr:new_with_cap(8);
                             value[value.len] = '\0';
-                            is_literal = 0;
+                            lit_state = LiteralState:None;
                         },
                     };
                 };

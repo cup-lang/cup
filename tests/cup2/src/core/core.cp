@@ -333,3 +333,10 @@ sub throw(ptr<u8> error) {
 
     rest:end(args);
 };
+
+#gen("T")
+ptr<T> alloc<T>(T obj) {
+    ptr<T> foo = mem:alloc(mem:size<T>());
+    foo@ = obj; 
+    ret foo;
+};

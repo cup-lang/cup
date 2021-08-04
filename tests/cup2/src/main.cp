@@ -13,7 +13,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
             fmt:print("error: ");
             color:reset();
             fmt:print("no such command: '%s", args[1]);
-            for i = 2, (i) < argc, i += 1 {
+            for i = 2, i < argc, i += 1 {
                 fmt:print(" %s", args[i]);
             };
             fmt:print("'\n\nSee 'cup help' for the list of available commands.\n");
@@ -119,15 +119,11 @@ int main(int argc, ptr<ptr<u8>> argv) {
             ret 1;
         };
     };
-    match input {
-        opt:None {
-            input = opt<str>:Some(str:new_from_cstr("."));
-        },
+    if input == opt:None {
+        input = opt<str>:Some(str:new_from_cstr("."));
     };
-    match output {
-        opt:None {
-            output = opt<str>:Some(str:new_from_cstr("out.c"));
-        },
+    if output == opt:None {
+        output = opt<str>:Some(str:new_from_cstr("out.c"));
     };
 
     vec<Expr> ast = vec<Expr>:new_with_cap(8);
@@ -216,7 +212,7 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
 
     ` dir:rewind(dir);
     ` vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new(4);
-    ` for i = 0, (i) < to_analyze.len, i += 1 {
+    ` for i = 0, i < to_analyze.len, i += 1 {
     `     ToAnalyze analyze = to_analyze.buf[i];
     `     analyze_local_vec(analyze.file, analyze.exprs, true);
     `     mem:free(analyze.file.name);
@@ -247,7 +243,7 @@ def File {
 
         int line = 1;
         int column = 1;
-        for i = 0, (i) < index, i += 1 {
+        for i = 0, i < index, i += 1 {
             if this.data[i] == '\n' {
                 line += 1;
                 column = 1;

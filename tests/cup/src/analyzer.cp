@@ -381,6 +381,70 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:BinaryOp(lhs, rhs, kind) {
             match kind {
+                TokenKind:Equal {
+                    analyze_local(file, rhs);
+                    match rhs@.kind {
+                        ExprKind:EnumInst(_, __, index) {
+                            vec<PathPart> path = vec<PathPart>:new(1);
+                            path.push(PathPart {
+                                name = "t",
+                                gens = vec<Expr> { len = 0, },
+                            });
+                            expr@.kind.u.u42.lhs@.kind = ExprKind:BinaryOp(
+                                alloc<Expr>(lhs@),
+                                alloc<Expr>(Expr {
+                                    kind = ExprKind:VarUse(
+                                        alloc<Expr>(Expr {
+                                            kind = ExprKind:Path(path),
+                                            tags = vec<Expr> { len = 0, },
+                                            label = none,
+                                        })
+                                    ),
+                                    tags = vec<Expr> { len = 0, },
+                                    label = none,
+                                }),
+                                TokenKind:Dot
+                            );
+                            expr@.kind.u.u42.rhs@.kind = ExprKind:IntLit(
+                                int_to_string(index)
+                            );
+                        },
+                    };
+                    analyze_local(file, lhs);
+                    ret;
+                },
+                TokenKind:NotEqual {
+                    analyze_local(file, rhs);
+                    match rhs@.kind {
+                        ExprKind:EnumInst(_, __, index) {
+                            vec<PathPart> path = vec<PathPart>:new(1);
+                            path.push(PathPart {
+                                name = "t",
+                                gens = vec<Expr> { len = 0, },
+                            });
+                            expr@.kind.u.u42.lhs@.kind = ExprKind:BinaryOp(
+                                alloc<Expr>(lhs@),
+                                alloc<Expr>(Expr {
+                                    kind = ExprKind:VarUse(
+                                        alloc<Expr>(Expr {
+                                            kind = ExprKind:Path(path),
+                                            tags = vec<Expr> { len = 0, },
+                                            label = none,
+                                        })
+                                    ),
+                                    tags = vec<Expr> { len = 0, },
+                                    label = none,
+                                }),
+                                TokenKind:Dot
+                            );
+                            expr@.kind.u.u42.rhs@.kind = ExprKind:IntLit(
+                                int_to_string(index)
+                            );
+                        },
+                    };
+                    analyze_local(file, lhs);
+                    ret;
+                },
                 TokenKind:LeftBracket {
                     vec<PathPart> path = vec<PathPart>:new(1);
                     path.push(PathPart {
