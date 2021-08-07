@@ -352,7 +352,6 @@ enum LiteralState (
 );
 
 ` raw strings
-` change lit_state from u8 to LiteralState
 vec<Token> lex(File file) {
     vec<Token> tokens = vec<Token>:new_with_cap(32);
     bool is_comment = false;

@@ -7,7 +7,7 @@ sub command_help(ptr<u8> n, ptr<u8> d, ptr<u8> o) {
     fmt:print("\n");
 };
 
-#inl mod command_options {
+mod command_options {
     ptr<u8> empty = "\n    No options are available for this command";
 
     ptr<u8> compile =

@@ -68,7 +68,8 @@
 
 int main() {
     opt<str> foo = opt<str>:None;
-    if foo == opt:None {
-        
-    };
+    ret 1;
+    ` if foo == opt:None {
+    `     
+    ` };
 };

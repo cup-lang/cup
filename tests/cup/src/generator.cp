@@ -516,22 +516,22 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                                     ExprKind:Option(name, fields) {
                                                         for iii = 0, (iii) < args.len, iii += 1 {
                                                             match fields.buf[iii].kind {
-                                                                ExprKind:Field(field_type, field_name) {
-                                                                    Expr _field_type = apply_genenerics(field_type@);
-                                                                    vec<u8>:join(out, mangle(_field_type, false, false, 0));
-                                                                    vec<u8>:push(out, ' ');
+                                                                ExprKind:Field(_, field_name) {
                                                                     match args.buf[iii].kind {
-                                                                        ExprKind:VarUse(path) {
-                                                                            vec<u8>:join(out, register_local_name(path@.kind.u.u2.path.buf[0].name));
+                                                                        ExprKind:LocalVarDef(arg_type, arg_name) {
+                                                                            Expr _arg_type = apply_genenerics(arg_type@);
+                                                                            vec<u8>:join(out, mangle(_arg_type, true, false, 0));
+                                                                            vec<u8>:push(out, ' ');
+                                                                            vec<u8>:join(out, register_local_name(arg_name));
+                                                                            vec<u8>:push(out, '=');
+                                                                            generate_expr(out, value@, false, false, 0);
+                                                                            vec<u8>:join(out, ".u.");
+                                                                            vec<u8>:join(out, name);
+                                                                            vec<u8>:push(out, '.');
+                                                                            vec<u8>:join(out, field_name);
+                                                                            vec<u8>:push(out, ';');
                                                                         },
                                                                     };
-                                                                    vec<u8>:push(out, '=');
-                                                                    generate_expr(out, value@, false, false, 0);
-                                                                    vec<u8>:join(out, ".u.");
-                                                                    vec<u8>:join(out, name);
-                                                                    vec<u8>:push(out, '.');
-                                                                    vec<u8>:join(out, field_name);
-                                                                    vec<u8>:push(out, ';');
                                                                 },
                                                             };
                                                         };

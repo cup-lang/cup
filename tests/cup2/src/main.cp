@@ -187,10 +187,10 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
                 data = data,
             };
             vec<Token> tokens = lex(file);
-            ` print_tokens(tokens);
-            ` vec<Expr> exprs = parse(file, tokens);
-            ` mem:free(tokens.buf);
-            ` print_exprs(exprs);
+            print_tokens(tokens);
+            vec<Expr> exprs = parse(file, tokens);
+            mem:free(tokens.buf);
+            print_exprs(exprs);
             ` analyze_global_vec(file, exprs);
             ` to_analyze.push(ToAnalyze {
             `     file = file,

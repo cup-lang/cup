@@ -190,13 +190,13 @@ sub analyze_global(File file, ptr<Expr> expr) {
 
 sub analyze_local_vec(File file, vec<Expr> exprs, bool clean_vars) {
     int old_types_len = type_paths.len;
-    int old_var__len = var_paths.len;
+    int old_var_paths_len = var_paths.len;
     for i = 0, (i) < exprs.len, i += 1 {
         analyze_local(file, exprs.buf + i);
     };
     type_paths.len = old_types_len;
     if clean_vars {
-        var_paths.len = old_var__len;
+        var_paths.len = old_var_paths_len;
     };
 };
 
@@ -595,10 +595,16 @@ bool check_enum_inst(File file, ptr<Expr> expr, Expr path, vec<Expr> args) {
                                                         expr@.kind = ExprKind:EnumInst(alloc<Expr>(enum_paths.buf[i]), new_path, ii, args);
                                                         for iii = 0, (iii) < args.len, iii += 1 {
                                                             match args.buf[iii].kind {
-                                                                ExprKind:VarUse(arg_path) {
+                                                                ExprKind:LocalVarDef(arg_type, arg_name) {
+                                                                    vec<PathPart> arg_path = vec<PathPart>:new(1);
+                                                                    arg_path.push(PathPart { name = arg_name, gens = vec<Expr> { len = 0, } });
                                                                     var_paths.push(MangledPath {
-                                                                        path = opt_fields.buf[iii].kind.u.u7._type@.kind.u.u2.path,
-                                                                        name = mangle(arg_path@, false, false, 0),
+                                                                        path = arg_type@.kind.u.u2.path,
+                                                                        name = mangle(Expr {
+                                                                            kind = ExprKind:Path(arg_path),
+                                                                            tags = vec<Expr> { len = 0, },
+                                                                            label = none
+                                                                        }, false, false, 0),
                                                                     });
                                                                 },
                                                             };

@@ -171,6 +171,48 @@ def dstr {
     };
 
     #self
+    sub push_back(u8 item) {
+        this.len += 1;
+
+        if this.len == this.cap {
+            this.cap *= 4;
+            this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
+        };
+
+        mem:copy(this.buf + 1, this.buf, mem:size<u8>() * this.len);
+        this[0] = item;
+    };
+
+    #self
+    sub join(str other) {
+        if other.len == 0 {
+            ret;
+        };
+        int old_len = this.len;
+        this.len += other.len;
+        while this.len >= this.cap {
+            this.cap *= 4;
+            this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
+        };
+        mem:copy(this.buf + old_len, other.buf, mem:size<u8>() * (other.len + 1));
+    };
+
+    #self
+    sub join_back(str other) {
+        if other.len == 0 {
+            ret;
+        };
+        int old_len = this.len;
+        this.len += other.len;
+        while this.len >= this.cap {
+            this.cap *= 4;
+            this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
+        };
+        mem:copy(this.buf + other.len, this.buf, mem:size<u8>() * (old_len + 1));
+        mem:copy(this.buf, other.buf, mem:size<u8>() * other.len);
+    };
+
+    #self
     str to_str() {
         ret new str {
             buf = this.buf,
@@ -199,6 +241,15 @@ def str {
         ret new str {
             buf = buf,
             len = len - 1,
+        };
+    };
+
+    #self
+    dstr to_dstr() {
+        ret new dstr {
+            buf = this.buf,
+            len = this.len,
+            cap = this.len,
         };
     };
 };
@@ -278,7 +329,7 @@ def vec<T> {
             this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
-        mem:copy(this.buf + old_len, other.buf, other.len * mem:size<T>());
+        mem:copy(this.buf + old_len, other.buf, mem:size<T>() * other.len);
     };
 
     #self
@@ -308,7 +359,7 @@ def opt<T> {
     #self
     T unwrap() {
         match this {
-            opt:Some(thing) {
+            opt:Some(T thing) {
                 ret thing;
             },
             opt:None {
