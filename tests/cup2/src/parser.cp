@@ -1,6 +1,16 @@
+comp Path (
+    vec<PathPart> path,
+    int index,
+);
+
 comp PathPart (
     str name,
-    vec<Expr> gens,
+    vec<Path> gens,
+);
+
+comp Tag (
+    Path path,
+    vec<Expr> args,
 );
 
 comp FieldValue (
@@ -8,28 +18,35 @@ comp FieldValue (
     ptr<Expr> value,
 );
 
+comp IfBranch (
+    ptr<Expr> cond,
+    vec<Expr> body,
+);
+
+comp ElseBranch (
+    vec<Expr> body,
+);
+
 enum ExprKind (
     Empty,
-    Tag(str name, vec<Expr> args),
-    Path(vec<PathPart> path, int index),
-    TagDef(ptr<Expr> path, vec<Expr> args, vec<Expr> body),
+    TagDef(Path path, vec<Expr> args, vec<Expr> body),
     Block(vec<Expr> body),
-    Mod(ptr<Expr> path, vec<Expr> body),
-    Use(ptr<Expr> path),
-    Field(ptr<Expr> _type, str name),
-    Comp(ptr<Expr> path, vec<Expr> fields, vec<Expr> body),
-    Enum(ptr<Expr> path, vec<Expr> opts, vec<Expr> body),
+    Mod(Path path, vec<Expr> body),
+    Use(Path path),
+    Field(Path _type, str name),
+    Comp(Path path, vec<Expr> fields, vec<Expr> body),
+    Enum(Path path, vec<Expr> opts, vec<Expr> body),
     Option(str name, vec<Expr> fields),
-    Prop(ptr<Expr> path, vec<Expr> body),
-    Def(ptr<Expr> _prop, opt<ptr<Expr>> target, vec<Expr> body),
-    SubDef(opt<ptr<Expr>> ret_type, ptr<Expr> path, vec<Expr> args, vec<Expr> body),
-    VarDef(opt<ptr<Expr>> _type, ptr<Expr> path, opt<ptr<Expr>> value),
+    Prop(Path path, vec<Expr> body),
+    Def(Path _prop, opt<Path> target, vec<Expr> body),
+    SubDef(opt<Path> ret_type, Path path, vec<Expr> args, vec<Expr> body),
+    VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value),
 
-    LocalVarDef(opt<ptr<Expr>> _type, str name, opt<ptr<Expr>> value),
-    SubCall(ptr<Expr> path, vec<Expr> args),
-    VarUse(ptr<Expr> path),
-    CompInst(ptr<Expr> _type, vec<FieldValue> field_vals),
-    EnumInst(ptr<Expr> _type, ptr<Expr> path, int opt_index, vec<Expr> args),
+    LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value),
+    SubCall(Path path, vec<Expr> args),
+    VarUse(Path path),
+    CompInst(Path _type, vec<FieldValue> field_vals),
+    EnumInst(Path _type, Path path, int opt_index, vec<Expr> args),
     StringLit(str value),
     CharLit(str value),
     IntLit(str value),
@@ -38,9 +55,7 @@ enum ExprKind (
     ThisLit,
     TypeLit,
     LocalBlock(vec<Expr> body),
-    If(ptr<Expr> _if, vec<Expr> _elif, opt<ptr<Expr>> _else),
-    IfBranch(ptr<Expr> cond, vec<Expr> body),
-    ElseBranch(vec<Expr> body),
+    If(IfBranch _if, vec<IfBranch> _elif, opt<ElseBranch> _else),
     Loop(vec<Expr> body),
     While(ptr<Expr> cond, vec<Expr> body),
     For(str iter, opt<ptr<Expr>> iter_value, ptr<Expr> cond, ptr<Expr> _next, vec<Expr> body),
@@ -59,7 +74,7 @@ enum ExprKind (
 
 comp Expr (
     ExprKind kind,
-    vec<Expr> tags,
+    vec<Tag> tags,
     opt<str> label,
 );
 
@@ -160,7 +175,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
             expect_token(file, tokens, index, TokenKind:RightParen, "expected ')' after '('");
         },
         TokenKind:Ident {
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
 
             if opt_token(tokens, index, TokenKind:LeftParen) {
                 vec<Expr> args = vec<Expr>:new_with_cap(4);
@@ -186,7 +201,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 if opt_token(tokens, index, TokenKind:Assign) {
                     value = opt<ptr<Expr>>:Some(alloc<Expr>(parse_local(file, tokens, index, 0, false)));
                 };
-                expr.kind = ExprKind:LocalVarDef(opt<ptr<Expr>>:Some(path), name, value);
+                expr.kind = ExprKind:LocalVarDef(opt<Path>:Some(path), name, value);
                 ret ~l;
             };
 
@@ -199,11 +214,11 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
             if opt_token(tokens, index, TokenKind:Assign) {
                 value = opt<ptr<Expr>>:Some(alloc<Expr>(parse_local(file, tokens, index, 0, false)));
             };
-            expr.kind = ExprKind:LocalVarDef(opt<ptr<Expr>>:None, name, value);
+            expr.kind = ExprKind:LocalVarDef(opt<Path>:None, name, value);
         },
         TokenKind:New {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'new' path");
             vec<FieldValue> field_vals = vec<FieldValue>:new_with_cap(4);
             ~f loop {
@@ -267,31 +282,25 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
             ptr<Expr> cond = alloc<Expr>(parse_local(file, tokens, index, 0, false));
             expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'if' condition");
             vec<Expr> body = parse_block(file, tokens, index, true);
-            ptr<Expr> _if = alloc<Expr>(new Expr {
-                tags = new vec<Expr> { len = 0, },
-                label = opt<str>:None,
-                kind = ExprKind:IfBranch(cond, body),
-            });
-            vec<Expr> _elif = vec<Expr>:new_with_cap(1);
+            IfBranch _if = new IfBranch {
+                cond = cond,
+                body = body,
+            };
+            vec<IfBranch> _elif = vec<IfBranch>:new_with_cap(1);
             while opt_token(tokens, index, TokenKind:Elif) {
                 cond = alloc<Expr>(parse_local(file, tokens, index, 0, false));
                 expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'elif' condition");
-                vec<Expr> body = parse_block(file, tokens, index, true);
-                _elif.push(new Expr {
-                    tags = new vec<Expr> { len = 0, },
-                    label = opt<str>:None,
-                    kind = ExprKind:IfBranch(cond, body),
+                body = parse_block(file, tokens, index, true);
+                _elif.push(new IfBranch {
+                    cond = cond,
+                    body = body,
                 });
             };
-            opt<ptr<Expr>> _else = opt<ptr<Expr>>:None;
+            opt<ElseBranch> _else = opt<ElseBranch>:None;
             if opt_token(tokens, index, TokenKind:Else) {
                 expect_token(file, tokens, index, TokenKind:LeftBrace, "expected '{' after 'else' keyword");
                 vec<Expr> body = parse_block(file, tokens, index, true);
-                _else = opt<ptr<Expr>>:Some(alloc<Expr>(new Expr {
-                    tags = new vec<Expr> { len = 0, },
-                    label = opt<str>:None,
-                    kind = ExprKind:ElseBranch(body),
-                }));
+                _else = opt<ElseBranch>:Some(new ElseBranch { body = body });
             };
             expr.kind = ExprKind:If(_if, _elif, _else);
         },
@@ -364,7 +373,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 vec<Expr> case_body = parse_block(file, tokens, index, true);
                 body.push(new Expr {
                     kind = ExprKind:Case(values, case_body),
-                    tags = new vec<Expr> { len = 0, },
+                    tags = new vec<Tag> { len = 0, },
                     label = opt<str>:None,
                 });
                 if opt_token(tokens, index, TokenKind:Comma) == false {
@@ -421,7 +430,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 expect_token(file, tokens, index, TokenKind:Comma, "expected ',' after smth");
                 Expr valueB = parse_local(file, tokens, index, 0, false);
                 expr = new Expr {
-                    tags = new vec<Expr> { len = 0, },
+                    tags = new vec<Tag> { len = 0, },
                     label = opt<str>:None,
                     kind = ExprKind:TernaryOp(alloc<Expr>(expr), alloc<Expr>(valueA), alloc<Expr>(valueB)),
                 };
@@ -477,7 +486,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
             if (op_level == 0) | (new_op_level < op_level) {
                 index@ += 1;
                 expr = new Expr {
-                    tags = new vec<Expr> { len = 0, },
+                    tags = new vec<Tag> { len = 0, },
                     label = opt<str>:None,
                     kind = ExprKind:UnaryOp(alloc<Expr>(expr), token.kind),
                 };
@@ -529,7 +538,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
     match token.kind {
         TokenKind:Tag {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'tag' path");
             vec<Expr> args = parse_fields(file, tokens, index);
             vec<Expr> body;
@@ -546,7 +555,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         },
         TokenKind:Mod {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             vec<Expr> body;
             if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, false);
@@ -557,12 +566,12 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         },
         TokenKind:Use {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             expr.kind = ExprKind:Use(path);
         },
         TokenKind:Comp {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'comp' path");
             vec<Expr> fields = parse_fields(file, tokens, index);
             vec<Expr> body;
@@ -575,7 +584,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         },
         TokenKind:Enum {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'enum' path");
             vec<Expr> opts = parse_options(file, tokens, index);
             vec<Expr> body;
@@ -588,7 +597,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         },
         TokenKind:Prop {
             index@ += 1;
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
             vec<Expr> body;
             if opt_token(tokens, index, TokenKind:LeftBrace) {
                 body = parse_block(file, tokens, index, false);
@@ -599,10 +608,10 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         },
         TokenKind:Def {
             index@ += 1;
-            ptr<Expr> _prop = alloc<Expr>(parse_path(file, tokens, index));
-            opt<ptr<Expr>> target = opt<ptr<Expr>>:None;
+            Path _prop = parse_path(file, tokens, index);
+            opt<Path> target = opt<Path>:None;
             if opt_token(tokens, index, TokenKind:Comma) {
-                target = opt<ptr<Expr>>:Some(alloc<Expr>(parse_path(file, tokens, index)));
+                target = opt<Path>:Some(parse_path(file, tokens, index));
             };
             vec<Expr> body;
             if opt_token(tokens, index, TokenKind:LeftBrace) {
@@ -615,7 +624,7 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
         TokenKind:Sub {
             index@ += 1;
 
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
 
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'sub' path");
             vec<Expr> args = parse_fields(file, tokens, index);
@@ -627,23 +636,23 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
                 body.len = 0;
             };
 
-            expr.kind = ExprKind:SubDef(opt<ptr<Expr>>:None, path, args, body);
+            expr.kind = ExprKind:SubDef(opt<Path>:None, path, args, body);
         },
         TokenKind:Var {
             index@ += 1;
 
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
 
             opt<ptr<Expr>> value = opt<ptr<Expr>>:None;
             if opt_token(tokens, index, TokenKind:Assign) {
                 value = opt<ptr<Expr>>:Some(alloc<Expr>(parse_local(file, tokens, index, 0, false)));
             };
-            expr.kind = ExprKind:VarDef(opt<ptr<Expr>>:None, path, value);
+            expr.kind = ExprKind:VarDef(opt<Path>:None, path, value);
         },
         TokenKind:Ident {
-            ptr<Expr> _type = alloc<Expr>(parse_path(file, tokens, index));
+            Path _type = parse_path(file, tokens, index);
 
-            ptr<Expr> path = alloc<Expr>(parse_path(file, tokens, index));
+            Path path = parse_path(file, tokens, index);
 
             token = tokens[index@];
             match token.kind {
@@ -659,14 +668,14 @@ Expr parse_global(File file, vec<Token> tokens, ptr<int> index) {
                         body.len = 0;
                     };
 
-                    expr.kind = ExprKind:SubDef(opt<ptr<Expr>>:Some(_type), path, args, body);
+                    expr.kind = ExprKind:SubDef(opt<Path>:Some(_type), path, args, body);
                 },
                 _ {
                     opt<ptr<Expr>> value = opt<ptr<Expr>>:None;
                     if opt_token(tokens, index, TokenKind:Assign) {
                         value = opt<ptr<Expr>>:Some(alloc<Expr>(parse_local(file, tokens, index, 0, false)));
                     };
-                    expr.kind = ExprKind:VarDef(opt<ptr<Expr>>:Some(_type), path, value);
+                    expr.kind = ExprKind:VarDef(opt<Path>:Some(_type), path, value);
                 },
             };
         },
@@ -687,8 +696,8 @@ opt<str> parse_label(File file, vec<Token> tokens, ptr<int> index, bool opt) {
     ret opt<str>:Some(expect_token(file, tokens, index, TokenKind:Ident, "expected identifier after label declaration").value);
 };
 
-vec<Expr> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
-    vec<Expr> tags = vec<Expr>:new_with_cap(2);
+vec<Tag> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
+    vec<Tag> tags = vec<Tag>:new_with_cap(2);
 
     ~l loop {
         match tokens[index@].kind {
@@ -696,11 +705,10 @@ vec<Expr> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
                 Token token = tokens[index@ += 1];
                 match token.kind {
                     TokenKind:Ident {
-                        str name = token.value;
-                        vec<Expr> args = vec<Expr>:new_with_cap(1);
+                        Path path = parse_path(file, tokens, index);
+                        vec<Expr> args = vec<Expr>:new_with_cap(2);
 
-                        token = tokens[index@ += 1];
-
+                        token = tokens[index@];
                         match token.kind {
                             TokenKind:LeftParen {
                                 index@ += 1;
@@ -722,15 +730,14 @@ vec<Expr> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
                                 };
                             },
                         };
-                        tags.push(new Expr {
-                            kind = ExprKind:Tag(name, args),
-                            tags = new vec<Expr> { len = 0, },
-                            label = opt<str>:None,
+                        tags.push(new Tag {
+                            path = path,
+                            args = args,
                         });
                         next ~l;
                     },
                     _ {
-                        file.throw(token.index, "expected identifier after tag declaration");
+                        file.throw(token.index, "expected a path after tag declaration");
                     },
                 };
             },
@@ -741,7 +748,7 @@ vec<Expr> parse_tags(File file, vec<Token> tokens, ptr<int> index) {
     ret tags;
 };
 
-Expr parse_path(File file, vec<Token> tokens, ptr<int> index) {
+Path parse_path(File file, vec<Token> tokens, ptr<int> index) {
     match tokens[index@].kind {
         TokenKind:Ident {
             ret parse_opt_path(file, tokens, index);
@@ -752,7 +759,7 @@ Expr parse_path(File file, vec<Token> tokens, ptr<int> index) {
     };
 };
 
-Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
+Path parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
     int start_index = index@;
     vec<PathPart> path = vec<PathPart>:new_with_cap(2);
     bool need_colon = false;
@@ -772,7 +779,7 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
                 TokenKind:Ident {
                     PathPart part = new PathPart {
                         name = token.value,
-                        gens = vec<Expr>:new_with_cap(2),
+                        gens = vec<Path>:new_with_cap(2),
                     };
                     match tokens[index@ + 1].kind {
                         TokenKind:Less {
@@ -785,17 +792,13 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
                                         ret ~ll;
                                     },
                                 };
-                                Expr gen = parse_opt_path(file, tokens, index);
-                                match gen.kind {
-                                    ExprKind:Path(vec<PathPart> gen_path) {
-                                        if gen_path.len == 0 {
-                                            index@ = old_index;
-                                            part.gens.len = 0;
-                                            ret ~ll;
-                                        };
-                                    },
+                                Path gen = parse_opt_path(file, tokens, index);
+                                if gen.path.len == 0 {
+                                    index@ = old_index;
+                                    part.gens.len = 0;
+                                    ret ~ll;
                                 };
-                                vec<Expr>:push(part.gens$, gen);
+                                vec<Path>:push(part.gens$, gen);
                                 opt_token(tokens, index, TokenKind:Comma);
                             };
                         },
@@ -814,10 +817,9 @@ Expr parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
         };
         index@ += 1;
     };
-    ret new Expr {
-        kind = ExprKind:Path(path, tokens[start_index].index),
-        tags = new vec<Expr> { len = 0, },
-        label = opt<str>:None,
+    ret new Path {
+        path = path,
+        index = tokens[start_index].index,
     };
 };
 
@@ -831,10 +833,10 @@ vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
 
         Expr field = new Expr {
             kind = ExprKind:Field(
-                alloc<Expr>(parse_path(file, tokens, index)),
+                parse_path(file, tokens, index),
                 expect_token(file, tokens, index, TokenKind:Ident, "expected field name in 'comp' definition").value,
             ),
-            tags = new vec<Expr> { len = 0, },
+            tags = new vec<Tag> { len = 0, },
             label = opt<str>:None,
         };
         fields.push(field);
@@ -867,7 +869,7 @@ vec<Expr> parse_options(File file, vec<Token> tokens, ptr<int> index) {
 
         opts.push(new Expr {
             kind = ExprKind:Option(name, fields),
-            tags = new vec<Expr> { len = 0, },
+            tags = new vec<Tag> { len = 0, },
             label = opt<str>:None,
         });
 
@@ -917,56 +919,43 @@ sub print_expr(Expr expr, int depth) {
             fmt:print("label = %s, ", label.buf);
         },
     };
-    print_opt_expr_vec(expr.tags, depth, "tags", false);
+    print_tags(expr.tags, depth);
     if expr.tags.len != 0 {
         fmt:print(", ");
     };
     match expr.kind {
-        ExprKind:Tag(str name, vec<Expr> args) {
-            fmt:print("name = %s", name.buf);
-            print_opt_expr_vec(args, depth, "args", true);
-        },
-        ExprKind:Path(vec<PathPart> path) {
-            for i = 0, i < path.len, i += 1 {
-                PathPart part = path[i];
-                if i != 0 {
-                    fmt:print(", ");
-                };
-                fmt:print("name = %s", part.name.buf);
-                print_opt_expr_vec(part.gens, depth, "gens", true);
-            };
-        },
-        ExprKind:TagDef(ptr<Expr> path, vec<Expr> args, vec<Expr> body) {
-            print_expr(path@, depth);
+        ExprKind:TagDef(Path path, vec<Expr> args, vec<Expr> body) {
+            fmt:print("path = ");
+            print_path(path, depth);
             print_opt_expr_vec(args, depth, "args", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
         ExprKind:Block(vec<Expr> body) {
             print_opt_expr_vec(body, depth, "body", false);
         },
-        ExprKind:Mod(ptr<Expr> path, vec<Expr> body) {
+        ExprKind:Mod(Path path, vec<Expr> body) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             print_opt_expr_vec(body, depth, "body", false);
         },
-        ExprKind:Use(ptr<Expr> path) {
+        ExprKind:Use(Path path) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
         },
-        ExprKind:Field(ptr<Expr> _type, str name) {
+        ExprKind:Field(Path _type, str name) {
             fmt:print("type = ");
-            print_expr(_type@, depth);
+            print_path(_type, depth);
             fmt:print(", name = %s", name.buf);
         },
-        ExprKind:Comp(ptr<Expr> path, vec<Expr> fields, vec<Expr> body) {
+        ExprKind:Comp(Path path, vec<Expr> fields, vec<Expr> body) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             print_opt_expr_vec(fields, depth, "fields", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:Enum(ptr<Expr> path, vec<Expr> opts, vec<Expr> body) {
+        ExprKind:Enum(Path path, vec<Expr> opts, vec<Expr> body) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             print_opt_expr_vec(opts, depth, "opts", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
@@ -974,45 +963,45 @@ sub print_expr(Expr expr, int depth) {
             fmt:print("name = %s", name.buf);
             print_opt_expr_vec(fields, depth, "fields", true);
         },
-        ExprKind:Prop(ptr<Expr> path, vec<Expr> body) {
+        ExprKind:Prop(Path path, vec<Expr> body) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:Def(ptr<Expr> _prop, opt<ptr<Expr>> target, vec<Expr> body) {
+        ExprKind:Def(Path _prop, opt<Path> target, vec<Expr> body) {
             fmt:print("prop = ");
-            print_expr(_prop@, depth);
+            print_path(_prop, depth);
             match target {
-                opt<ptr<Expr>>:Some(ptr<Expr> _target) {
+                opt<Path>:Some(Path _target) {
                     fmt:print(", target = ");
-                    print_expr(_target@, depth);
+                    print_path(_target, depth);
                 },
             };
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:SubDef(opt<ptr<Expr>> ret_type, ptr<Expr> path, vec<Expr> args, vec<Expr> body) {
+        ExprKind:SubDef(opt<Path> ret_type, Path path, vec<Expr> args, vec<Expr> body) {
             match ret_type {
-                opt<ptr<Expr>>:Some(ptr<Expr> _ret_type) {
+                opt<Path>:Some(Path _ret_type) {
                     fmt:print("ret_type = ");
-                    print_expr(_ret_type@, depth);
+                    print_path(_ret_type, depth);
                     fmt:print(", ");
                 },
             };
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             print_opt_expr_vec(args, depth, "args", true);
             print_opt_expr_vec(body, depth, "body", true);
         },
-        ExprKind:VarDef(opt<ptr<Expr>> _type, ptr<Expr> path, opt<ptr<Expr>> value) {
+        ExprKind:VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value) {
             match _type {
-                opt<ptr<Expr>>:Some(ptr<Expr> __type) {
+                opt<Path>:Some(Path __type) {
                     fmt:print("type = ");
-                    print_expr(__type@, depth);
+                    print_path(__type, depth);
                     fmt:print(", ");
                 },
             };
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             match value {
                 opt<ptr<Expr>>:Some(ptr<Expr> _value) {
                     fmt:print(", value = ");
@@ -1020,11 +1009,11 @@ sub print_expr(Expr expr, int depth) {
                 },
             };
         },
-        ExprKind:LocalVarDef(opt<ptr<Expr>> _type, str name, opt<ptr<Expr>> value) {
+        ExprKind:LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value) {
             match _type {
-                opt<ptr<Expr>>:Some(ptr<Expr> __type) {
+                opt<Path>:Some(Path __type) {
                     fmt:print("type = ");
-                    print_expr(__type@, depth);
+                    print_path(__type, depth);
                     fmt:print(", ");
                 },
             };
@@ -1036,18 +1025,18 @@ sub print_expr(Expr expr, int depth) {
                 },
             };
         },
-        ExprKind:SubCall(ptr<Expr> path, vec<Expr> args) {
+        ExprKind:SubCall(Path path, vec<Expr> args) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
             print_opt_expr_vec(args, depth, "args", true);
         },
-        ExprKind:VarUse(ptr<Expr> path) {
+        ExprKind:VarUse(Path path) {
             fmt:print("path = ");
-            print_expr(path@, depth);
+            print_path(path, depth);
         },
-        ExprKind:CompInst(ptr<Expr> _type, vec<FieldValue> field_vals) {
+        ExprKind:CompInst(Path _type, vec<FieldValue> field_vals) {
             fmt:print("type = ");
-            print_expr(_type@, depth);
+            print_path(_type, depth);
             fmt:print(", field_vals = [");
             for i = 0, i < field_vals.len, i += 1 {
                 if i != 0 {
@@ -1082,24 +1071,16 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:LocalBlock(vec<Expr> body) {
             print_opt_expr_vec(body, depth, "body", false);
         },
-        ExprKind:If(ptr<Expr> _if, vec<Expr> _elif, opt<ptr<Expr>> _else) {
+        ExprKind:If(IfBranch _if, vec<IfBranch> _elif, opt<ElseBranch> _else) {
             fmt:print("if = ");
-            print_expr(_if@, depth);
-            print_opt_expr_vec(_elif, depth, "elif", true);
+            print_if_branch(_if, depth);
+            print_if_branch_vec(_elif, depth);
             match _else {
-                opt<ptr<Expr>>:Some(ptr<Expr> __else) {
+                opt<ElseBranch>:Some(ElseBranch __else) {
                     fmt:print(", else = ");
-                    print_expr(__else@, depth);
+                    print_else_branch(__else, depth);
                 },
             };
-        },
-        ExprKind:IfBranch(ptr<Expr> cond, vec<Expr> body) {
-            fmt:print("cond = ");
-            print_expr(cond@, depth);
-            print_opt_expr_vec(body, depth, "body", true);
-        },
-        ExprKind:ElseBranch(vec<Expr> body) {
-            print_opt_expr_vec(body, depth, "body", false);
         },
         ExprKind:Loop(vec<Expr> body) {
             print_opt_expr_vec(body, depth, "body", false);
@@ -1200,10 +1181,86 @@ sub print_expr(Expr expr, int depth) {
     char:put(')');
 };
 
+sub print_path(Path path, int depth) {
+    color:set(Color:Green);
+    fmt:print("PATH");
+    color:reset();
+    char:put('(');
+    for i = 0, i < path.path.len, i += 1 {
+        PathPart part = path.path[i];
+        if i != 0 {
+            fmt:print(", ");
+        };
+        fmt:print("name = %s", part.name.buf);
+        if part.gens.len > 0 {
+            fmt:print(", gens = [");
+            for ii = 0, ii < part.gens.len, ii += 1 {
+                char:put('\n');
+                indent(depth + 1);
+                print_path(part.gens[ii], depth + 1);
+            };
+            char:put('\n');
+            indent(depth);
+            char:put(']');
+        };
+    };
+    char:put(')');
+};
+
+sub print_tags(vec<Tag> tags, int depth) {
+    if tags.len > 0 {
+        fmt:print("tags = [");
+        for i = 0, i < tags.len, i += 1 {
+            char:put('\n');
+            indent(depth + 1);
+            color:set(Color:Green);
+            fmt:print("TAG");
+            color:reset();
+            fmt:print("(path = ");
+            print_path(tags[i].path, depth + 1);
+            print_opt_expr_vec(tags[i].args, depth + 1, "args", true);
+            char:put(')');
+        };
+        char:put('\n');
+        indent(depth);
+        char:put(']');
+    };
+};
+
+sub print_if_branch(IfBranch _if, int depth) {
+    color:set(Color:Green);
+    fmt:print("IF_BRANCH");
+    color:reset();
+    fmt:print("(cond = ");
+    print_expr(_if.cond@, depth);
+    print_opt_expr_vec(_if.body, depth, "body", true);
+};
+
+sub print_if_branch_vec(vec<IfBranch> ifs, int depth) {
+    if ifs.len > 0 {
+        fmt:print(", elif = [");
+        for i = 0, i < ifs.len, i += 1 {
+            char:put('\n');
+            indent(depth + 1);
+            print_if_branch(ifs[i], depth + 1);
+        };
+        char:put('\n');
+        indent(depth);
+        char:put(']');
+    };
+};
+
+sub print_else_branch(ElseBranch _else, int depth) {
+    color:set(Color:Green);
+    fmt:print("ELSE_BRANCH");
+    color:reset();
+    char:put('(');
+    print_opt_expr_vec(_else.body, depth, "body", false);
+    char:put(')');
+};
+
 ptr<u8> get_expr_name(ExprKind kind) {
     match kind {
-        ExprKind:Tag { ret "TAG"; },
-        ExprKind:Path { ret "PATH"; },
         ExprKind:TagDef { ret "TAG_DEF"; },
         ExprKind:Block { ret "BLOCK"; },
         ExprKind:Mod { ret "MOD"; },
@@ -1230,8 +1287,6 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:TypeLit { ret "TYPE_LIT"; },
         ExprKind:LocalBlock { ret "LOCAL_BLOCK"; },
         ExprKind:If { ret "IF"; },
-        ExprKind:IfBranch { ret "IF_BRANCH"; },
-        ExprKind:ElseBranch { ret "ELSE_BRANCH"; },
         ExprKind:Loop { ret "LOOP"; },
         ExprKind:While { ret "WHILE"; },
         ExprKind:For { ret "FOR"; },
