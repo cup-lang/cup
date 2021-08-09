@@ -391,3 +391,73 @@ ptr<T> alloc<T>(T obj) {
     foo@ = obj; 
     ret foo;
 };
+
+comp File (
+    str name,
+    str data,
+);
+
+def File {
+    #self #rest
+    sub throw(int index, ptr<u8> error) {
+        rest:args args;
+        rest:start(args, error);
+
+        int line = 1;
+        int column = 1;
+        for i = 0, i < index, i += 1 {
+            if this.data[i] == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            };
+        };
+
+        fmt:print("%s:%i:%i: ", this.name.buf, line, column);
+        color:set(Color:Red);
+        fmt:print("error:");
+        color:reset();
+        fmt:print(" ");
+        fmt:vprint(error, args);
+        fmt:print("\n");
+        print_snippet(this.data, line, column);
+        exit(1);
+
+        rest:end(args);
+    };
+};
+
+sub print_snippet(str file, int line, int column) {
+    fmt:print(" %i | ", line);
+    int length = 2;
+    int l = line;
+    while l != 0 {
+        length += 1;
+        l /= 10;
+    };
+    int line_index = 1;
+    ~l for i = 0, i < file.len, i += 1 {
+        u8 c = file[i];
+        if c == '\n' {
+            line_index += 1;
+            if line_index > line {
+                ret ~l;
+            };
+        } elif line_index == line {
+            char:put(c);
+        };
+    };
+    char:put('\n');
+    for i = 0, i < length, i += 1 {
+        char:put(' ');
+    };
+    char:put('|');
+    for i = 0, i < column, i += 1 {
+        char:put(' ');
+    };
+    color:set(Color:Red);
+    char:put('^');
+    color:reset();
+    char:put('\n');
+};

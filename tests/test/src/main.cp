@@ -1,6 +1,7 @@
+` vec -> darr
 ` analyzer
     ` global
-        ` register types
+        ` register types (#pub)
         ` check for collisions
     ` local
         ` apply mods
@@ -26,7 +27,6 @@
             ` #self
                 ` this
                 ` sub_calls (.)
-        ` #pub
 ` playground
     ` multiple files
     ` line numbers

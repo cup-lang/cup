@@ -167,6 +167,7 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
         };
     };
     dir:rewind(_dir);
+    vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new_with_cap(4);
     ~f loop {
         ent = dir:read(_dir);
         if ent == 0 {
@@ -191,34 +192,24 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
             vec<Expr> exprs = parse(file, tokens);
             mem:free(tokens.buf);
             print_exprs(exprs);
-            ` analyze_global_vec(file, exprs);
-            ` to_analyze.push(ToAnalyze {
-            `     file = file,
-            `     exprs = exprs,
-            ` });
-            ` 
-            ` vec<Expr>:push(ast, Expr {
-            `     tags = vec<Expr> {
-            `         len = 0,
-            `     },
-            `     label = none,
-            `     kind = ExprKind:Block(exprs),
-            ` });
+            analyze_global_vec(file, exprs);
+            to_analyze.push(new ToAnalyze {
+                file = file,
+                exprs = exprs,
+            });
+            
+            vec<Expr>:join(ast, exprs);
         };
     };
     dir:close(_dir);
 
-
-
-    ` dir:rewind(dir);
-    ` vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new(4);
-    ` for i = 0, i < to_analyze.len, i += 1 {
-    `     ToAnalyze analyze = to_analyze.buf[i];
-    `     analyze_local_vec(analyze.file, analyze.exprs, true);
-    `     mem:free(analyze.file.name);
-    `     mem:free(analyze.file.data.buf);
-    ` };
-    ` mem:free(to_analyze.buf);
+    for i = 0, i < to_analyze.len, i += 1 {
+        ToAnalyze analyze = to_analyze[i];
+        analyze_local_vec(analyze.file, analyze.exprs);
+        mem:free(analyze.file.name.buf);
+        mem:free(analyze.file.data.buf);
+    };
+    mem:free(to_analyze.buf);
 };
 
 str combine_paths(str a, str b) {
@@ -230,72 +221,7 @@ str combine_paths(str a, str b) {
     ret new_path;
 };
 
-comp File (
-    str name,
-    str data,
+comp ToAnalyze (
+    File file,
+    vec<Expr> exprs,
 );
-
-def File {
-    #self #rest
-    sub throw(int index, ptr<u8> error) {
-        rest:args args;
-        rest:start(args, error);
-
-        int line = 1;
-        int column = 1;
-        for i = 0, i < index, i += 1 {
-            if this.data[i] == '\n' {
-                line += 1;
-                column = 1;
-            } else {
-                column += 1;
-            };
-        };
-
-        fmt:print("%s:%i:%i: ", this.name.buf, line, column);
-        color:set(Color:Red);
-        fmt:print("error:");
-        color:reset();
-        fmt:print(" ");
-        fmt:vprint(error, args);
-        fmt:print("\n");
-        print_snippet(this.data, line, column);
-        exit(1);
-
-        rest:end(args);
-    };
-};
-
-sub print_snippet(str file, int line, int column) {
-    fmt:print(" %i | ", line);
-    int length = 2;
-    int l = line;
-    while l != 0 {
-        length += 1;
-        l /= 10;
-    };
-    int line_index = 1;
-    ~l for i = 0, i < file.len, i += 1 {
-        u8 c = file[i];
-        if c == '\n' {
-            line_index += 1;
-            if line_index > line {
-                ret ~l;
-            };
-        } elif line_index == line {
-            char:put(c);
-        };
-    };
-    char:put('\n');
-    for i = 0, i < length, i += 1 {
-        char:put(' ');
-    };
-    char:put('|');
-    for i = 0, i < column, i += 1 {
-        char:put(' ');
-    };
-    color:set(Color:Red);
-    char:put('^');
-    color:reset();
-    char:put('\n');
-};

@@ -1,5 +1,5 @@
 comp Path (
-    vec<PathPart> path,
+    vec<PathPart> parts,
     int index,
 );
 
@@ -373,7 +373,7 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 vec<Expr> case_body = parse_block(file, tokens, index, true);
                 body.push(new Expr {
                     kind = ExprKind:Case(values, case_body),
-                    tags = new vec<Tag> { len = 0, },
+                    tags = new vec<Tag> { len = 0 },
                     label = opt<str>:None,
                 });
                 if opt_token(tokens, index, TokenKind:Comma) == false {
@@ -430,9 +430,9 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
                 expect_token(file, tokens, index, TokenKind:Comma, "expected ',' after smth");
                 Expr valueB = parse_local(file, tokens, index, 0, false);
                 expr = new Expr {
-                    tags = new vec<Tag> { len = 0, },
-                    label = opt<str>:None,
                     kind = ExprKind:TernaryOp(alloc<Expr>(expr), alloc<Expr>(valueA), alloc<Expr>(valueB)),
+                    tags = new vec<Tag> { len = 0 },
+                    label = opt<str>:None,
                 };
                 ret ~o;
             },
@@ -486,9 +486,9 @@ Expr parse_local(File file, vec<Token> tokens, ptr<int> index, int op_level, boo
             if (op_level == 0) | (new_op_level < op_level) {
                 index@ += 1;
                 expr = new Expr {
-                    tags = new vec<Tag> { len = 0, },
-                    label = opt<str>:None,
                     kind = ExprKind:UnaryOp(alloc<Expr>(expr), token.kind),
+                    tags = new vec<Tag> { len = 0 },
+                    label = opt<str>:None,
                 };
                 next ~o;
             };
@@ -793,7 +793,7 @@ Path parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
                                     },
                                 };
                                 Path gen = parse_opt_path(file, tokens, index);
-                                if gen.path.len == 0 {
+                                if gen.parts.len == 0 {
                                     index@ = old_index;
                                     part.gens.len = 0;
                                     ret ~ll;
@@ -818,7 +818,7 @@ Path parse_opt_path(File file, vec<Token> tokens, ptr<int> index) {
         index@ += 1;
     };
     ret new Path {
-        path = path,
+        parts = path,
         index = tokens[start_index].index,
     };
 };
@@ -836,7 +836,7 @@ vec<Expr> parse_fields(File file, vec<Token> tokens, ptr<int> index) {
                 parse_path(file, tokens, index),
                 expect_token(file, tokens, index, TokenKind:Ident, "expected field name in 'comp' definition").value,
             ),
-            tags = new vec<Tag> { len = 0, },
+            tags = new vec<Tag> { len = 0 },
             label = opt<str>:None,
         };
         fields.push(field);
@@ -869,7 +869,7 @@ vec<Expr> parse_options(File file, vec<Token> tokens, ptr<int> index) {
 
         opts.push(new Expr {
             kind = ExprKind:Option(name, fields),
-            tags = new vec<Tag> { len = 0, },
+            tags = new vec<Tag> { len = 0 },
             label = opt<str>:None,
         });
 
@@ -1186,8 +1186,8 @@ sub print_path(Path path, int depth) {
     fmt:print("PATH");
     color:reset();
     char:put('(');
-    for i = 0, i < path.path.len, i += 1 {
-        PathPart part = path.path[i];
+    for i = 0, i < path.parts.len, i += 1 {
+        PathPart part = path.parts[i];
         if i != 0 {
             fmt:print(", ");
         };
