@@ -126,8 +126,10 @@ int main(int argc, ptr<ptr<u8>> argv) {
         output = opt<str>:Some(str:new_from_cstr("out.c"));
     };
 
-    vec<Expr> ast = vec<Expr>:new_with_cap(8);
+    darr<Expr> ast = darr<Expr>:new_with_cap(8);
+    init_analyzer();
     lex_parse_analyze(input.unwrap(), ast$);
+    generate(output.unwrap(), ast);
 
     fmt:print("Compilation ");
     color:set(Color:Green);
@@ -146,7 +148,7 @@ sub expect_option_value(ptr<opt<str>> option, arr<str> args, int index) {
     };
 };
 
-sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
+sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
     ptr<dir> _dir = dir:open(path.buf);
     if _dir == 0 {
         throw("no such file or directory: '%s'\n", path.buf);
@@ -167,7 +169,7 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
         };
     };
     dir:rewind(_dir);
-    vec<ToAnalyze> to_analyze = vec<ToAnalyze>:new_with_cap(4);
+    darr<ToAnalyze> to_analyze = darr<ToAnalyze>:new_with_cap(4);
     ~f loop {
         ent = dir:read(_dir);
         if ent == 0 {
@@ -177,7 +179,7 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
             str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
             ptr<file> file_point = file:open(new_path.buf, "r");
             file:seek(file_point, 0, file:seek_end);
-            str data = str:new_with_len(file:tell(file_point) - 1);
+            str data = str:new_with_len(file:tell(file_point));
             file:rewind(file_point);
             file:read(data.buf, data.len + 1, 1, file_point);
             file:close(file_point);
@@ -187,25 +189,25 @@ sub lex_parse_analyze(str path, ptr<vec<Expr>> ast) {
                 name = new_path,
                 data = data,
             };
-            vec<Token> tokens = lex(file);
+            darr<Token> tokens = lex(file);
             print_tokens(tokens);
-            vec<Expr> exprs = parse(file, tokens);
+            darr<Expr> exprs = parse(file, tokens);
             mem:free(tokens.buf);
-            print_exprs(exprs);
-            analyze_global_vec(file, exprs);
+            print_all_exprs(exprs);
+            analyze_globals(file, exprs);
             to_analyze.push(new ToAnalyze {
                 file = file,
                 exprs = exprs,
             });
             
-            vec<Expr>:join(ast, exprs);
+            darr<Expr>:join(ast, exprs);
         };
     };
     dir:close(_dir);
 
     for i = 0, i < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze[i];
-        analyze_local_vec(analyze.file, analyze.exprs);
+        analyze_locals(analyze.file, analyze.exprs);
         mem:free(analyze.file.name.buf);
         mem:free(analyze.file.data.buf);
     };
@@ -223,5 +225,5 @@ str combine_paths(str a, str b) {
 
 comp ToAnalyze (
     File file,
-    vec<Expr> exprs,
+    darr<Expr> exprs,
 );

@@ -29,7 +29,7 @@ sub generate(ptr<u8> output, vec<Expr> ast) {
     
     ptr<FILE> file_point = file:open(output, "w");
     for i = 0, (i) < reqs.len, i += 1 {
-        file:print(file_point, "#include %c%s%c\n", 34, reqs.buf[i].name,  34);
+        file:print(file_point, "#include %c%s%c\n", 34, reqs.buf[i].name, 34);
     };
     file:print(file_point, "%s", types_headers.buf);
     file:print(file_point, "%s", funcs_headers.buf);
@@ -517,18 +517,49 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                                                         for iii = 0, (iii) < args.len, iii += 1 {
                                                             match fields.buf[iii].kind {
                                                                 ExprKind:Field(_, field_name) {
-                                                                    match args.buf[iii].kind {
+                                                                    Expr arg = args.buf[iii];
+                                                                    match arg.kind {
                                                                         ExprKind:LocalVarDef(arg_type, arg_name) {
+                                                                            bool is_ref = false;
+                                                                            for t = 0, (t) < arg.tags.len, t += 1 {
+                                                                                match arg.tags.buf[t].kind {
+                                                                                    ExprKind:Tag(name) {
+                                                                                        if str:cmp(name, "ref") == 0 {
+                                                                                            is_ref = true;
+                                                                                        };
+                                                                                    },
+                                                                                };
+                                                                            };
                                                                             Expr _arg_type = apply_genenerics(arg_type@);
+                                                                            if is_ref {
+                                                                                vec<PathPart> p = vec<PathPart>:new(1);
+                                                                                vec<Expr> g = vec<Expr>:new(1);
+                                                                                g.push(_arg_type);
+                                                                                p.push(PathPart {
+                                                                                    name = "ptr",
+                                                                                    gens = g,
+                                                                                });
+                                                                                _arg_type = Expr {
+                                                                                    kind = ExprKind:Path(p),
+                                                                                    tags = vec<Expr> { len = 0, },
+                                                                                    label = none,
+                                                                                };
+                                                                            };
                                                                             vec<u8>:join(out, mangle(_arg_type, true, false, 0));
                                                                             vec<u8>:push(out, ' ');
                                                                             vec<u8>:join(out, register_local_name(arg_name));
                                                                             vec<u8>:push(out, '=');
+                                                                            if is_ref {
+                                                                                vec<u8>:join(out, "&(");
+                                                                            };
                                                                             generate_expr(out, value@, false, false, 0);
                                                                             vec<u8>:join(out, ".u.");
                                                                             vec<u8>:join(out, name);
                                                                             vec<u8>:push(out, '.');
                                                                             vec<u8>:join(out, field_name);
+                                                                            if is_ref {
+                                                                                vec<u8>:push(out, ')');
+                                                                            };
                                                                             vec<u8>:push(out, ';');
                                                                         },
                                                                     };

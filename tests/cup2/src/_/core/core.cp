@@ -131,6 +131,39 @@ mod color {
     };
 };
 
+comp str (
+    ptr<u8> buf,
+    int len,
+);
+
+def str {
+    str new_with_len(int len) {
+        ret new str {
+            buf = mem:alloc(mem:size<u8>() * len),
+            len = len,
+        };
+    };
+
+    str new_from_cstr(ptr<u8> cstr) {
+        int len = cstr:len(cstr) + 1;
+        ptr<u8> buf = mem:alloc(mem:size<u8>() * len);
+        mem:copy(buf, cstr, mem:size<u8>() * len);
+        ret new str {
+            buf = buf,
+            len = len - 1,
+        };
+    };
+
+    #self
+    dstr to_dstr() {
+        ret new dstr {
+            buf = this.buf,
+            len = this.len,
+            cap = this.len,
+        };
+    };
+};
+
 comp dstr (
     ptr<u8> buf,
     int len,
@@ -221,39 +254,6 @@ def dstr {
     };
 };
 
-comp str (
-    ptr<u8> buf,
-    int len,
-);
-
-def str {
-    str new_with_len(int len) {
-        ret new str {
-            buf = mem:alloc(mem:size<u8>() * len),
-            len = len,
-        };
-    };
-
-    str new_from_cstr(ptr<u8> cstr) {
-        int len = cstr:len(cstr) + 1;
-        ptr<u8> buf = mem:alloc(mem:size<u8>() * len);
-        mem:copy(buf, cstr, mem:size<u8>() * len);
-        ret new str {
-            buf = buf,
-            len = len - 1,
-        };
-    };
-
-    #self
-    dstr to_dstr() {
-        ret new dstr {
-            buf = this.buf,
-            len = this.len,
-            cap = this.len,
-        };
-    };
-};
-
 #gen("T")
 comp arr<T> (
     ptr<T> buf,
@@ -275,19 +275,28 @@ def arr<T> {
             len = len,
         };
     };
+
+    #self
+    dstr to_darr() {
+        ret new darr<T> {
+            buf = this.buf,
+            len = this.len,
+            cap = this.len,
+        };
+    };
 };
 
 #gen("T")
-comp vec<T> (
+comp darr<T> (
     ptr<T> buf,
     int len,
     int cap,
 );
 
 #gen("T")
-def vec<T> {
-    vec<T> new_with_cap(int cap) {
-        ret new vec<T> {
+def darr<T> {
+    darr<T> new_with_cap(int cap) {
+        ret new darr<T> {
             buf = mem:alloc(mem:size<T>() * cap),
             len = 0,
             cap = cap,
@@ -319,7 +328,7 @@ def vec<T> {
     };
 
     #self
-    sub join(vec<T> other) {
+    sub join(darr<T> other) {
         if other.len == 0 {
             ret;
         };
@@ -333,7 +342,7 @@ def vec<T> {
     };
 
     #self
-    sub join_back(vec<T> other) {
+    sub join_back(darr<T> other) {
         if other.len == 0 {
             ret;
         };
@@ -345,6 +354,14 @@ def vec<T> {
         };
         mem:copy(this.buf + other.len, this.buf, mem:size<T>() * old_len);
         mem:copy(this.buf, other.buf, mem:size<T>() * other.len);
+    };
+
+    #self
+    str to_arr() {
+        ret new arr<T> {
+            buf = this.buf,
+            len = this.len,
+        };
     };
 };
 

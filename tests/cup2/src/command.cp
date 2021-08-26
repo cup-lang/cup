@@ -54,7 +54,7 @@ Command get_command(arr<str> args) {
     };
 
     bool is_command = false;
-    vec<u8> vector = vec<u8>:new_with_cap(16);
+    dstr string = dstr:new_with_cap(16);
     ~l for i = 1, i < args.len, i += 1 {
         if i == 4 {
             ret ~l;
@@ -69,12 +69,11 @@ Command get_command(arr<str> args) {
         is_command = true;
 
         for c = 0, c < args[i].len, c += 1 {
-            vector.push(args[i][c]);
+            string.push(args[i][c]);
         };
     };
 
-    vector[vector.len] = '\0';
-    ptr<u8> input = vector.buf;
+    ptr<u8> input = string.buf;
 
     if cstr:cmp(input, "help") == 0 {
         ret Command:Help;

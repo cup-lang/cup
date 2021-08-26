@@ -31,6 +31,7 @@ enum TokenKind (
     Each,
     In,
     Match,
+    Echo,
     Ret,
     Next,
     Jump,
@@ -93,6 +94,7 @@ int get_token_length(TokenKind kind) {
         TokenKind:Else,
         TokenKind:Loop,
         TokenKind:Each,
+        TokenKind:Echo,
         TokenKind:Next,
         TokenKind:Jump {
             ret 4;
@@ -186,6 +188,7 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:Each { ret "EACH"; },
         TokenKind:In { ret "IN"; },
         TokenKind:Match { ret "MATCH"; },
+        TokenKind:Echo { ret "ECHO"; },
         TokenKind:Ret { ret "RET"; },
         TokenKind:Next { ret "NEXT"; },
         TokenKind:Jump { ret "JUMP"; },
@@ -291,6 +294,8 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:In;
     } elif cstr:cmp(value, "match") == 0 {
         ret TokenKind:Match;
+    } elif cstr:cmp(value, "echo") == 0 {
+        ret TokenKind:Echo;
     } elif cstr:cmp(value, "ret") == 0 {
         ret TokenKind:Ret;
     } elif cstr:cmp(value, "next") == 0 {
@@ -351,9 +356,8 @@ enum LiteralState (
     Float, ` 8
 );
 
-` raw strings
-vec<Token> lex(File file) {
-    vec<Token> tokens = vec<Token>:new_with_cap(32);
+darr<Token> lex(File file) {
+    darr<Token> tokens = darr<Token>:new_with_cap(32);
     bool is_comment = false;
     LiteralState lit_state = LiteralState:None;
     dstr value = dstr:new_with_cap(8);
@@ -654,12 +658,13 @@ vec<Token> lex(File file) {
     ret tokens;
 };
 
-sub print_tokens(vec<Token> tokens) {
+sub print_tokens(darr<Token> tokens) {
     fmt:print("Tokens:\n");
     for i = 0, (i) < tokens.len, i += 1 {
         TokenKind kind = tokens[i].kind;
+        fmt:print("  ");
         color:set(Color:Magenta);
-        fmt:print("  %s", get_token_name(kind));
+        fmt:print("%s", get_token_name(kind));
         color:reset();
         match kind {
             TokenKind:Ident,
