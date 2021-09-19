@@ -6,6 +6,7 @@ comp MangledExpr (
 
 int mangle_index;
 darr<darr<MangledExpr>> paths;
+` darr<____> local_vars;
 darr<PathPart> mods;
 
 sub init_analyzer() {
@@ -23,7 +24,6 @@ sub analyze_globals(File file, darr<Expr> exprs) {
 sub analyze_global(File file, ptr<Expr> expr) {
     opt<Tag> pub = opt<Tag>:None;
     opt<Tag> bind = opt<Tag>:None;
-    bool gen = false;
     for i = 0, i < expr@.tags.len, i += 1 {
         Tag _tag = expr@.tags[i];
         if comp_path_to_str(_tag.path, "pub") {
@@ -36,8 +36,6 @@ sub analyze_global(File file, ptr<Expr> expr) {
                 file.throw(_tag.index, "only one #bind is allowed per path");
             };
             bind = opt<Tag>:Some(_tag);
-        } elif comp_path_to_str(_tag.path, "gen") {
-            gen = true;
         };
     };
 
@@ -99,15 +97,21 @@ sub analyze_global(File file, ptr<Expr> expr) {
         },
     };
 
+    bool gen = has_generics(path@);
+
     match bind {
         opt<Tag>:Some(Tag _tag) {
             match expr@.kind {
                 ExprKind:Comp,
                 ExprKind:Enum,
                 ExprKind:SubDef,
-                ExprKind:VarDef {},
+                ExprKind:VarDef {
+                    if gen {
+                        file.throw(_tag.index, "#bind cannot be applied to generic expressions");
+                    };
+                },
                 _ {
-                    file.throw(_tag.index, "#bind cannot be applied to this expr");
+                    file.throw(_tag.index, "#bind cannot be applied to this expression");
                 },
             };
         },
@@ -138,9 +142,15 @@ sub analyze_global(File file, ptr<Expr> expr) {
                         ExprKind:Enum,
                         ExprKind:SubDef,
                         ExprKind:VarDef {
+                            if _tag.args.len != 1 {
+                                file.throw(_tag.index, "#bind requires one argument of type string");
+                            };
                             match _tag.args[0].kind {
                                 ExprKind:StringLit(str value) {
                                     add_mangled_expr(expr@, path@, value);
+                                },
+                                _ {
+                                    file.throw(_tag.index, "#bind requires one argument of type string");
                                 },
                             };
                         },
@@ -162,6 +172,15 @@ sub analyze_locals(File file, darr<Expr> exprs) {
 
 sub analyze_local(File file, ptr<Expr> expr) {
 
+};
+
+bool has_generics(Path path) {
+    for i = 0, i < path.parts.len, i += 1 {
+        if path.parts[i].gens.len > 0 {
+            ret true;
+        };
+    };
+    ret false;
 };
 
 sub try_apply_pub(opt<Tag> pub, Path path) {
@@ -313,3 +332,18 @@ sub add_mangled_expr(Expr expr, Path path, str name) {
         name = name,
     });
 };
+
+#gen("T")
+comp foo<T>:abc<f32> {
+    SomeEnum:SomeOption<i32>
+};
+
+#gen("T")
+mod abc<T> {
+    #gen("U")
+    comp foo<U> 
+
+    };
+};
+
+abc<T>:foo<U>

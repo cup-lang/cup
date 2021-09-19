@@ -108,12 +108,12 @@ mod color {
             Color:Green { color_code = 10; },
             Color:Red { color_code = 12; },
         };
-        set_console_text_attribute(console, color_code);   
+        set_console_text_attribute(console, color_code);
     };
 
     #os("win")
     sub reset() {
-        set_console_text_attribute(console, 7);   
+        set_console_text_attribute(console, 7);
     };
 
     #os("linux")

@@ -5,9 +5,9 @@
 ` analyzer
     ` global
         ` ✓ register types ✓
-        ` ✓ check for collisions ✓
+        ` ✓ check for collisions ✓ (foo<f32> is not checked for)
     ` local
-        ` binds (#single, #allow)
+        ` ✓ binds ✓ (#single, #allow)
         ` ✓ apply mods ✓
         ` check path existance (foo:bar abc:dfg = xyz:ooo)
             ` is_type
@@ -47,4 +47,4 @@
     echo 1 + 1;    
 };
 
-echo 2 + 2;    
+echo 2 + 2;

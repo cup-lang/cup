@@ -21,6 +21,8 @@
     (3) sub - defines a subroutine
     (3) var - defines a variable
     (3) new - comp inst
+    (2) as - type cast
+    (3) has - checks if a type has a prop defined
     (2) if
     (4) elif
     (4) else
@@ -34,8 +36,6 @@
     (4) next - continues the execution of a loop
     (4) jump - jumps to the specified label
     (3) try
-    (2) as - type cast
-    (3) has - checks if a type has a prop defined
 
 # Basic types
     isize i8 i16 i32 i64, int = i32
