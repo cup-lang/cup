@@ -1,6 +1,6 @@
 # Operator presedence
     foo[], (), foo()
-    foo.bar, foo@, foo$, foo!, foo!! 
+    foo.bar, foo@, foo$, foo!, foo!!
     *, /, %, ^
     +, -
     &, |, <, >, <=, >=, ==, !=, &&, ||, ^^, <<, >>
@@ -36,28 +36,3 @@
     (4) next - continues the execution of a loop
     (4) jump - jumps to the specified label
     (3) try
-
-# Basic types
-    isize i8 i16 i32 i64, int = i32
-    usize u8 u16 u32 u64, uint = u32
-    bsize b8 b16 b32 b64, bool = b8
-    f32 f64, float = f64
-    c8 c16 c32, char = c32
-    s8 s16 s32, str = s32
-    
-# Basic tags
-    #con - marks variable as constant
-    #cmp - marks expression as compile time
-    #pub - marks item as public
-    #inl - marks "sub"/"var" to be inlined by the compiler
-    #uni - unified "comp"
-    #exh - exhaustive "match"
-    #del - delay execution of a "local"
-    #self - marks sub to act on a instance
-    #rest - marks arg as a rest arg
-    #os(os_name: str)
-    #def(def_name: str, value: int)
-    #if(def_name: str) #if(def_name: str, value: int)
-    #bind(fn_name: str)
-    #gen(gen_name: str)
-    #req(header: str)

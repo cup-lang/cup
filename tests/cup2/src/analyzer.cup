@@ -6,12 +6,13 @@ comp MangledExpr (
 
 int mangle_index;
 darr<darr<MangledExpr>> paths;
-` darr<____> local_vars;
+darr<Expr> local_vars;
 darr<PathPart> mods;
 
 sub init_analyzer() {
     mangle_index = 0;
     paths = darr<darr<MangledExpr>>:new_with_cap(4);
+    local_vars = darr<Expr>:new_with_cap(4);
     mods = darr<PathPart>:new_with_cap(4);
 };
 
@@ -26,12 +27,12 @@ sub analyze_global(File file, ptr<Expr> expr) {
     opt<Tag> bind = opt<Tag>:None;
     for i = 0, i < expr@.tags.len, i += 1 {
         Tag _tag = expr@.tags[i];
-        if comp_path_to_str(_tag.path, "pub") {
+        if cmp_path_to_str(_tag.path, "pub") {
             if pub != opt<Tag>:None {
                 file.throw(_tag.index, "only one #pub is allowed per path");
             };
             pub = opt<Tag>:Some(_tag);
-        } elif comp_path_to_str(_tag.path, "bind") {
+        } elif cmp_path_to_str(_tag.path, "bind") {
             if bind != opt<Tag>:None {
                 file.throw(_tag.index, "only one #bind is allowed per path");
             };
@@ -127,11 +128,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
         ExprKind:SubDef,
         ExprKind:VarDef {
             if path@.parts.len <= paths.len {
-                darr<MangledExpr> len_paths = paths[path@.parts.len - 1];
-                for i = 0, i < len_paths.len, i += 1 {
-                    if compare_paths(path@, len_paths[i].path, true) {
-                        file.throw(path@.index, "path already defined");
-                    };
+                if is_path_defined(path@) {
+                    file.throw(path@.index, "path already defined");
                 };
             };
 
@@ -172,6 +170,16 @@ sub analyze_locals(File file, darr<Expr> exprs) {
 
 sub analyze_local(File file, ptr<Expr> expr) {
 
+};
+
+bool is_path_defined(Path path) {
+    darr<MangledExpr> len_paths = paths[path.parts.len - 1];
+    for i = 0, i < len_paths.len, i += 1 {
+        if compare_paths(path, len_paths[i].path, true) {
+            ret true;
+        };
+    };
+    ret false;
 };
 
 bool has_generics(Path path) {
@@ -231,10 +239,11 @@ str mangle(Path path, bool gens, bool _new) {
 
     int pointer_count = 0;
     Path ptr_path = path;
-    while (ptr_path.parts[0].gens.len == 1) & comp_path_to_str(ptr_path, "ptr") {
-        ptr_path = ptr_path.parts[0].gens[0];
-        pointer_count += 1;
-    };
+    ` FIXME:
+    ` while (ptr_path.parts[0].gens.len == 1) & cmp_path_to_str(ptr_path, "ptr") {
+    `     ptr_path = ptr_path.parts[0].gens[0];
+    `     pointer_count += 1;
+    ` };
 
     `` dstr name = new_mangle(mangle_index += 1, false);
 
@@ -284,7 +293,7 @@ str new_mangle(int index, bool local, int pointer_count) {
     ret _name.to_str();
 };
 
-bool comp_path_to_str(Path path, ptr<u8> name) {
+bool cmp_path_to_str(Path path, ptr<u8> name) {
     ret (path.parts.len == 1) & (cstr:cmp(path.parts[0].name.buf, name) == 0);
 };
 
@@ -297,9 +306,10 @@ bool compare_paths(Path a, Path b, bool gens) {
         PathPart aPart = a.parts[i];
         PathPart bPart = b.parts[i];
         if cstr:cmp(aPart.name.buf, bPart.name.buf) == 0 {
-            if (gens == false) | compare_gens(aPart.gens, bPart.gens) {
-                next ~l;
-            };
+            ` FIXME:
+            ` if (gens == false) | compare_gens(aPart.gens, bPart.gens) {
+            `     next ~l;
+            ` };
         };
         ret false;
     };
@@ -312,10 +322,7 @@ bool compare_gens(darr<Path> a, darr<Path> b) {
     };
 
     for i = 0, i < a.len, i += 1 {
-        Path aPath = a[i];
-        Path bPath = b[i];
-
-        if compare_paths(aPath, bPath, true) == false {
+        if compare_paths(a[i], b[i], true) == false {
             ret false;
         };
     };
@@ -332,18 +339,3 @@ sub add_mangled_expr(Expr expr, Path path, str name) {
         name = name,
     });
 };
-
-#gen("T")
-comp foo<T>:abc<f32> {
-    SomeEnum:SomeOption<i32>
-};
-
-#gen("T")
-mod abc<T> {
-    #gen("U")
-    comp foo<U> 
-
-    };
-};
-
-abc<T>:foo<U>

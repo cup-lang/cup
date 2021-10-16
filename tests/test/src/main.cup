@@ -1,13 +1,15 @@
 ` lexer
     ` raw strings
 ` parser
-    ` add enum_dest
+    ` Path -> Expr
+    ` PathPart -> Expr
+    ` new enum body parsing
 ` analyzer
     ` global
         ` ✓ register types ✓
         ` ✓ check for collisions ✓ (foo<f32> is not checked for)
     ` local
-        ` ✓ binds ✓ (#single, #allow)
+        ` ✓ binds ✓
         ` ✓ apply mods ✓
         ` check path existance (foo:bar abc:dfg = xyz:ooo)
             ` is_type
@@ -26,7 +28,6 @@
             ` comp_inst
         ` check if label defined
         ` check if comp_inst fields exist
-        ` check if enum_dest fields exist
         ` apply transformations
             ` custom ops
             ` enum_inst (==, !=)
@@ -47,4 +48,25 @@
     echo 1 + 1;    
 };
 
-echo 2 + 2;
+foo<i32>:bar<i32> a;
+
+` - Global Block:
+    ` 1. Go through every expr:
+        ` - If there is a path_def:
+            ` 1. apply mods
+            ` 2. check for path redefinition
+            ` 3. register path
+            ` 4. register "use"
+        ` - If there is a "use" register it
+        ` - If there is a body do the body
+    ` 2. Go through every expr again:
+        ` - If there is a path_use:
+            ` 1. apply mods
+            ` 2. apply uses
+            ` 3. check if path defined
+            ` 4. check if path visible
+                ` 1. if every PathPart of path is either
+                    ` - same as in CURRENT_MODS e.g. foo:a and foo:b
+                    ` - it was same parents but now it's just same scope
+                    ` - it's #pub
+            ` 5. check kind of path (var, comp, enum, sub)

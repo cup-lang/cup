@@ -1,0 +1,136 @@
+# Keywords
+- `true` / `false` - boolean value literals
+- `this` - current instance
+- `type` - type of every type
+- `tag` - defines a tag
+- `mod` - defines a module
+- `use` - imports a module
+- `comp` - defines a compund type
+- `enum` - defines a enumerated type
+- `prop` - defines a property
+- `def` - defines a property for a type
+- `sub` - defines a subroutine
+- `var` - defines a variable
+- `if` / `elif` / `else` - if statement
+- `loop` - loop statement
+- `while` -  while statement
+- `for` - for statement
+- `each` / `in` - each statement
+- `match` - match statement
+- `echo` - prints values
+- `ret` - returns values
+- `next` - continues the execution
+- `jump` - jumps to a label
+- `try` - used with errors
+- `as` - casts to a type
+- `has` - checks if type has property
+# Operators
+1.  - `[]` - array access
+    - `()` - parenthesis
+    - `foo()` - subroutine call
+2.  - `foo.bar` - field access
+    - `foo@` - dereference
+    - `foo$` - reference
+    - `foo!` - not
+3.  - `*` - multiplication
+    - `/` - division
+    - `%` - modulo
+    - `^` - power
+4.  - `+` - addition
+    - `-` - subtraction
+5.  - `&` - logical and
+    - `|` - logical or
+    - `<` - less than
+    - `>` - greater than
+    - `<=` - less than or equal
+    - `>=` - greater than or equal
+    - `==` - equal
+    - `!=` - not equal
+6.  - `=` - assign
+    - `+=` - add assign
+    - `-=` - subtract assign
+    - `*=` - multiply assign
+    - `/=` - divide assing
+    - `%=` - modulo assign
+    - `^=` - power assign
+# Expressions
+- `Block` - *Block of code*
+    - `darr<Expr>` body
+- `Mod` - *Module*
+    - `Path` path
+    - `darr<Expr>` body
+- `Use` - *Use*
+    - `Path` path
+- `Field` - *Field*
+    - `Path` _type
+    - `str` name
+- `Comp` - *Compund type*
+    - `Path` path
+    - `darr<Expr>` fields
+    - `darr<Expr>` body
+- `Enum` - *Enumerated type*
+    - `Path` path
+    - `darr<Expr>` opts
+    - `darr<Expr>` body
+- `Prop` - *Property*
+    - `Path` path
+    - `darr<Expr>` body
+- `Def` - *Define*
+    - `Path` path
+    - `opt<Path>` target
+    - `darr<Expr>` body
+- `TagDef` - *Tag definition*
+    - `Path` path
+    - `darr<Expr>` args
+    - `darr<Expr>` body
+- `SubDef` - *Subroutine definition*
+    - `opt<Path>` ret_type
+    - `Path` path
+    - `darr<Expr>` args
+    - `darr<Expr>` body
+- `VarDef` - *Variable definition*
+    - `opt<Path>` _type
+    - `Path` path
+    - `opt<ptr<Expr>>` value
+- `LocalVarDef` - *Local variable definition*
+    - `opt<Path>` _type
+    - `str` name
+    - `opt<ptr<Expr>>` value
+- `SubCall` - *Subroutine call*
+    - `Path` path
+    - `darr<Expr>` args
+- `VarUse` - *Variable use*
+    - `Path` path
+- `StringLit` - *String literal*
+    - `str` value
+- `CharLit` - *Character literal*
+    - `str` value
+- `IntLit` - *Integer literal*
+    - `str` value
+- `FloatLit` - *Floating literal*
+    - `str` value
+- `BoolLit` - *Boolean literal*
+    - `bool` value
+# Types
+- `isize`, `i8`, `i16`, `i32`, `i64`, `int` = `i32`
+- `usize`, `u8`, `u16`, `u32`, `u64`, `uint` = `u32`
+- `bsize`, `b8`, `b16`, `b32`, `b64`, `bool` = `b8`
+- `f32` ,`f64`, `float` = `f64`
+- `c8`, `c16`, `c32`, `char` = `c32`
+- `s8`, `s16`, `s32`, `str` = `s32`
+# Basic tags
+- `#con` - marks variable as constant
+- `#cmp` - marks expression as compile time
+- `#pub` - marks item as public
+- `#inl` - marks "sub"/"var" to be inlined by the compiler
+- `#uni` - unified "comp"
+- `#exh` - exhaustive "match"
+- `#del` - delay execution of a "local"
+- `#self` - marks sub to act on a instance
+- `#rest` - marks arg as a rest arg
+- `#os(os_name: str)`
+- `#def(def_name: str, value: int)`
+- `#if(def_name: str) #if(def_name: str, value: int)`
+- `#bind(fn_name: str)`
+- `#gen(gen_name: str)`
+- `#req(header: str)`
