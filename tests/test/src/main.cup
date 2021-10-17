@@ -48,25 +48,44 @@
     echo 1 + 1;    
 };
 
-foo<i32>:bar<i32> a;
+mod a {
+    comp int ();
+    ` comp a:int;
+    ` use a:int as int;
+
+    use b:c:a;
+    ` use a:b:c:a as a;
+
+    int foo;
+    ` use a:foo as foo;
+
+    mod b:c {
+        int a;
+        ` use a:b:c:a as a;
+
+        echo a;
+        ` echo a:b:c:a;
+    };
+    ` use a:b:c as b:c; 
+};
+` use a as a;
 
 ` - Global Block:
-    ` 1. Go through every expr:
-        ` - If there is a path_def:
-            ` 1. apply mods
-            ` 2. check for path redefinition
-            ` 3. register path
-            ` 4. register "use"
-        ` - If there is a "use" register it
-        ` - If there is a body do the body
-    ` 2. Go through every expr again:
-        ` - If there is a path_use:
-            ` 1. apply mods
-            ` 2. apply uses
-            ` 3. check if path defined
-            ` 4. check if path visible
-                ` 1. if every PathPart of path is either
-                    ` - same as in CURRENT_MODS e.g. foo:a and foo:b
-                    ` - it was same parents but now it's just same scope
-                    ` - it's #pub
-            ` 5. check kind of path (var, comp, enum, sub)
+    ` 1. [✓] Go through every expr:
+        ` - [✓] If there is a path_def:
+            ` 1. [✓] apply mods
+            ` 2. [✓] check for path redefinition
+            ` 3. [✓] register path
+            ` 4. [✓] register "use"
+        ` - [✓] If there is a "use" register it
+        ` - [✓] If there is a body do the body
+    ` 2. [] Go through every expr again:
+        ` - [] If there is a path_use:
+            ` 1. [✓] apply uses
+            ` 2. [] check if path defined
+            ` 3. [] check if path visible
+                ` if every PathPart of path is either
+                    ` - [] same as in CURRENT_MODS e.g. foo:a and foo:b
+                    ` - [] it was same parents but now it's just same scope
+                    ` - [] it's #pub
+            ` 4. [] check kind of path (var, comp, enum, sub)

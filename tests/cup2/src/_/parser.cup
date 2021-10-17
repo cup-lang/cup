@@ -3,6 +3,21 @@ comp Path (
     int index,
 );
 
+def Path {
+    #self
+    Path clone() {
+        darr<PathPart> parts = darr<PathPart>:new_with_cap(this.parts.len);
+        parts.len = this.parts.len;
+        for i = 0, i < parts.len, i += 1 {
+            parts[i] = this.parts[i];
+        };
+        ret new Path {
+            parts = parts,
+            index = this.index,
+        };
+    };
+};
+
 comp PathPart (
     bool pub,
     str name,
