@@ -964,7 +964,7 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:Mod(Path path, darr<Expr> body) {
             fmt:print("path = ");
             print_path(path, depth);
-            print_opt_exprs(body, depth, "body", false);
+            print_opt_exprs(body, depth, "body", true);
         },
         ExprKind:Use(Path path) {
             fmt:print("path = ");

@@ -10,8 +10,8 @@ mod mem {
     #bind("sizeof") sub size(); 
     #bind("free") sub free(); 
 
-    #req("string.h")
-    #bind("memcpy") sub copy();
+    #req("string.h") #bind("memcpy") sub copy();
+    #req("string.h") #bind("memmove") sub move();
 };
 
 #req("stdio.h")
@@ -212,7 +212,7 @@ def dstr {
             this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
         };
 
-        mem:copy(this.buf + 1, this.buf, mem:size<u8>() * this.len);
+        mem:move(this.buf + 1, this.buf, mem:size<u8>() * this.len);
         this[0] = item;
     };
 
@@ -241,7 +241,7 @@ def dstr {
             this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
         };
-        mem:copy(this.buf + other.len, this.buf, mem:size<u8>() * (old_len + 1));
+        mem:move(this.buf + other.len, this.buf, mem:size<u8>() * (old_len + 1));
         mem:copy(this.buf, other.buf, mem:size<u8>() * other.len);
     };
 
@@ -323,8 +323,22 @@ def darr<T> {
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
 
-        mem:copy(this.buf + 1, this.buf, mem:size<T>() * (this.len - 1));
+        mem:move(this.buf + 1, this.buf, mem:size<T>() * (this.len - 1));
         this[0] = item;
+    };
+
+    #self
+    T pop() {
+        this.len -= 1;
+        ret this[this.len];
+    };
+
+    #self
+    T pop_back() {
+        T item = this[0];
+        this.len -= 1;
+        mem:move(this.buf, this.buf + 1, mem:size<T>() * this.len);
+        ret item;    
     };
 
     #self
@@ -352,7 +366,7 @@ def darr<T> {
             this.cap *= 4;
             this.buf = mem:realloc(this.buf, mem:size<T>() * this.cap);
         };
-        mem:copy(this.buf + other.len, this.buf, mem:size<T>() * old_len);
+        mem:move(this.buf + other.len, this.buf, mem:size<T>() * old_len);
         mem:copy(this.buf, other.buf, mem:size<T>() * other.len);
     };
 

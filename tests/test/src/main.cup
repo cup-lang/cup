@@ -53,20 +53,22 @@ mod a {
     ` comp a:int;
     ` use a:int as int;
 
-    use b:c:a;
+    use b:c:f;
     ` use a:b:c:a as a;
 
-    int foo;
+    int f;
+    ` a:int a:foo;
     ` use a:foo as foo;
 
     mod b:c {
-        int a;
+        int f;
+        ` a:int a:b:c:a;
         ` use a:b:c:a as a;
 
-        echo a;
+        echo f;
         ` echo a:b:c:a;
     };
-    ` use a:b:c as b:c; 
+    ` use a:b:c as b:c;
 };
 ` use a as a;
 

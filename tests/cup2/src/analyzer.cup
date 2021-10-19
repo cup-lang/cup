@@ -5,6 +5,7 @@ comp MangledExpr (
 );
 
 comp Use (
+    bool is_mod,
     Path path,
     Path alias,
 );
@@ -21,6 +22,7 @@ sub init_analyzer() {
     uses = darr<Use>:new_with_cap(4);
     local_vars = darr<Expr>:new_with_cap(4);
     mods = darr<PathPart>:new_with_cap(4);
+    mods.push(new PathPart { pub = true, name = str:new_from_cstr("p") });
 };
 
 sub analyze_globals(File file, darr<Expr> exprs) {
@@ -55,14 +57,15 @@ sub analyze_global(File file, ptr<Expr> expr) {
         },
         ExprKind:Mod(#ref Path _path, darr<Expr> body) {
             try_apply_pub(pub, _path@);
-            darr<PathPart> old_mods = mods;
+            darr<PathPart> old_mods = Path:clone(new Path { parts = mods }$).parts;
             mods.join(_path@.parts);
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, old_mods);
             analyze_globals(file, body);
             mods.len = old_mods.len;
             uses.push(new Use {
-                path = _path@,
+                is_mod = true,
+                path = Path:clone(_path),
                 alias = old_path,
             });
         },
@@ -72,10 +75,13 @@ sub analyze_global(File file, ptr<Expr> expr) {
                 index = _path.index,
             };
             darr<PathPart>:push(alias.parts$, _path.parts[_path.parts.len - 1]);
-            uses.push(new Use {
-                path = _path,
-                alias = alias,
-            });
+            if compare_paths(_path, alias) == false {
+                uses.push(new Use {
+                    is_mod = false,
+                    path = Path:clone(_path$),
+                    alias = Path:clone(alias$),
+                });
+            };
             ret;
         },
         ExprKind:Comp(#ref Path _path) {
@@ -83,7 +89,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
             uses.push(new Use {
-                path = _path@,
+                is_mod = false,
+                path = Path:clone(_path),
                 alias = old_path,
             });
             path = _path;
@@ -93,7 +100,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
             uses.push(new Use {
-                path = _path@,
+                is_mod = false,
+                path = Path:clone(_path),
                 alias = old_path,
             });
             path = _path;
@@ -110,7 +118,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
             uses.push(new Use {
-                path = _path@,
+                is_mod = false,
+                path = Path:clone(_path),
                 alias = old_path,
             });
             path = _path;
@@ -120,7 +129,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
             uses.push(new Use {
-                path = _path@,
+                is_mod = false,
+                path = Path:clone(_path),
                 alias = old_path,
             });
             path = _path;
@@ -219,15 +229,11 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:Use(#ref Path path) {
             apply_uses(path);
-            if is_path_defined(path@) == false {
-                file.throw(path@.index, "path not defined");
-            };
+            check_path_defined(file, path@);
         },
         ExprKind:Field(#ref Path _type, str name) {
             apply_uses(_type);
-            if is_path_defined(_type@) == false {
-                file.throw(_type@.index, "path not defined");
-            };
+            check_path_defined(file, _type@);
         },
         ExprKind:Comp(Path path, darr<Expr> fields, darr<Expr> body) {
             analyze_locals(file, fields);
@@ -243,12 +249,58 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:Prop(Path path, darr<Expr> body) {
             analyze_locals(file, body);
         },
-        ExprKind:Def(Path _prop, opt<Path> target, darr<Expr> body) {},
-        ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {},
-        ExprKind:VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value) {},
-        ExprKind:LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value) {},
+        ExprKind:Def(#ref Path _prop, #ref opt<Path> target, darr<Expr> body) {
+            apply_uses(_prop);
+            check_path_defined(file, _prop@);
+            match target@ {
+                opt<Path>:Some(#ref Path _target) {
+                    apply_uses(_target);
+                    check_path_defined(file, _target@);
+                },
+            };
+            analyze_locals(file, body);
+        },
+        ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
+            match ret_type {
+                opt<Path>:Some(#ref Path _ret_type) {
+                    apply_uses(_ret_type);
+                    check_path_defined(file, _ret_type@);
+                },
+            };
+            analyze_locals(file, args);
+            analyze_locals(file, body);
+        },
+        ExprKind:VarDef(#ref opt<Path> _type, Path path, #ref opt<ptr<Expr>> value) {
+            match _type@ {
+                opt<Path>:Some(#ref Path __type) {
+                    apply_uses(__type);
+                    check_path_defined(file, __type@);
+                },
+            };
+            match value@ {
+                opt<ptr<Expr>>:Some(ptr<Expr> _value) {
+                    analyze_local(file, _value);
+                },
+            };
+        },
+        ExprKind:LocalVarDef(#ref opt<Path> _type, str name, #ref opt<ptr<Expr>> value) {
+            match _type@ {
+                opt<Path>:Some(#ref Path __type) {
+                    apply_uses(__type);
+                    check_path_defined(file, __type@);
+                },
+            };
+            match value@ {
+                opt<ptr<Expr>>:Some(ptr<Expr> _value) {
+                    analyze_local(file, _value);
+                },
+            };
+        },
         ExprKind:SubCall(Path path, darr<Expr> args) {},
-        ExprKind:VarUse(Path path) {},
+        ExprKind:VarUse(#ref Path path) {
+            apply_uses(path);
+            check_path_defined(file, path@);
+        },
         ExprKind:CompInst(Path _type, darr<FieldValue> field_vals) {},
         ExprKind:EnumInst(Path _type, Path path, int opt_index, darr<Expr> args) {},
         ExprKind:LocalBlock(darr<Expr> body) {},
@@ -259,7 +311,9 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:Each(darr<str> vars, ptr<Expr> iter, darr<Expr> body) {},
         ExprKind:Match(ptr<Expr> value, darr<Expr> cases) {},
         ExprKind:Case(darr<Expr> values, darr<Expr> body) {},
-        ExprKind:Echo(ptr<Expr> value) {},
+        ExprKind:Echo(ptr<Expr> value) {
+            analyze_local(file, value);
+        },
         ExprKind:Ret(opt<str> label, opt<ptr<Expr>> value) {},
         ExprKind:Try(opt<str> label, ptr<Expr> value) {},
         ExprKind:UnaryOp(ptr<Expr> value, TokenKind kind) {},
@@ -297,13 +351,32 @@ sub try_apply_pub(opt<Tag> pub, Path path) {
 
 sub apply_uses(ptr<Path> path) {
     ~l loop {
-        for i = 0, i < uses.len, i += 1 {
-            if compare_paths(path@, uses[i].alias) {
-                path@ = uses[i].path;
-                next ~l;
+        ~ll for i = 0, i < uses.len, i += 1 {
+            if uses[i].is_mod {
+                if path@.parts.len >= uses[i].alias.parts.len {
+                    for ii = 0, ii < uses[i].alias.parts.len, ii += 1 {
+                        if cstr:cmp(uses[i].alias.parts[ii].name.buf, path@.parts[ii].name.buf) != 0 {
+                            next ~ll;
+                        };
+                    };
+                    for ii = 0, ii < uses[i].alias.parts.len, ii += 1 {
+                        darr<PathPart>:pop_back(path@.parts$);
+                    };
+                    darr<PathPart>:join_back(path@.parts$, uses[i].path.parts);
+                    next ~l;
+                };
+            } elif compare_paths(path@, uses[i].alias) {
+                path@.parts.len = 0;
+                darr<PathPart>:join(path@.parts$, uses[i].path.parts);
             };
         };
         ret;
+    };
+};
+
+sub check_path_defined(File file, Path path) {
+    if is_path_defined(path) == false {
+        file.throw(path.index, "path not defined");
     };
 };
 
@@ -420,19 +493,6 @@ bool compare_paths(Path a, Path b) {
     };
     ret true;
 };
-
-` bool compare_gens(darr<Path> a, darr<Path> b) {
-`     if a.len != b.len {
-`         ret false;
-`     };
-` 
-`     for i = 0, i < a.len, i += 1 {
-`         if compare_paths(a[i], b[i], true) == false {
-`             ret false;
-`         };
-`     };
-`     ret true;
-` };
 
 sub add_mangled_expr(Expr expr, Path path, str name) {
     while path.parts.len > paths.len {

@@ -44,8 +44,8 @@ int main(int argc, ptr<ptr<u8>> argv) {
             fmt:print("\n    check                Analyze the current package");
             fmt:print("\n    new [PACKAGE]        Create a new package");
             fmt:print("\n    update [PACKAGE]     Update given dependency");
-            fmt:print("\n    add [PACKAGE]        Adds given dependency");
-            fmt:print("\n    remove [PACKAGE]     Removes given dependency");
+            fmt:print("\n    add [PACKAGE]        Add given dependency");
+            fmt:print("\n    remove [PACKAGE]     Remove given dependency");
             fmt:print("\n    gen docs             Generate documentation for the current package");
             fmt:print("\n    gen binds [HEADER]   Generate bindings for a given C header file");
             fmt:print("\n    self update          Update the Cup Toolkit");
@@ -75,11 +75,11 @@ int main(int argc, ptr<ptr<u8>> argv) {
             ret 0;
         },
         Command:HelpAddPackage {
-            command_help("add", "Adds given dependency", command_options:empty);
+            command_help("add", "Add given dependency", command_options:empty);
             ret 0;
         },
         Command:HelpRemovePackage {
-            command_help("remove", "Removes given dependency", command_options:empty);
+            command_help("remove", "Remove given dependency", command_options:empty);
             ret 0;
         },
         Command:HelpGenDocs {
@@ -99,7 +99,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
             ret 0;
         },
         Command:HelpSelfUninstall {
-            command_help("self uninstall", "Uninstall the Cup Toolkite", command_options:empty);
+            command_help("self uninstall", "Uninstall the Cup Toolkit", command_options:empty);
             ret 0;
         },
     };
@@ -190,11 +190,12 @@ sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
                 data = data,
             };
             darr<Token> tokens = lex(file);
-            print_tokens(tokens);
+            ` print_tokens(tokens);
             darr<Expr> exprs = parse(file, tokens);
+            ` print_all_exprs(exprs);
             mem:free(tokens.buf);
-            print_all_exprs(exprs);
             analyze_globals(file, exprs);
+            ` print_all_exprs(exprs);
             to_analyze.push(new ToAnalyze {
                 file = file,
                 exprs = exprs,
@@ -208,6 +209,7 @@ sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
     for i = 0, i < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze[i];
         analyze_locals(analyze.file, analyze.exprs);
+        print_all_exprs(analyze.exprs);
         mem:free(analyze.file.name.buf);
         mem:free(analyze.file.data.buf);
     };
