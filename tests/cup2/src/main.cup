@@ -109,7 +109,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
     for i = 2, i < args.len, i += 1 {
         if (cstr:cmp(args[i].buf, "-i") == 0) | (cstr:cmp(args[i].buf, "--input") == 0) {
             expect_option_value(input$, args, i += 1);
-        } elif (cstr:cmp(args[i].buf, "-o") == 0) | cstr:cmp(args[i].buf, "--output") == 0 {
+        } elif (cstr:cmp(args[i].buf, "-o") == 0) | (cstr:cmp(args[i].buf, "--output") == 0) {
             expect_option_value(output$, args, i += 1);
         } else {
             color:set(Color:Red);

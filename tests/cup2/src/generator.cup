@@ -1,13 +1,103 @@
+darr<str> reqs;
+
 sub generate(str output, darr<Expr> ast) {
+    reqs = darr<str>:new_with_cap(4);
+
     ` generate_expr_vec(globals$, ast, false, false, false);
     ptr<file> file_point = file:open(output.buf, "w");
     file:close(file_point);
 };
 
-sub generate_expr_vec(ptr<dstr> out, darr<Expr> exprs, bool semicolon, bool comma, bool clean_locals) {
-    
+sub generate_expr_vec(ptr<dstr> out, darr<Expr> exprs, bool semicolon, bool comma) {
+    for i = 0, i < exprs.len, i += 1 {
+        bool is_last = (i + 1) == exprs.len;
+        generate_expr(out, exprs[i], is_last, semicolon, 0);
+        if comma & (is_last == false) {
+            dstr:push(out, ',');
+        };
+    };
 };
 
-sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int parenths) {
+sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int parens) {
+    for i = 0, i < expr.tags.len, i += 1 {
+        if cmp_path_to_str(expr.tags[i].path, "os") {
+            match expr.tags[i].args[0].kind {
+                ExprKind:StringLit(str value) {
+                    #raw("#if defined _WIN32")
+                    if cstr:cmp(value.buf, "win") != 0 {
+                        ret;
+                    };
+                    #raw("#elif defined __linux__")
+                    if cstr:cmp(value.buf, "linux") != 0 {
+                        ret;
+                    };
+                    #raw("#elif defined __APPLE__")
+                    if cstr:cmp(value.buf, "mac") != 0 {
+                        ret;
+                    };
+                    #raw("#endif") fmt:print("");
+                },
+            };
+        } elif cmp_path_to_str(expr.tags[i].path, "req") {
+            match expr.tags[i].args[0].kind {
+                ExprKind:StringLit(str value) {
+                    register_req(value);
+                },
+            };
+        } elif cmp_path_to_str(expr.tags[i].path, "raw") {
+            match expr.tags[i].args[0].kind {
+                ExprKind:StringLit(str value) {
+                    dstr:push(out, '\n');
+                    dstr:join(out, value);
+                    dstr:push(out, '\n');
+                },
+            };
+        } elif cmp_path_to_str(expr.tags[i].path, "bind") {
+            ret;
+        };
+    };
+
+    match expr.kind {
+        ExprKind:Block(darr<Expr> body) {
+            generate_expr_vec(out, body, false, false);
+        },
+        ExprKind:Mod(Path path, darr<Expr> body) {
+            generate_expr_vec(out, body, false, false);
+        },
+        ExprKind:Field(Path _type, str name) {
+            ` dstr:join(out, mangle(__type, true, false, 0));
+            dstr:push(out, ' ');
+            if semicolon {
+                dstr:join(out, name);
+            } else {
+                if cstr:cmp(name.buf, "this") == 0 {
+                    dstr:join_cstr(out, "this");
+                } else {
+                    ` dstr:join(out, register_local_name(name));
+                };
+            };
+            if semicolon {
+                dstr:push(out, ';');
+            } elif last == false {
+                dstr:push(out, ',');
+            };
+        },
+    };
     
+    match expr.label {
+        opt<str>:Some(str label) {
+            dstr:push(out, '_');
+            dstr:join(out, label);
+            dstr:push(out, ':');
+        },
+    };
+};
+
+sub register_req(str name) {
+    for i = 0, i < reqs.len, i += 1 {
+        if cstr:cmp(reqs[i].buf, name.buf) == 0 {
+            ret;
+        };
+    };
+    reqs.push(name);
 };

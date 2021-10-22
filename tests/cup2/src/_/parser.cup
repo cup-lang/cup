@@ -20,6 +20,7 @@ def Path {
 
 comp PathPart (
     bool pub,
+    int scope,
     str name,
     darr<Path> gens,
 );
@@ -1223,7 +1224,7 @@ sub print_path(Path path, int depth) {
         if i != 0 {
             fmt:print(", ");
         };
-        fmt:print("name = %s", part.name.buf);
+        fmt:print("pub = %i, scope = %i, name = %s", part.pub, part.scope, part.name.buf);
         if part.gens.len > 0 {
             fmt:print(", gens = [");
             for ii = 0, ii < part.gens.len, ii += 1 {

@@ -5,36 +5,33 @@
     ` PathPart -> Expr
     ` new enum body parsing
 ` analyzer
-    ` global
-        ` ✓ register types ✓
-        ` ✓ check for collisions ✓ (foo<f32> is not checked for)
     ` local
-        ` ✓ binds ✓
-        ` ✓ apply mods ✓
-        ` check path existance (foo:bar abc:dfg = xyz:ooo)
-            ` is_type
-            ` is_sub
-            ` is_var
-        ` check type
-            ` when assigning check if type matches
-            ` when giving to sub_call check
-            ` when giving to comp_inst
-            ` when giving to enum_inst
-            ` when ops
-        ` check number of args for
-            ` tag
-            ` sub_call
-            ` enum_inst
-            ` comp_inst
-        ` check if label defined
-        ` check if comp_inst fields exist
-        ` apply transformations
-            ` custom ops
-            ` enum_inst (==, !=)
-            ` #self
-                ` this
-                ` sub_calls (.)
-        ` type inference for var_defs
+        ` [✓] binds
+        ` [✓] check if path defined and visible
+            ` [✓] is_var
+            ` [✓] is_type
+            ` [✓] is_sub
+        ` [] check number of args for
+            ` [] tag
+            ` [] sub_call
+            ` [] enum_inst
+            ` [] comp_inst
+        ` [] check type
+            ` [] when assigning check if type matches
+            ` [] when giving to sub_call check
+            ` [] when giving to comp_inst
+            ` [] when giving to enum_inst
+            ` [] when ops
+        ` [] check if label defined
+        ` [] check if comp_inst fields exist
+        ` [] apply transformations
+            ` [] custom ops
+            ` [] enum_inst (==, !=)
+            ` [] #self
+                ` [] this
+                ` [] sub_calls (.)
+        ` [] type inference for var_defs
+` generator
 ` playground
     ` multiple files
     ` line numbers
@@ -44,50 +41,22 @@
     ` combo ops
     ` combo var_defs
 
-#pub sub foo() {
-    echo 1 + 1;    
+sub foo() {
+    echo 1 + 1;
 };
+
+comp int ();
 
 mod a {
-    comp int ();
-    ` comp a:int;
-    ` use a:int as int;
 
-    use b:c:f;
-    ` use a:b:c:a as a;
+    echo b:c:d;
 
-    int f;
-    ` a:int a:foo;
-    ` use a:foo as foo;
+    mod b {
+        int c;
+    };
 
     mod b:c {
-        int f;
-        ` a:int a:b:c:a;
-        ` use a:b:c:a as a;
-
-        echo f;
-        ` echo a:b:c:a;
+        #pub int d;
     };
-    ` use a:b:c as b:c;
-};
-` use a as a;
 
-` - Global Block:
-    ` 1. [✓] Go through every expr:
-        ` - [✓] If there is a path_def:
-            ` 1. [✓] apply mods
-            ` 2. [✓] check for path redefinition
-            ` 3. [✓] register path
-            ` 4. [✓] register "use"
-        ` - [✓] If there is a "use" register it
-        ` - [✓] If there is a body do the body
-    ` 2. [] Go through every expr again:
-        ` - [] If there is a path_use:
-            ` 1. [✓] apply uses
-            ` 2. [] check if path defined
-            ` 3. [] check if path visible
-                ` if every PathPart of path is either
-                    ` - [] same as in CURRENT_MODS e.g. foo:a and foo:b
-                    ` - [] it was same parents but now it's just same scope
-                    ` - [] it's #pub
-            ` 4. [] check kind of path (var, comp, enum, sub)
+};

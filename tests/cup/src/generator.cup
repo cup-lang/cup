@@ -86,7 +86,9 @@ sub generate_expr(ptr<vec<u8>> out, Expr expr, bool last, bool semicolon, int pa
                 } elif str:cmp(name, "raw") == 0 {
                     match args.buf[0].kind {
                         ExprKind:StringLit(value) {
+                            vec<u8>:push(out, '\n');
                             vec<u8>:join(out, value);
+                            vec<u8>:push(out, '\n');
                         },
                     };
                 } elif str:cmp(name, "bind") == 0 {

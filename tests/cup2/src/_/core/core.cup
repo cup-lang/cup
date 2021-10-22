@@ -139,7 +139,7 @@ comp str (
 def str {
     str new_with_len(int len) {
         ret new str {
-            buf = mem:alloc(mem:size<u8>() * len),
+            buf = mem:alloc(mem:size<u8>() * (len + 1)),
             len = len,
         };
     };
@@ -228,6 +228,21 @@ def dstr {
             this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
         };
         mem:copy(this.buf + old_len, other.buf, mem:size<u8>() * (other.len + 1));
+    };
+
+    #self
+    sub join_cstr(ptr<u8> other) {
+        int len = cstr:len(other);
+        if len == 0 {
+            ret;
+        };
+        int old_len = this.len;
+        this.len += len;
+        while this.len >= this.cap {
+            this.cap *= 4;
+            this.buf = mem:realloc(this.buf, mem:size<u8>() * this.cap);
+        };
+        mem:copy(this.buf + old_len, other, mem:size<u8>() * (len + 1));
     };
 
     #self
