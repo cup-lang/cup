@@ -105,7 +105,6 @@ int get_token_length(TokenKind kind) {
         TokenKind:Def,
         TokenKind:Sub,
         TokenKind:Var,
-        TokenKind:New,
         TokenKind:For,
         TokenKind:Ret,
         TokenKind:Try,
@@ -178,7 +177,6 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:Def { ret "DEF"; },
         TokenKind:Sub { ret "SUB"; },
         TokenKind:Var { ret "VAR"; },
-        TokenKind:New { ret "NEW"; },
         TokenKind:If { ret "IF"; },
         TokenKind:Elif { ret "ELIF"; },
         TokenKind:Else { ret "ELSE"; },
@@ -270,8 +268,6 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:This;
     } elif cstr:cmp(value, "type") == 0 {
         ret TokenKind:Type;
-    } elif cstr:cmp(value, "new") == 0 {
-        ret TokenKind:New;
     } elif cstr:cmp(value, "true") == 0 {
         ret TokenKind:True;
     } elif cstr:cmp(value, "false") == 0 {

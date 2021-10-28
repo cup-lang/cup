@@ -1,10 +1,40 @@
 darr<str> reqs;
+dstr types_headers;
+dstr funcs_headers;
+dstr variables;
+dstr types;
+dstr funcs;
+
+comp GenericInstance (
+    str name,
+    Path path,
+);
+
+darr<GenericInstance> gens;
 
 sub generate(str output, darr<Expr> ast) {
     reqs = darr<str>:new_with_cap(4);
+    types_headers = dstr:new_with_cap(256);
+    funcs_headers = dstr:new_with_cap(256);
+    variables = dstr:new_with_cap(512); 
+    types = dstr:new_with_cap(1024);
+    funcs = dstr:new_with_cap(1024);
+    generate_expr_vec(variables$, ast, false, false);
+    types_headers[types_headers.len] = '\0';
+    funcs_headers[funcs_headers.len] = '\0';
+    variables[variables.len] = '\0';
+    types[types.len] = '\0';
+    funcs[funcs.len] = '\0';
 
-    ` generate_expr_vec(globals$, ast, false, false, false);
     ptr<file> file_point = file:open(output.buf, "w");
+    for i = 0, (i) < reqs.len, i += 1 {
+        file:print(file_point, "#include %c%s%c\n", 34, reqs[i].buf, 34);
+    };
+    file:print(file_point, "%s", types_headers.buf);
+    file:print(file_point, "%s", funcs_headers.buf);
+    file:print(file_point, "%s", variables.buf);
+    file:print(file_point, "%s", types.buf);
+    file:print(file_point, "%s", funcs.buf);
     file:close(file_point);
 };
 
@@ -65,7 +95,9 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             generate_expr_vec(out, body, false, false);
         },
         ExprKind:Field(Path _type, str name) {
-            ` dstr:join(out, mangle(__type, true, false, 0));
+            ` Expr __type = apply_genenerics(_type@);
+            ` register_path_use(__type);
+            ` dstr:join(out, mangle(expr, _type, false));
             dstr:push(out, ' ');
             if semicolon {
                 dstr:join(out, name);
@@ -81,6 +113,511 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             } elif last == false {
                 dstr:push(out, ',');
             };
+        },
+        ExprKind:Comp(Path path, darr<Expr> fields, darr<Expr> body) {
+            ` bool has_gens = has_generics(path@);
+            ` if (gens.len == 0) & has_gens {
+            `     ret;
+            ` };
+            ` Expr _path = apply_genenerics(path@);
+            ` str name = mangle(expr, path, true);
+            ` if has_gens & (name == none) {
+            `     ret;
+            ` };
+
+            dstr:join_cstr(types_headers$, "typedef struct ");
+            ` dstr:join(types_headers$, name);
+            dstr:push(types_headers$, ' ');
+            ` dstr:join(types_headers$, name);
+            dstr:push(types_headers$, ';');
+
+            dstr comp_out = dstr:new_with_cap(128);
+            dstr:join_cstr(comp_out$, "typedef struct ");
+            ` dstr:join(comp_out$, name);
+            dstr:push(comp_out$, '{');
+            generate_expr_vec(comp_out$, fields, true, false);
+            dstr:push(comp_out$, '}');
+            ` dstr:join(comp_out$, name);
+            dstr:push(comp_out$, ';');
+            dstr:join(types$, comp_out.to_str());
+            mem:free(comp_out.buf);
+        },
+        ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
+            ` bool has_gens = has_generics(path@);
+            ` if (gens.len == 0) & has_gens {
+            `     ret;
+            ` };
+            ` Expr _path = apply_genenerics(path@);
+            ` ptr<u8> name = mangle(_path, true, has_gens, 0);
+            ` if has_gens & (name == none) {
+            `     ret;
+            ` };
+
+            ` dstr:join_cstr(types_headers$, "typedef struct ");
+            ` dstr:join(types_headers$, name);
+            ` dstr:push(types_headers$, ' ');
+            ` dstr:join(types_headers$, name);
+            ` dstr:push(types_headers$, ';');
+
+            ` dstr enum_out = dstr:new_with_cap(256);
+            ` dstr:join_cstr(enum_out$, "typedef struct ");
+            ` dstr:join(enum_out$, name);
+            ` dstr:push(enum_out$, '{');
+            ` dstr:join_cstr(enum_out$, "int t;union{");
+            ` for i = 0, i < opts.len, i += 1 {
+            `     match opts[i].kind {
+            `         ExprKind:Option(name, fields) {
+            `             if fields.len > 0 {
+            `                 dstr:join_cstr(enum_out$, "struct{");
+            `                 generate_expr_vec(enum_out$, fields, true, false);
+            `                 dstr:push(enum_out$, '}');
+            `                 dstr:join(enum_out$, name);
+            `                 dstr:push(enum_out$, ';');
+            `             };
+            `         },
+            `     };
+            ` };
+            ` dstr:join_cstr(enum_out$, "}u;}");
+            ` dstr:join(enum_out$, name);
+            ` dstr:push(enum_out$, ';');
+            ` dstr:join(types$, enum_out.to_str());
+            ` mem:free(enum_out.buf);
+        },
+        ExprKind:Prop(Path path, darr<Expr> body) {},
+        ExprKind:Def(Path _prop, opt<Path> target, darr<Expr> body) {
+            generate_expr_vec(out, body, false, false);
+        },
+        ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
+            ` int old_local_names_len = mangled_local_names.len;
+
+            ` bool has_gens = has_generics(path@);
+            ` if (gens.len == 0) & has_gens {
+            `     ret;
+            ` };
+
+            ` Expr _path = apply_genenerics(path@);
+            ` ptr<u8> name = mangle(_path, true, has_gens, 0);
+            ` if has_gens & (name == none) {
+            `     ret;
+            ` };
+
+            ` dstr sub_out = dstr:new_with_cap(256);
+            ` if ret_type != none {
+            `     Expr _ret_type = apply_genenerics(ret_type@);
+            `     register_path_use(_ret_type);
+            `     dstr:join(sub_out$, mangle(expr, _ret_type, true));
+            `     dstr:push(sub_out$, ' ');
+            ` } else {
+            `     dstr:join_cstr(sub_out$, "void ");
+            ` };
+            ` dstr:join(sub_out$, name);
+            ` dstr:push(sub_out$, '(');
+
+            ` bool is_self = false;
+            ` bool is_rest = false;
+            ` ~t for i = 0, i < expr.tags.len, i += 1 {
+            `     match expr.tags[i].kind {
+            `         ExprKind:Tag(name, args) {
+            `             if cstr:cmp(name.buf, "self") == 0 {
+            `                 is_self = true;
+            `             } elif cstr:cmp(name.buf, "rest") == 0 {
+            `                 is_rest = true;
+            `                 register_req("stdarg.h");
+            `             };
+            `         },
+            `     };
+            ` };
+            ` if is_self {
+            `     darr<Expr> _args = darr<Expr>:new_with_cap(args.len + 1);
+            `     mem:copy(_args.buf + 1, args.buf, mem:size<Expr>() * args.len);
+            `     _args.len = args.len + 1;
+            `     match _path.kind {
+            `         ExprKind:Path(__path) {
+            `             __path.len -= 1;
+            `             vec<PathPart> this_ptr = vec<PathPart>:new(1);
+            `             vec<Expr> this_ptr_gens = vec<Expr>:new(1);
+            `             this_ptr_gens.buf[0] = Expr {
+            `                 kind = ExprKind:Path(__path),
+            `                 tags = vec<Expr> { len = 0, },
+            `                 label = none,
+            `             };
+            `             this_ptr_gens.len = 1;
+            `             this_ptr.buf[0] = PathPart {
+            `                 name = "ptr",
+            `                 gens = this_ptr_gens,
+            `             };
+            `             this_ptr.len = 1;
+            `             _args.buf[0] = Expr {
+            `                 kind = ExprKind:Field(
+            `                     alloc<Expr>(Expr {
+            `                         kind = ExprKind:Path(this_ptr),
+            `                         tags = vec<Expr> { len = 0, },
+            `                         label = none,
+            `                     }),
+            `                     "this",
+            `                 ),
+            `                 tags = vec<Expr> { len = 0, },
+            `                 label = none,
+            `             };
+            `         },
+            `     };
+            `     generate_expr_vec(sub_out$, _args, false, false, false);
+            ` } else {
+            `     generate_expr_vec(sub_out$, args, false, false, false);
+            ` };
+            ` if is_rest {
+            `     dstr:join_cstr(sub_out$, ",...");
+            ` };
+            
+            ` dstr:join(funcs_headers$, sub_out);
+            ` dstr:join_cstr(funcs_headers$, ");");
+
+            ` dstr:join_cstr(sub_out$, "){");
+            ` generate_expr_vec(sub_out$, body, true, false);
+            ` dstr:join_cstr(sub_out$, "};");
+            ` dstr:join(funcs$, sub_out);
+            ` mem:free(sub_out.buf);
+
+            ` mangled_local_names.len = old_local_names_len;
+        },
+        ExprKind:VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value) {
+            Path __type = opt<Path>:unwrap(_type$);
+            ` Expr __type = apply_genenerics(_type@);
+            ` register_path_use(__type);
+            ` dstr:join(out, mangle(expr, __type, true));
+            dstr:push(out, ' ');
+            ` Expr _path = apply_genenerics(path@);
+            ` register_path_use(_path);
+            ` dstr:join(out, mangle(expr, path, true));
+            match value {
+                opt<ptr<Expr>>:Some(ptr<Expr> _value) {
+                    dstr:push(out, '=');
+                    generate_expr(out, _value@, false, false, 0);
+                },
+            };
+            dstr:push(out, ';');
+        },
+        ExprKind:LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value) {
+            Path __type = opt<Path>:unwrap(_type$);
+            ` Expr __type = apply_genenerics(_type@);
+            ` register_path_use(__type);
+            ` dstr:join(out, mangle(expr, __type, true));
+            dstr:push(out, ' ');
+            ` dstr:join(out, register_local_name(name));
+            match value {
+                opt<ptr<Expr>>:Some(ptr<Expr> _value) {
+                    dstr:push(out, '=');
+                    generate_expr(out, _value@, false, false, 0);
+                },
+            };
+            dstr:push(out, ';');
+        },
+        ExprKind:SubCall(Path path, darr<Expr> args) {
+            ` Expr _path = apply_genenerics(path@);
+            if ((((path.parts.len == 2) & (path.parts[0].gens.len == 0)) & (path.parts[1].gens.len == 1)) & (cstr:cmp(path.parts[0].name.buf, "mem") == 0)) & (cstr:cmp(path.parts[1].name.buf, "size") == 0) {
+                dstr:join_cstr(out, "sizeof(");
+                ` dstr:join(out, mangle(expr, path.parts[1].gens[0], true));
+                dstr:push(out, ')');
+            } else {
+                ` register_path_use(_path);
+                ` dstr:join(out, mangle(expr, path, true));
+                dstr:push(out, '(');
+                generate_expr_vec(out, args, false, true);
+                dstr:push(out, ')');
+            };
+            if semicolon {
+                dstr:push(out, ';');
+            };
+        },
+        ExprKind:VarUse(Path path) {
+            ` Expr _path = apply_genenerics(path@);
+            ` register_path_use(_path);
+            ` dstr:join(out, mangle(expr, path, true));
+            if semicolon {
+                dstr:push(out, ';');
+            };
+        },
+        ExprKind:StringLit(str value) {
+            dstr:push(out, '"');
+            dstr:join(out, value);
+            dstr:push(out, '"');
+        },
+        ExprKind:CharLit(str value) {
+            dstr:push(out, 39);
+            dstr:join(out, value);
+            dstr:push(out, 39);
+        },
+        ExprKind:IntLit(str value) {
+            dstr:join(out, value);
+        },
+        ExprKind:FloatLit(str value) {
+            dstr:join(out, value);
+        },
+        ExprKind:BoolLit(bool value) {
+            if value {
+                dstr:push(out, '1');
+            } else {
+                dstr:push(out, '0');
+            };
+        },
+        ExprKind:ThisLit {
+            dstr:join_cstr(out, "(*this)");
+        },
+        ExprKind:LocalBlock(darr<Expr> body) {
+            dstr:push(out, '{');
+            generate_expr_vec(out, body, true, false);
+            dstr:push(out, '}');
+        },
+        ExprKind:If(IfBranch _if, darr<IfBranch> _elif, opt<ElseBranch> _else) {
+            dstr:join_cstr(out, "if(");
+            generate_expr(out, _if.cond@, false, false, 0);
+            dstr:join_cstr(out, "){");
+            generate_expr_vec(out, _if.body, true, false);
+            dstr:push(out, '}');
+            for i = 0, i < _elif.len, i += 1 {
+                dstr:join_cstr(out, "else if(");
+                generate_expr(out, _elif[i].cond@, false, false, 0);
+                dstr:join_cstr(out, "){");
+                generate_expr_vec(out, _elif[i].body, true, false);
+                dstr:push(out, '}');
+            };
+            match _else {
+                opt<ElseBranch>:Some(ElseBranch __else) {
+                    dstr:join_cstr(out, "else{");
+                    generate_expr_vec(out, __else.body, true, false);
+                    dstr:push(out, '}');
+                },
+            };
+        },
+        ExprKind:Loop(darr<Expr> body) {
+            match expr.label {
+                opt<str>:Some(str label) {
+                    dstr:join(out, label);
+                    dstr:push(out, ':');
+                },
+            };
+            dstr:join_cstr(out, "for(;;){");
+            generate_expr_vec(out, body, true, false);
+            match expr.label {
+                opt<str>:Some(str label) {
+                    dstr:push(out, '_');
+                    dstr:join(out, label);
+                    dstr:join_cstr(out, ":}__");
+                    dstr:join(out, label);
+                    dstr:join_cstr(out, ":}");
+                },
+                _ {
+                    dstr:push(out, '}');
+                },
+            };
+        },
+        ExprKind:While(ptr<Expr> cond, darr<Expr> body) {
+            match expr.label {
+                opt<str>:Some(str label) {
+                    dstr:join(out, label);
+                    dstr:push(out, ':');
+                },
+            };
+            dstr:join_cstr(out, "while(");
+            generate_expr(out, cond@, false, false, 0);
+            dstr:join_cstr(out, "){");
+            generate_expr_vec(out, body, true, false);
+            match expr.label {
+                opt<str>:Some(str label) {
+                    dstr:push(out, '_');
+                    dstr:join(out, label);
+                    dstr:join_cstr(out, ":}__");
+                    dstr:join(out, label);
+                    dstr:join_cstr(out, ":}");
+                },
+                _ {
+                    dstr:push(out, '}');
+                },
+            };
+        },
+        ExprKind:For(str iter, opt<ptr<Expr>> iter_value, ptr<Expr> cond, ptr<Expr> _next, darr<Expr> body) {
+            ` int old_local_names_len = mangled_local_names.len;
+
+            dstr:join_cstr(out, "for(int ");
+            ` dstr:join(out, register_local_name(iter));
+            match iter_value {
+                opt<ptr<Expr>>:Some(ptr<Expr> _iter_value) {
+                    dstr:push(out, '=');
+                    generate_expr(out, _iter_value@, false, false, 0);
+                },
+            };
+            dstr:push(out, ';');
+            generate_expr(out, cond@, false, false, 0);
+            dstr:push(out, ';');
+            generate_expr(out, _next@, false, false, 0);
+            dstr:join_cstr(out, "){");
+            generate_expr_vec(out, body, true, false);
+            match expr.label {
+                opt<str>:Some(str label) {
+                    dstr:join(out, label);
+                    dstr:push(out, ':');
+                },
+            };
+            dstr:push(out, '}');
+
+            ` mangled_local_names.len = old_local_names_len;
+        },
+        ExprKind:Each(darr<str> vars, ptr<Expr> iter, darr<Expr> body) {},
+        ExprKind:Match(ptr<Expr> value, darr<Expr> cases) {},
+        ExprKind:Case(darr<Expr> values, darr<Expr> body) {},
+        ExprKind:Echo(ptr<Expr> value) {},
+        ExprKind:Ret(opt<str> label, opt<ptr<Expr>> value) {
+            match label {
+                opt<str>:Some(str _label) {
+                    dstr:join_cstr(out, "goto __");
+                    dstr:join(out, _label);
+                },
+                _ {
+                    dstr:join_cstr(out, "return");
+                },
+            };
+            match value {
+                opt<ptr<Expr>>:Some(ptr<Expr> _value) {
+                    dstr:push(out, ' ');
+                    generate_expr(out, _value@, false, false, 0);
+                }, 
+            };
+            dstr:push(out, ';');
+        },
+        ExprKind:Next(str label) {
+            dstr:join_cstr(out, "goto _");
+            dstr:join(out, label);
+            dstr:push(out, ';');
+        },
+        ExprKind:Jump(str label) {
+            dstr:join_cstr(out, "goto ");
+            dstr:join(out, label);
+            dstr:push(out, ';');
+        },
+        ExprKind:Try(opt<str> label, ptr<Expr> value) {},
+        ExprKind:UnaryOp(ptr<Expr> value, TokenKind kind) {
+            dstr:push(out, '(');
+            match kind {
+                TokenKind:Not {
+                    dstr:push(out, '!');
+                },
+                TokenKind:Deref {
+                    dstr:push(out, '*');
+                },
+                TokenKind:Address {
+                    dstr:push(out, '&');
+                },
+            };
+            generate_expr(out, value@, false, false, parens + 1);
+            dstr:push(out, ')');
+        },
+        ExprKind:BinaryOp(ptr<Expr> lhs, ptr<Expr> rhs, TokenKind kind) {
+            if parens > 0 {
+                dstr:push(out, '(');
+            };
+
+            ~m match kind {
+                TokenKind:As {
+                    dstr:push(out, '(');
+                    generate_expr(out, rhs@, false, false, parens + 1);
+                    dstr:push(out, ')');
+                    generate_expr(out, lhs@, false, false, parens + 1);
+                },
+                _ {
+                    generate_expr(out, lhs@, false, false, parens + 1);
+                    match kind {
+                        TokenKind:Assign {
+                            dstr:push(out, '=');
+                        },
+                        TokenKind:Equal {
+                            dstr:join_cstr(out, "==");
+                        },
+                        TokenKind:And {
+                            dstr:join_cstr(out, "&&");
+                        },
+                        TokenKind:Or {
+                            dstr:join_cstr(out, "||");
+                        },
+                        TokenKind:Less {
+                            dstr:push(out, '<');
+                        },
+                        TokenKind:LessEqual {
+                            dstr:join_cstr(out, "<=");
+                        },
+                        TokenKind:Greater {
+                            dstr:push(out, '>');
+                        },
+                        TokenKind:GreaterEqual {
+                            dstr:join_cstr(out, ">=");
+                        },
+                        TokenKind:Add {
+                            dstr:push(out, '+');
+                        },
+                        TokenKind:AddAssign {
+                            dstr:join_cstr(out, "+=");
+                        },
+                        TokenKind:Subtract {
+                            dstr:push(out, '-');
+                        },
+                        TokenKind:SubtractAssign {
+                            dstr:join_cstr(out, "-=");
+                        },
+                        TokenKind:Multiply {
+                            dstr:push(out, '*');
+                        },
+                        TokenKind:MultiplyAssign {
+                            dstr:join_cstr(out, "*=");
+                        },
+                        TokenKind:Divide {
+                            dstr:push(out, '/');
+                        },
+                        TokenKind:DivideAssign {
+                            dstr:join_cstr(out, "/=");
+                        },
+                        TokenKind:Modulo {
+                            dstr:push(out, '%');
+                        },
+                        TokenKind:ModuloAssign {
+                            dstr:join_cstr(out, "%=");
+                        },
+                        TokenKind:NotEqual {
+                            dstr:join_cstr(out, "!=");
+                        },
+                        TokenKind:Dot {
+                            dstr:push(out, '.');
+                            match rhs@.kind {
+                                ExprKind:VarUse(path) {
+                                    ` dstr:join(out, path@.kind.u.u2.path.buf[0].name);
+                                },
+                            };
+                            ret ~m;
+                        },
+                        TokenKind:LeftBracket {
+                            dstr:push(out, '[');
+                        },
+                    };
+                    generate_expr(out, rhs@, false, false, parens + 1);
+                    match kind {
+                        TokenKind:LeftBracket {
+                            dstr:push(out, ']');
+                        },
+                    };
+                },
+            };
+
+            if parens > 0 {
+                dstr:push(out, ')');
+            };
+            if semicolon > 0 {
+                dstr:push(out, ';');
+            };
+        },
+        ExprKind:TernaryOp(ptr<Expr> cond, ptr<Expr> valueA, ptr<Expr> valueB) {
+            generate_expr(out, cond@, false, false, parens + 1);
+            dstr:push(out, '?');
+            generate_expr(out, valueA@, false, false, parens + 1);
+            dstr:push(out, ':');
+            generate_expr(out, valueB@, false, false, parens + 1);
         },
     };
     
@@ -100,4 +637,32 @@ sub register_req(str name) {
         };
     };
     reqs.push(name);
+};
+
+str mangle(Path path) {
+    for i = 0, i < path.parts.len, i += 1 {
+        for ii = 0, ii < path.parts[i].gens.len, ii += 1 {
+            mangle(path.parts[i].gens[ii]);
+        };
+    };
+
+    darr<MangledExpr> len_paths = paths[path.parts.len - 1];
+    for i = 0, i < len_paths.len, i += 1 {
+        Path other = len_paths[i].path;
+        if compare_paths(path, other, false) {
+            int old_gens_len = gens.len;
+            for ii = 0, ii < other.parts.len, ii += 1 {
+                PathPart part = other.parts[ii];
+                for iii = 0, iii < other.parts[ii].gens.len, iii += 1 {
+                    gens.push(new GenericInstance {
+                        name = part.gens[iii].parts[0].name,
+                        path = path.parts[ii].gens[iii],
+                    });
+                };
+            };
+            generate_expr(0, len_paths[i].expr, false, false, 0);
+            gens.len = old_gens_len;
+            ret str;
+        };
+    };
 };

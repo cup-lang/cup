@@ -218,7 +218,7 @@ sub analyze_global(File file, ptr<Expr> expr, int scope) {
                     };
                 },
                 opt<Tag>:None {
-                    add_mangled_expr(expr@, path@, new_mangle(mangle_index += 1, false, 0));
+                    new_mangle(expr@, path@, false);
                 },
             };
         },
@@ -255,11 +255,8 @@ sub analyze_local(File file, ptr<Expr> expr) {
             analyze_locals(file, body);
         },
         ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
-            analyze_locals(file, opts);
+            ` TODO: analyze_locals(file, opts);
             analyze_locals(file, body);
-        },
-        ExprKind:Option(str name, darr<Expr> fields) {
-            analyze_locals(file, fields);
         },
         ExprKind:Prop(Path path, darr<Expr> body) {
             analyze_locals(file, body);
@@ -318,15 +315,6 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:VarUse(#ref Path path) {
             apply_uses(path);
             check_path_defined_visible(file, path@, PathKind:Var);
-        },
-        ExprKind:CompInst(#ref Path _type, darr<FieldValue> field_vals) {
-            apply_uses(_type);
-            check_path_defined_visible(file, _type@, PathKind:Type);
-            ` TODO: field_vals
-        },
-        ExprKind:EnumInst(Path _type, Path path, int opt_index, darr<Expr> args) {
-            ` TODO: _type, path
-            analyze_locals(file, args);
         },
         ExprKind:LocalBlock(darr<Expr> body) {
             analyze_locals(file, body);
@@ -506,68 +494,30 @@ sub check_path_defined_visible(File file, Path path, PathKind kind) {
     file.throw(path.index, "path not defined");
 };
 
-opt<str> mangle(Path path, bool gens, bool _new, int pointer_count) {
-    ` if (path.parts.len == 1) & (path.parts[0].gens.len == 0) {
-    `     for i = 0, i < mangled_local_names.len, i += 1 {
-    `         if str:cmp(path.parts[0].name, mangled_local_names[i].local_name) == 0 {
-    `             ret mangled_local_names[i].name;
-    `         };
-    `     };
-    ` };
-    if path.parts.len <= paths.len {
-        darr<MangledExpr> len_paths = paths[path.parts.len - 1];
-        ~l for i = 0, i < len_paths.len, i += 1 {
-            if compare_paths(path, len_paths[i].path, gens) {
-                if _new {
-                    ret opt<str>:None;
-                } else {
-                    if pointer_count > 0 {
-                        dstr name = dstr:new_from_cstr(len_paths[i].name.buf);
-                        for ii = 0, ii < pointer_count, ii += 1 {
-                            name.push('*');
-                        };
-                        ret opt<str>:Some(name.to_str());
-                    } else {
-                        ret opt<str>:Some(len_paths[i].name);
-                    };
-                };
-            };
-        };
-    } else {
-        while path.parts.len > paths.len {
-            paths.push(darr<MangledExpr>:new_with_cap(16));
-        };
+str new_mangle(Expr expr, Path path, bool gens) {
+    while path.parts.len > paths.len {
+        paths.push(darr<MangledExpr>:new_with_cap(16));
     };
 
     int pointer_count = 0;
     Path ptr_path = path;
-    ` FIXME:
-    ` while (ptr_path.parts[0].gens.len == 1) & cmp_path_to_str(ptr_path, "ptr") {
-    `     ptr_path = ptr_path.parts[0].gens[0];
-    `     pointer_count += 1;
-    ` };
+    while (ptr_path.parts[0].gens.len == 1) & cmp_path_to_str(ptr_path, "ptr") {
+        ptr_path = ptr_path.parts[0].gens[0];
+        pointer_count += 1;
+    };
 
-    `` dstr name = new_mangle(mangle_index += 1, false);
+    str name = mangle_from_index(mangle_index += 1, false, pointer_count);
 
-    `` darr<MangledExpr>:push(paths[path.parts.len - 1]$, new MangledExpr {
-    ``     ` expr = expr,
-    ``     path = path,
-    ``     name = name.to_str(),
-    `` });
+    darr<MangledExpr>:push(paths[path.parts.len - 1]$, new MangledExpr {
+        expr = expr,
+        path = path,
+        name = name,
+    });
 
-    `` if pointer_count > 0 {
-    ``     str old_name = name.to_str();
-    ``     name = dstr:new_with_cap(name.len + pointer_count);
-    ``     name.join(old_name);
-    ``     for i = 0, i < pointer_count, i += 1 {
-    ``         name.push('*');
-    ``     };
-    `` };
-
-    `` ret name.to_str();
+    ret name;
 };
 
-str new_mangle(int index, bool local, int pointer_count) {
+str mangle_from_index(int index, bool local, int pointer_count) {
     dstr _name = dstr:new_with_cap(4);
     
     _name.push('_');

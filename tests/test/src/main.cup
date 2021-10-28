@@ -1,16 +1,16 @@
+` general
+    ` [] enum -> union
 ` lexer
-    ` raw strings
+    ` [] escape characters
+    ` [] raw strings
 ` parser
+    ` [] gens: darr<Path> -> darr<Expr>
     ` Path -> Expr
-    ` PathPart -> Expr
-    ` new enum body parsing
+    ` combo ops
+    ` combo var_defs
 ` analyzer
     ` local
         ` [✓] binds
-        ` [✓] check if path defined and visible
-            ` [✓] is_var
-            ` [✓] is_type
-            ` [✓] is_sub
         ` [] check number of args for
             ` [] tag
             ` [] sub_call
@@ -30,6 +30,7 @@
             ` [] #self
                 ` [] this
                 ` [] sub_calls (.)
+            ` [] try keyword
         ` [] type inference for var_defs
 ` generator
 ` playground
@@ -37,13 +38,18 @@
     ` line numbers
 ` language server
     ` parser error tolerance
-` parser
-    ` combo ops
-    ` combo var_defs
 
 sub foo() {
     echo 1 + 1;
 };
+
+` mod foo<type AAA> {
+`     enum SomeEnum<type T> (
+`         int,
+`         f32,
+`         comp NewType (),
+`     );
+` };
 
 comp int ();
 
