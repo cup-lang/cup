@@ -341,15 +341,15 @@ bool is_binary_operator(TokenKind kind) {
 };
 
 enum LiteralState (
-    None, ` 0
-    Char, ` 2
-    String, ` 1
-    CharJustStarted, ` 4
-    StringJustStarted, ` 3
-    RawChar, ` 5
-    RawString, ` 6
-    Int, ` 7
-    Float, ` 8
+    None,
+    Char,
+    String,
+    CharJustStarted,
+    StringJustStarted,
+    RawChar,
+    RawString,
+    Int,
+    Float,
 );
 
 darr<Token> lex(File file) {
@@ -395,23 +395,25 @@ darr<Token> lex(File file) {
             else {
                 if c == 92 {
                     c = file.data[i += 1];
-                    if c == 'b' {
+                    if c == '0' {     `` \0
                         c = 8;
-                    } elif c == 'f' {
+                    } elif c == 'b' { `` \b
+                        c = 8;
+                    } elif c == 'f' { `` \f
                         c = 12;
-                    } elif c == 'n' {
+                    } elif c == 'n' { `` \n
                         c = 10;
-                    } elif c == 'r' {
+                    } elif c == 'r' { `` \r
                         c = 13;
-                    } elif c == 't' {
+                    } elif c == 't' { `` \t
                         c = 9;
-                    } elif c == 'v' {
+                    } elif c == 'v' { `` \v
                         c = 11;
-                    } elif c == 92 {
+                    } elif c == 92 {  `` \\
                         c = 92;
-                    } elif c == 39 {
+                    } elif c == 39 {  `` \'
                         c = 39;
-                    } elif c == '"' {
+                    } elif c == '"' { `` \"
                         c = '"';
                     } else {
                         file.throw(i - 1, "unrecognized character escape sequence");

@@ -19,6 +19,7 @@ sub generate(str output, darr<Expr> ast) {
     variables = dstr:new_with_cap(512); 
     types = dstr:new_with_cap(1024);
     funcs = dstr:new_with_cap(1024);
+    gens = darr<GenericInstance>:new_with_cap(4);
     generate_expr_vec(variables$, ast, false, false);
     types_headers[types_headers.len] = '\0';
     funcs_headers[funcs_headers.len] = '\0';
@@ -95,9 +96,8 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             generate_expr_vec(out, body, false, false);
         },
         ExprKind:Field(Path _type, str name) {
-            ` Expr __type = apply_genenerics(_type@);
-            ` register_path_use(__type);
-            ` dstr:join(out, mangle(expr, _type, false));
+            opt<str> type_name = mangle(_type, false);
+            dstr:join(out, opt<str>:unwrap(type_name$));
             dstr:push(out, ' ');
             if semicolon {
                 dstr:join(out, name);
@@ -105,7 +105,7 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
                 if cstr:cmp(name.buf, "this") == 0 {
                     dstr:join_cstr(out, "this");
                 } else {
-                    ` dstr:join(out, register_local_name(name));
+                    ` TODO: dstr:join(out, register_local_name(name));
                 };
             };
             if semicolon {
@@ -115,73 +115,80 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             };
         },
         ExprKind:Comp(Path path, darr<Expr> fields, darr<Expr> body) {
-            ` bool has_gens = has_generics(path@);
-            ` if (gens.len == 0) & has_gens {
-            `     ret;
-            ` };
-            ` Expr _path = apply_genenerics(path@);
-            ` str name = mangle(expr, path, true);
-            ` if has_gens & (name == none) {
-            `     ret;
-            ` };
+            bool has_gens = has_generics(path);
+            if (gens.len == 0) & has_gens {
+                ret;
+            };
+            opt<str> name = mangle(path, has_gens);
+            if has_gens & (name == opt<str>:None) {
+                ret;
+            };
+            str _name = opt<str>:unwrap(name$);
 
             dstr:join_cstr(types_headers$, "typedef struct ");
-            ` dstr:join(types_headers$, name);
+            dstr:join(types_headers$, _name);
             dstr:push(types_headers$, ' ');
-            ` dstr:join(types_headers$, name);
+            dstr:join(types_headers$, _name);
             dstr:push(types_headers$, ';');
 
             dstr comp_out = dstr:new_with_cap(128);
             dstr:join_cstr(comp_out$, "typedef struct ");
-            ` dstr:join(comp_out$, name);
+            dstr:join(comp_out$, _name);
             dstr:push(comp_out$, '{');
             generate_expr_vec(comp_out$, fields, true, false);
             dstr:push(comp_out$, '}');
-            ` dstr:join(comp_out$, name);
+            dstr:join(comp_out$, _name);
             dstr:push(comp_out$, ';');
             dstr:join(types$, comp_out.to_str());
             mem:free(comp_out.buf);
         },
         ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
-            ` bool has_gens = has_generics(path@);
-            ` if (gens.len == 0) & has_gens {
-            `     ret;
-            ` };
-            ` Expr _path = apply_genenerics(path@);
-            ` ptr<u8> name = mangle(_path, true, has_gens, 0);
-            ` if has_gens & (name == none) {
-            `     ret;
-            ` };
+            bool has_gens = has_generics(path);
+            if (gens.len == 0) & has_gens {
+                ret;
+            };
+            opt<str> name = mangle(path, has_gens);
+            if has_gens & (name == opt<str>:None) {
+                ret;
+            };
+            str _name = opt<str>:unwrap(name$);
 
-            ` dstr:join_cstr(types_headers$, "typedef struct ");
-            ` dstr:join(types_headers$, name);
-            ` dstr:push(types_headers$, ' ');
-            ` dstr:join(types_headers$, name);
-            ` dstr:push(types_headers$, ';');
+            dstr:join_cstr(types_headers$, "typedef struct ");
+            dstr:join(types_headers$, _name);
+            dstr:push(types_headers$, ' ');
+            dstr:join(types_headers$, _name);
+            dstr:push(types_headers$, ';');
 
-            ` dstr enum_out = dstr:new_with_cap(256);
-            ` dstr:join_cstr(enum_out$, "typedef struct ");
-            ` dstr:join(enum_out$, name);
-            ` dstr:push(enum_out$, '{');
-            ` dstr:join_cstr(enum_out$, "int t;union{");
-            ` for i = 0, i < opts.len, i += 1 {
-            `     match opts[i].kind {
-            `         ExprKind:Option(name, fields) {
-            `             if fields.len > 0 {
-            `                 dstr:join_cstr(enum_out$, "struct{");
-            `                 generate_expr_vec(enum_out$, fields, true, false);
-            `                 dstr:push(enum_out$, '}');
-            `                 dstr:join(enum_out$, name);
-            `                 dstr:push(enum_out$, ';');
-            `             };
-            `         },
-            `     };
-            ` };
-            ` dstr:join_cstr(enum_out$, "}u;}");
-            ` dstr:join(enum_out$, name);
-            ` dstr:push(enum_out$, ';');
-            ` dstr:join(types$, enum_out.to_str());
-            ` mem:free(enum_out.buf);
+            dstr enum_out = dstr:new_with_cap(256);
+            generate_expr_vec(enum_out$, opts, false, false);
+            dstr:join_cstr(enum_out$, "typedef struct ");
+            dstr:join(enum_out$, _name);
+            dstr:push(enum_out$, '{');
+            dstr:join_cstr(enum_out$, "int t;union{");
+            for i = 0, i < opts.len, i += 1 {
+                Path path;
+                match opts[i].kind {
+                    ExprKind:Comp(Path _path, darr<Expr> fields, darr<Expr> body) {
+                        path = _path;
+                    },
+                    ExprKind:Enum(Path _path, darr<Expr> opts, darr<Expr> body) {
+                        path = _path;
+                    },
+                    ExprKind:VarUse(Path _path) {
+                        path = _path;
+                    },
+                };
+                opt<str> type_name = mangle(path, false);
+                dstr:join(enum_out$, opt<str>:unwrap(type_name$));
+                dstr:push(enum_out$, ' ');
+                dstr:join(enum_out$, _name);
+                dstr:push(enum_out$, ';');
+            };
+            dstr:join_cstr(enum_out$, "}u;}");
+            dstr:join(enum_out$, _name);
+            dstr:push(enum_out$, ';');
+            dstr:join(types$, enum_out.to_str());
+            mem:free(enum_out.buf);
         },
         ExprKind:Prop(Path path, darr<Expr> body) {},
         ExprKind:Def(Path _prop, opt<Path> target, darr<Expr> body) {
@@ -190,105 +197,89 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
         ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
             ` int old_local_names_len = mangled_local_names.len;
 
-            ` bool has_gens = has_generics(path@);
-            ` if (gens.len == 0) & has_gens {
-            `     ret;
-            ` };
+            bool has_gens = has_generics(path);
+            if (gens.len == 0) & has_gens {
+                ret;
+            };
 
-            ` Expr _path = apply_genenerics(path@);
-            ` ptr<u8> name = mangle(_path, true, has_gens, 0);
-            ` if has_gens & (name == none) {
-            `     ret;
-            ` };
+            opt<str> name = mangle(path, has_gens);
+            if has_gens & (name == opt<str>:None) {
+                ret;
+            };
+            str _name = opt<str>:unwrap(name$);
 
-            ` dstr sub_out = dstr:new_with_cap(256);
-            ` if ret_type != none {
-            `     Expr _ret_type = apply_genenerics(ret_type@);
-            `     register_path_use(_ret_type);
-            `     dstr:join(sub_out$, mangle(expr, _ret_type, true));
-            `     dstr:push(sub_out$, ' ');
-            ` } else {
-            `     dstr:join_cstr(sub_out$, "void ");
-            ` };
-            ` dstr:join(sub_out$, name);
-            ` dstr:push(sub_out$, '(');
+            dstr sub_out = dstr:new_with_cap(256);
+            match ret_type {
+                opt<Path>:Some(Path __ret_type) {
+                    opt<str> ___ret_type = mangle(__ret_type, false);
+                    dstr:join(sub_out$, opt<str>:unwrap(___ret_type$));
+                    dstr:push(sub_out$, ' ');
+                },
+                opt<Path>:None {
+                    dstr:join_cstr(sub_out$, "void ");
+                },
+            };
+            dstr:join(sub_out$, _name);
+            dstr:push(sub_out$, '(');
 
-            ` bool is_self = false;
-            ` bool is_rest = false;
-            ` ~t for i = 0, i < expr.tags.len, i += 1 {
-            `     match expr.tags[i].kind {
-            `         ExprKind:Tag(name, args) {
-            `             if cstr:cmp(name.buf, "self") == 0 {
-            `                 is_self = true;
-            `             } elif cstr:cmp(name.buf, "rest") == 0 {
-            `                 is_rest = true;
-            `                 register_req("stdarg.h");
-            `             };
-            `         },
-            `     };
-            ` };
-            ` if is_self {
-            `     darr<Expr> _args = darr<Expr>:new_with_cap(args.len + 1);
-            `     mem:copy(_args.buf + 1, args.buf, mem:size<Expr>() * args.len);
-            `     _args.len = args.len + 1;
-            `     match _path.kind {
-            `         ExprKind:Path(__path) {
-            `             __path.len -= 1;
-            `             vec<PathPart> this_ptr = vec<PathPart>:new(1);
-            `             vec<Expr> this_ptr_gens = vec<Expr>:new(1);
-            `             this_ptr_gens.buf[0] = Expr {
-            `                 kind = ExprKind:Path(__path),
-            `                 tags = vec<Expr> { len = 0, },
-            `                 label = none,
-            `             };
-            `             this_ptr_gens.len = 1;
-            `             this_ptr.buf[0] = PathPart {
-            `                 name = "ptr",
-            `                 gens = this_ptr_gens,
-            `             };
-            `             this_ptr.len = 1;
-            `             _args.buf[0] = Expr {
-            `                 kind = ExprKind:Field(
-            `                     alloc<Expr>(Expr {
-            `                         kind = ExprKind:Path(this_ptr),
-            `                         tags = vec<Expr> { len = 0, },
-            `                         label = none,
-            `                     }),
-            `                     "this",
-            `                 ),
-            `                 tags = vec<Expr> { len = 0, },
-            `                 label = none,
-            `             };
-            `         },
-            `     };
-            `     generate_expr_vec(sub_out$, _args, false, false, false);
-            ` } else {
-            `     generate_expr_vec(sub_out$, args, false, false, false);
-            ` };
-            ` if is_rest {
-            `     dstr:join_cstr(sub_out$, ",...");
-            ` };
+            bool is_self = false;
+            bool is_rest = false;
+            for i = 0, i < expr.tags.len, i += 1 {
+                if cmp_path_to_str(expr.tags[i].path, "self") {
+                    is_self = true;
+                } elif cmp_path_to_str(expr.tags[i].path, "rest") {
+                    is_rest = true;
+                    register_req(str:new_from_cstr("stdarg.h"));
+                };
+            };
+            if is_self {
+                darr<Expr> _args = darr<Expr>:new_with_cap(args.len + 1);
+                mem:copy(_args.buf + 1, args.buf, mem:size<Expr>() * args.len);
+                _args.len = args.len + 1;
+                Path this_ptr = new Path {
+                    parts = darr<PathPart>:new_with_cap(2),
+                };
+                darr<Path> this_ptr_gens = darr<Path>:new_with_cap(1);
+                darr<Path>:push(this_ptr_gens$, path);
+                this_ptr.parts[0] = new PathPart {
+                    name = str:new_from_cstr("ptr"),
+                    gens = this_ptr_gens,
+                };
+                this_ptr.parts.len = 1;
+                _args[0] = new Expr {
+                    kind = ExprKind:Field(
+                        this_ptr,
+                        str:new_from_cstr("this"),
+                    ),
+                    tags = new darr<Tag> { len = 0 },
+                    label = opt<str>:None,
+                };
+                generate_expr_vec(sub_out$, _args, false, false);
+            } else {
+                generate_expr_vec(sub_out$, args, false, false);
+            };
+            if is_rest {
+                dstr:join_cstr(sub_out$, ",...");
+            };
             
-            ` dstr:join(funcs_headers$, sub_out);
-            ` dstr:join_cstr(funcs_headers$, ");");
+            dstr:join(funcs_headers$, sub_out.to_str());
+            dstr:join_cstr(funcs_headers$, ");");
 
-            ` dstr:join_cstr(sub_out$, "){");
-            ` generate_expr_vec(sub_out$, body, true, false);
-            ` dstr:join_cstr(sub_out$, "};");
-            ` dstr:join(funcs$, sub_out);
-            ` mem:free(sub_out.buf);
+            dstr:join_cstr(sub_out$, "){");
+            generate_expr_vec(sub_out$, body, true, false);
+            dstr:join_cstr(sub_out$, "};");
+            dstr:join(funcs$, sub_out.to_str());
+            mem:free(sub_out.buf);
 
             ` mangled_local_names.len = old_local_names_len;
         },
         ExprKind:VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value) {
             Path __type = opt<Path>:unwrap(_type$);
-            ` Expr __type = apply_genenerics(_type@);
-            ` register_path_use(__type);
-            ` dstr:join(out, mangle(expr, __type, true));
+            opt<str> ___type = mangle(__type, false);
+            dstr:join(out, opt<str>:unwrap(___type$));
             dstr:push(out, ' ');
-            ` Expr _path = apply_genenerics(path@);
-            ` register_path_use(_path);
-            ` dstr:join(out, mangle(expr, path, true));
+            opt<str> _path = mangle(path, false);
+            dstr:join(out, opt<str>:unwrap(_path$));
             match value {
                 opt<ptr<Expr>>:Some(ptr<Expr> _value) {
                     dstr:push(out, '=');
@@ -299,9 +290,8 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
         },
         ExprKind:LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value) {
             Path __type = opt<Path>:unwrap(_type$);
-            ` Expr __type = apply_genenerics(_type@);
-            ` register_path_use(__type);
-            ` dstr:join(out, mangle(expr, __type, true));
+            opt<str> ___type = mangle(__type, false);
+            dstr:join(out, opt<str>:unwrap(___type$));
             dstr:push(out, ' ');
             ` dstr:join(out, register_local_name(name));
             match value {
@@ -639,10 +629,32 @@ sub register_req(str name) {
     reqs.push(name);
 };
 
-str mangle(Path path) {
+Path apply_generics(Path path) {
+    if path.parts.len == 1 {
+        for i = 0, i < gens.len, i += 1 {
+            if cstr:cmp(gens[i].name.buf, path.parts[0].name.buf) == 0 {
+                ret gens[i].path;
+            };
+        };
+    };
+    Path new_path = path.clone();
+    for i = 0, i < path.parts.len, i += 1 {
+        PathPart part = path.parts[i];
+        new_path.parts[i].gens = darr<Path>:new_with_cap(part.gens.len);
+        new_path.parts[i].gens.len = part.gens.len;
+        for ii = 0, ii < part.gens.len, ii += 1 {
+            new_path.parts[i].gens[ii] = apply_generics(part.gens[ii]);
+        };
+    };
+    ret new_path;
+};
+
+opt<str> mangle(Path path, bool is_new) {
+    path = apply_generics(path);
+
     for i = 0, i < path.parts.len, i += 1 {
         for ii = 0, ii < path.parts[i].gens.len, ii += 1 {
-            mangle(path.parts[i].gens[ii]);
+            mangle(path.parts[i].gens[ii], false);
         };
     };
 
@@ -650,19 +662,35 @@ str mangle(Path path) {
     for i = 0, i < len_paths.len, i += 1 {
         Path other = len_paths[i].path;
         if compare_paths(path, other, false) {
-            int old_gens_len = gens.len;
-            for ii = 0, ii < other.parts.len, ii += 1 {
-                PathPart part = other.parts[ii];
-                for iii = 0, iii < other.parts[ii].gens.len, iii += 1 {
-                    gens.push(new GenericInstance {
-                        name = part.gens[iii].parts[0].name,
-                        path = path.parts[ii].gens[iii],
-                    });
+            if has_generics(other) {
+                int old_gens_len = gens.len;
+                for ii = 0, ii < other.parts.len, ii += 1 {
+                    PathPart part = other.parts[ii];
+                    for iii = 0, iii < other.parts[ii].gens.len, iii += 1 {
+                        gens.push(new GenericInstance {
+                            name = part.gens[iii].parts[0].name,
+                            path = path.parts[ii].gens[iii],
+                        });
+                    };
+                };
+                generate_expr(0, len_paths[i].expr, false, false, 0);
+                gens.len = old_gens_len;
+            };
+            
+            if path.parts.len <= paths.len {
+                darr<MangledExpr> len_paths = paths[path.parts.len - 1];
+                for i = 0, i < len_paths.len, i += 1 {
+                    if compare_paths(path, len_paths[i].path, true) {
+                        if is_new {
+                            ret opt<str>:None;
+                        } else {
+                            ret opt<str>:Some(len_paths[i].name);
+                        };
+                    };
                 };
             };
-            generate_expr(0, len_paths[i].expr, false, false, 0);
-            gens.len = old_gens_len;
-            ret str;
+
+            ret opt<str>:Some(new_mangle(new Expr {}, path, true));
         };
     };
 };

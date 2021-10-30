@@ -31,7 +31,7 @@ sub init_analyzer() {
     uses = darr<Use>:new_with_cap(4);
     local_vars = darr<Expr>:new_with_cap(4);
     mods = darr<PathPart>:new_with_cap(4);
-    mods.push(new PathPart { pub = true, name = str:new_from_cstr("p") });
+    ` mods.push(new PathPart { pub = true, name = str:new_from_cstr("p") });
 };
 
 sub analyze_globals(File file, darr<Expr> exprs) {
@@ -106,10 +106,14 @@ sub analyze_global(File file, ptr<Expr> expr, int scope) {
             });
             path = _path;
         },
-        ExprKind:Enum(#ref Path _path) {
+        ExprKind:Enum(#ref Path _path, darr<Expr> opts, darr<Expr> body) {
             apply_pub_scope(pub, _path@, scope);
+            darr<PathPart> old_mods = Path:clone(new Path { parts = mods }$).parts;
+            mods.join(_path@.parts);
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
+            analyze_globals(file, opts);
+            mods.len = old_mods.len;
             uses.push(new Use {
                 is_mod = false,
                 path = Path:clone(_path),

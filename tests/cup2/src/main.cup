@@ -1,3 +1,5 @@
+darr<ToAnalyze> to_analyze;
+
 int main(int argc, ptr<ptr<u8>> argv) {
     #os("win") console = get_std_handle(std_output_handle);
 
@@ -127,8 +129,18 @@ int main(int argc, ptr<ptr<u8>> argv) {
     };
 
     darr<Expr> ast = darr<Expr>:new_with_cap(8);
+    to_analyze = darr<ToAnalyze>:new_with_cap(4);
     init_analyzer();
-    lex_parse_analyze(input.unwrap(), ast$);
+    lpa_file(new File {
+        name = str:new_from_cstr("core.cup"),
+        data = str:new_from_cstr("comp ptr ();"),
+    }, ast$);
+    analyze_all();
+    `` TODO: lpa deps
+    lpa_folder(input.unwrap(), ast$);
+    analyze_all();
+    mem:free(to_analyze.buf);
+    
     generate(output.unwrap(), ast);
 
     fmt:print("Compilation ");
@@ -148,7 +160,7 @@ sub expect_option_value(ptr<opt<str>> option, arr<str> args, int index) {
     };
 };
 
-sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
+sub lpa_folder(str path, ptr<darr<Expr>> ast) {
     ptr<dir> _dir = dir:open(path.buf);
     if _dir == 0 {
         throw("no such file or directory: '%s'\n", path.buf);
@@ -164,12 +176,11 @@ sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
                 next ~d;
             };
             str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
-            lex_parse_analyze(new_path, ast);
+            lpa_folder(new_path, ast);
             mem:free(new_path.buf);
         };
     };
     dir:rewind(_dir);
-    darr<ToAnalyze> to_analyze = darr<ToAnalyze>:new_with_cap(4);
     ~f loop {
         ent = dir:read(_dir);
         if ent == 0 {
@@ -184,28 +195,33 @@ sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
             file:read(data.buf, data.len + 1, 1, file_point);
             file:close(file_point);
 
-            fmt:print("Compiling %s:\n", new_path);
-            File file = new File {
+            lpa_file(new File {
                 name = new_path,
                 data = data,
-            };
-            darr<Token> tokens = lex(file);
-            ` print_tokens(tokens);
-            darr<Expr> exprs = parse(file, tokens);
-            ` print_all_exprs(exprs);
-            mem:free(tokens.buf);
-            analyze_globals(file, exprs);
-            ` print_all_exprs(exprs);
-            to_analyze.push(new ToAnalyze {
-                file = file,
-                exprs = exprs,
-            });
-            
-            darr<Expr>:join(ast, exprs);
+            }, ast);
         };
     };
     dir:close(_dir);
+};
 
+sub lpa_file(File file, ptr<darr<Expr>> ast) {
+    fmt:print("Compiling %s:\n", file.name);
+    darr<Token> tokens = lex(file);
+    ` print_tokens(tokens);
+    darr<Expr> exprs = parse(file, tokens);
+    ` print_all_exprs(exprs);
+    mem:free(tokens.buf);
+    analyze_globals(file, exprs);
+    ` print_all_exprs(exprs);
+    to_analyze.push(new ToAnalyze {
+        file = file,
+        exprs = exprs,
+    });
+    
+    darr<Expr>:join(ast, exprs);
+};
+
+sub analyze_all() {
     for i = 0, i < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze[i];
         analyze_locals(analyze.file, analyze.exprs);
@@ -213,7 +229,7 @@ sub lex_parse_analyze(str path, ptr<darr<Expr>> ast) {
         mem:free(analyze.file.name.buf);
         mem:free(analyze.file.data.buf);
     };
-    mem:free(to_analyze.buf);
+    to_analyze.len = 0;
 };
 
 str combine_paths(str a, str b) {

@@ -1,7 +1,6 @@
 ` general
-    ` [] enum -> union
+    ` [] rename `enum` -> `union`
 ` lexer
-    ` [] escape characters
     ` [] raw strings
 ` parser
     ` [] gens: darr<Path> -> darr<Expr>
@@ -39,9 +38,14 @@
 ` language server
     ` parser error tolerance
 
-sub foo() {
+#self sub foo() {
     echo 1 + 1;
 };
+
+enum Test (
+    comp A (),
+    comp B (),
+);
 
 ` mod foo<type AAA> {
 `     enum SomeEnum<type T> (
@@ -51,18 +55,18 @@ sub foo() {
 `     );
 ` };
 
-comp int ();
-
-mod a {
-
-    echo b:c:d;
-
-    mod b {
-        int c;
-    };
-
-    mod b:c {
-        #pub int d;
-    };
-
-};
+` comp int ();
+` 
+` mod a {
+` 
+`     echo b:c:d;
+` 
+`     mod b {
+`         int c;
+`     };
+` 
+`     mod b:c {
+`         #pub int d;
+`     };
+` 
+` };
