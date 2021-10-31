@@ -22,7 +22,7 @@ comp PathPart (
     bool pub,
     int scope,
     str name,
-    darr<Path> gens,
+    darr<Expr> gens,
 );
 
 comp Tag (
@@ -458,7 +458,7 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
             TokenKind:QuestionMark {
                 index@ += 1;
                 Expr valueA = parse_local(file, tokens, index, 0, false);
-                expect_token(file, tokens, index, TokenKind:Comma, "expected ',' after smth");
+                expect_token(file, tokens, index, TokenKind:Comma, "expected ',' after first conditional value");
                 Expr valueB = parse_local(file, tokens, index, 0, false);
                 expr = new Expr {
                     kind = ExprKind:TernaryOp(alloc<Expr>(expr), alloc<Expr>(valueA), alloc<Expr>(valueB)),
@@ -828,7 +828,7 @@ Path parse_opt_path(File file, darr<Token> tokens, ptr<int> index) {
                 TokenKind:Ident {
                     PathPart part = new PathPart {
                         name = token.value,
-                        gens = darr<Path>:new_with_cap(2),
+                        gens = darr<Expr>:new_with_cap(2),
                     };
                     match tokens[index@ + 1].kind {
                         TokenKind:Less {
@@ -841,13 +841,16 @@ Path parse_opt_path(File file, darr<Token> tokens, ptr<int> index) {
                                         ret ~ll;
                                     },
                                 };
-                                Path gen = parse_opt_path(file, tokens, index);
-                                if gen.parts.len == 0 {
-                                    index@ = old_index;
-                                    part.gens.len = 0;
-                                    ret ~ll;
-                                };
-                                darr<Path>:push(part.gens$, gen);
+                                ` Path gen = parse_opt_path(file, tokens, index);
+                                ` if gen.parts.len == 0 {
+                                `     index@ = old_index;
+                                `     part.gens.len = 0;
+                                `     ret ~ll;
+                                ` };
+                                ` darr<Path>:push(part.gens$, gen);
+                                
+                                Expr gen = parse_local(file, tokens, index, 0, true);
+                                darr<Expr>:push(part.gens$, gen);
                                 opt_token(tokens, index, TokenKind:Comma);
                             };
                         },
@@ -898,38 +901,6 @@ darr<Expr> parse_fields(File file, darr<Token> tokens, ptr<int> index) {
 
     ret fields;
 };
-
-` darr<Expr> parse_options(File file, darr<Token> tokens, ptr<int> index) {
-`     darr<Expr> opts = darr<Expr>:new_with_cap(2);
-` 
-`     ~l loop {
-`         if opt_token(tokens, index, TokenKind:RightParen) {
-`             ret opts;
-`         };
-` 
-`         str name = expect_token(file, tokens, index, TokenKind:Ident, "expected option name in 'enum' definition").value;
-` 
-`         darr<Expr> fields;
-`         if opt_token(tokens, index, TokenKind:LeftParen) {
-`             fields = parse_fields(file, tokens, index);    
-`         } else {
-`             fields.len = 0;
-`         };
-` 
-`         opts.push(new Expr {
-`             kind = ExprKind:Option(name, fields),
-`             tags = new darr<Tag> { len = 0 },
-`             label = opt<str>:None,
-`         });
-` 
-`         if opt_token(tokens, index, TokenKind:Comma) == false {
-`             ret ~l;
-`         };
-`     };
-`     expect_token(file, tokens, index, TokenKind:RightParen, "expected ')' after last option");
-` 
-`     ret opts;
-` };
 
 sub print_all_exprs(darr<Expr> exprs) {
     fmt:print("Exprs:");
@@ -1225,7 +1196,7 @@ sub print_path(Path path, int depth) {
             for ii = 0, ii < part.gens.len, ii += 1 {
                 char:put('\n');
                 indent(depth + 1);
-                print_path(part.gens[ii], depth + 1);
+                print_expr(part.gens[ii], depth + 1);
             };
             char:put('\n');
             indent(depth);

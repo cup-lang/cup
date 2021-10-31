@@ -1,12 +1,13 @@
 ` general
-    ` [] rename `enum` -> `union`
+    ` [?] rename `enum` -> `union`
+    ` [?] rename `|` -> `^`
 ` lexer
     ` [] raw strings
 ` parser
     ` [] gens: darr<Path> -> darr<Expr>
     ` Path -> Expr
-    ` combo ops
-    ` combo var_defs
+    ` [] chaining ops
+    ` [?] combo var_defs
 ` analyzer
     ` local
         ` [✓] binds
@@ -38,7 +39,7 @@
 ` language server
     ` parser error tolerance
 
-#self sub foo() {
+#self sub foo<0 > 1>() {
     echo 1 + 1;
 };
 

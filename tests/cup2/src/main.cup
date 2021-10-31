@@ -141,7 +141,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
     analyze_all();
     mem:free(to_analyze.buf);
     
-    generate(output.unwrap(), ast);
+    ` generate(output.unwrap(), ast);
 
     fmt:print("Compilation ");
     color:set(Color:Green);

@@ -32,13 +32,16 @@
     - `foo@` - dereference
     - `foo$` - reference
     - `foo!` - not
-3.  - `*` - multiplication
+3. Mixable, left to right
+    - `*` - multiplication
     - `/` - division
     - `%` - modulo
     - `^` - power
-4.  - `+` - addition
+4. Mixable, left to right
+    - `+` - addition
     - `-` - subtraction
-5.  - `&` - logical and
+5. Not mixable, chaining
+    - `&` - logical and
     - `|` - logical or
     - `<` - less than
     - `>` - greater than
@@ -46,7 +49,8 @@
     - `>=` - greater than or equal
     - `==` - equal
     - `!=` - not equal
-6.  - `=` - assign
+6. Mixable, right to left
+    - `=` - assign
     - `+=` - add assign
     - `-=` - subtract assign
     - `*=` - multiply assign
@@ -128,9 +132,6 @@
 - `#del` - delay execution of a "local"
 - `#self` - marks sub to act on a instance
 - `#rest` - marks arg as a rest arg
-- `#os(os_name: str)`
-- `#def(def_name: str, value: int)`
-- `#if(def_name: str) #if(def_name: str, value: int)`
-- `#bind(fn_name: str)`
-- `#gen(gen_name: str)`
-- `#req(header: str)`
+- `#os(str os_name)`
+- `#bind(str sub_name)`
+- `#req(str header)`

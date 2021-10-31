@@ -31,7 +31,6 @@ sub init_analyzer() {
     uses = darr<Use>:new_with_cap(4);
     local_vars = darr<Expr>:new_with_cap(4);
     mods = darr<PathPart>:new_with_cap(4);
-    ` mods.push(new PathPart { pub = true, name = str:new_from_cstr("p") });
 };
 
 sub analyze_globals(File file, darr<Expr> exprs) {
@@ -506,7 +505,7 @@ str new_mangle(Expr expr, Path path, bool gens) {
     int pointer_count = 0;
     Path ptr_path = path;
     while (ptr_path.parts[0].gens.len == 1) & cmp_path_to_str(ptr_path, "ptr") {
-        ptr_path = ptr_path.parts[0].gens[0];
+        ` ptr_path = ptr_path.parts[0].gens[0];
         pointer_count += 1;
     };
 
@@ -562,9 +561,9 @@ bool compare_paths(Path a, Path b, bool gens) {
         PathPart aPart = a.parts[i];
         PathPart bPart = b.parts[i];
         if cstr:cmp(aPart.name.buf, bPart.name.buf) == 0 {
-            if (gens == false) | compare_gens(aPart.gens, bPart.gens) {
-                next ~l;
-            };
+            ` if (gens == false) | compare_gens(aPart.gens, bPart.gens) {
+            `     next ~l;
+            ` };
         };
         ret false;
     };
