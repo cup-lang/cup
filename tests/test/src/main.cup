@@ -4,49 +4,54 @@
 ` lexer
     ` [] raw strings
 ` parser
-    ` [] gens: darr<Path> -> darr<Expr>
-    ` Path -> Expr
+    ` [] Path -> Expr
     ` [] chaining ops
     ` [?] combo var_defs
+    ` [?] combo match/case
 ` analyzer
-    ` local
-        ` [✓] binds
-        ` [] check number of args for
-            ` [] tag
-            ` [] sub_call
-            ` [] enum_inst
-            ` [] comp_inst
-        ` [] check type
-            ` [] when assigning check if type matches
-            ` [] when giving to sub_call check
-            ` [] when giving to comp_inst
-            ` [] when giving to enum_inst
-            ` [] when ops
-        ` [] check if label defined
-        ` [] check if comp_inst fields exist
-        ` [] apply transformations
-            ` [] custom ops
-            ` [] enum_inst (==, !=)
-            ` [] #self
-                ` [] this
-                ` [] sub_calls (.)
-            ` [] try keyword
-        ` [] type inference for var_defs
+    ` [✓] binds
+    ` [] check number of args for
+        ` [] tag
+        ` [] sub_call
+        ` [] enum_inst
+        ` [] comp_inst
+    ` [] check type
+        ` [] when assigning check if type matches
+        ` [] when giving to sub_call check
+        ` [] when giving to comp_inst
+        ` [] when ops
+    ` [] check if label defined
+    ` [] check if comp_inst fields exist
+    ` [] apply transformations
+        ` [] custom ops
+        ` [] enum compare == !=
+        ` [] #self
+            ` [] check if its allowed for currrent expr
+            ` [] this
+            ` [] sub_calls (.)
+        ` [] try keyword
+    ` [] type inference for var_defs
 ` generator
+    ` [] locals
+    ` [] mangle labels
 ` playground
     ` multiple files
     ` line numbers
 ` language server
     ` parser error tolerance
 
-#self sub foo<0 > 1>() {
-    echo 1 + 1;
+#req("stdio.h")
+#bind("printf")
+sub fmt:print() {};
+
+sub main() {
+    fmt:print("Hello, World!");
 };
 
-enum Test (
-    comp A (),
-    comp B (),
-);
+` enum Test (
+`     comp A (),
+`     comp B (),
+` );
 
 ` mod foo<type AAA> {
 `     enum SomeEnum<type T> (

@@ -25,13 +25,13 @@
 - `as` - casts to a type
 - `has` - checks if type has property
 # Operators
-1.  - `[]` - array access
-    - `()` - parenthesis
-    - `foo()` - subroutine call
-2.  - `foo.bar` - field access
-    - `foo@` - dereference
-    - `foo$` - reference
-    - `foo!` - not
+1.  - `a[]` - array access
+    - `a()` - subroutine call
+    - `a.b` - member access
+2.  - `-b` - negation
+    - `!b` - not
+    - `a@` - dereference
+    - `a$` - reference
 3. Mixable, left to right
     - `*` - multiplication
     - `/` - division

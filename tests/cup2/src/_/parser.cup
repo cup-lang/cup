@@ -211,12 +211,15 @@ bool opt_token(darr<Token> tokens, ptr<int> index, TokenKind kind) {
 
 Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bool opt) {
     Expr expr;
+    expr.kind = ExprKind:Empty;
     expr.label = parse_label(file, tokens, index, true);
     expr.tags = parse_tags(file, tokens, index);
 
     Token token = tokens[index@];
 
     ~l match token.kind {
+        TokenKind:Subtract,
+        TokenKind:Not { },
         TokenKind:LeftParen {
             index@ += 1;
             expr = parse_local(file, tokens, index, 0, false);
@@ -454,7 +457,7 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
     ~o loop {
         int new_op_level = 0;
         token = tokens[index@];
-        match token.kind {
+        ~m match token.kind {
             TokenKind:QuestionMark {
                 index@ += 1;
                 Expr valueA = parse_local(file, tokens, index, 0, false);
@@ -478,18 +481,22 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
             TokenKind:As {
                 new_op_level = 6;
             },
+            TokenKind:Greater {
+                if op_level == -1 {
+                    ret expr;
+                };
+                new_op_level = 5;
+            },
             TokenKind:Less,
             TokenKind:And,
             TokenKind:Or,
             TokenKind:LessEqual,
-            TokenKind:Greater,
             TokenKind:GreaterEqual,
             TokenKind:Equal,
             TokenKind:NotEqual {
                 new_op_level = 5;
             },
-            TokenKind:Add,
-            TokenKind:Subtract {
+            TokenKind:Add {
                 new_op_level = 4;
             },
             TokenKind:Multiply,
@@ -497,7 +504,23 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
             TokenKind:Modulo {
                 new_op_level = 3;
             },
-            TokenKind:Not,
+            TokenKind:Subtract,
+            TokenKind:Not {
+                if (token.kind == TokenKind:Subtract) & (expr.kind != ExprKind:Empty) {
+                    new_op_level = 4;
+                    ret ~m;
+                };
+                if (op_level == 0) | (2 <= op_level) {
+                    index@ += 1;
+                    expr = new Expr {
+                        kind = ExprKind:UnaryOp(alloc<Expr>(parse_local(file, tokens, index, 2, false)), token.kind),
+                        tags = new darr<Tag> { len = 0 },
+                        label = opt<str>:None,
+                    };
+                    next ~o;
+                };
+                ret ~o;
+            },
             TokenKind:Deref,
             TokenKind:Address {
                 new_op_level = 2;
@@ -842,15 +865,14 @@ Path parse_opt_path(File file, darr<Token> tokens, ptr<int> index) {
                                     },
                                 };
                                 ` Path gen = parse_opt_path(file, tokens, index);
-                                ` if gen.parts.len == 0 {
-                                `     index@ = old_index;
-                                `     part.gens.len = 0;
-                                `     ret ~ll;
-                                ` };
-                                ` darr<Path>:push(part.gens$, gen);
-                                
-                                Expr gen = parse_local(file, tokens, index, 0, true);
+                                Expr gen = parse_local(file, tokens, index, (-1), true);
+                                if gen.kind == ExprKind:Empty {
+                                    index@ = old_index;
+                                    part.gens.len = 0;
+                                    ret ~ll;
+                                };
                                 darr<Expr>:push(part.gens$, gen);
+                                ` darr<Path>:push(part.gens$, gen);
                                 opt_token(tokens, index, TokenKind:Comma);
                             };
                         },

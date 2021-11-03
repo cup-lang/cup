@@ -308,38 +308,6 @@ TokenKind get_keyword(ptr<u8> value) {
     ret TokenKind:Empty;
 }; 
 
-bool is_binary_operator(TokenKind kind) {
-    match kind {
-        TokenKind:LeftParen,
-        TokenKind:Assign,
-        TokenKind:Equal,
-        TokenKind:NotEqual,
-        TokenKind:And,
-        TokenKind:Or,
-        TokenKind:Less,
-        TokenKind:LessEqual,
-        TokenKind:Greater,
-        TokenKind:GreaterEqual,
-        TokenKind:Add,
-        TokenKind:AddAssign,
-        TokenKind:Subtract,
-        TokenKind:SubtractAssign,
-        TokenKind:Multiply,
-        TokenKind:MultiplyAssign,
-        TokenKind:Divide,
-        TokenKind:DivideAssign,
-        TokenKind:Modulo,
-        TokenKind:ModuloAssign,
-        TokenKind:As,
-        TokenKind:Has {
-            ret true;
-        },
-        _ {
-            ret false;
-        },
-    };
-};
-
 enum LiteralState (
     None,
     Char,
@@ -516,9 +484,6 @@ darr<Token> lex(File file) {
                     kind = TokenKind:Add;
                 };
             } elif c == '-' {
-                if is_binary_operator(tokens[tokens.len - 1].kind) & char:is_num(file.data[i + 1]) {
-                    ret ~ll;
-                };
                 if file.data[i + 1] == '=' {
                     kind = TokenKind:SubtractAssign;
                     i += 1;
@@ -551,8 +516,8 @@ darr<Token> lex(File file) {
 
         match kind {
             TokenKind:Unset {
-                if (c == '-') | (c == '_') | (c == '.') | (c == ':') | char:is_alpha_num(c) {
-                    if ((value.len == 0) & char:is_num(c)) | (c == '-') {
+                if (c == '_') | (c == '.') | (c == ':') | char:is_alpha_num(c) {
+                    if (value.len == 0) & char:is_num(c) {
                         lit_state = LiteralState:Int;
                     } elif (lit_state == LiteralState:Int) | (lit_state == LiteralState:Float) {
                         if (c == '.') & (lit_state == LiteralState:Int) {

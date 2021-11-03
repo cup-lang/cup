@@ -505,7 +505,11 @@ str new_mangle(Expr expr, Path path, bool gens) {
     int pointer_count = 0;
     Path ptr_path = path;
     while (ptr_path.parts[0].gens.len == 1) & cmp_path_to_str(ptr_path, "ptr") {
-        ` ptr_path = ptr_path.parts[0].gens[0];
+        match ptr_path.parts[0].gens[0].kind {
+            ExprKind:VarUse(Path ptr_gen) {
+                ptr_path = ptr_gen;
+            },
+        };
         pointer_count += 1;
     };
 
@@ -561,23 +565,31 @@ bool compare_paths(Path a, Path b, bool gens) {
         PathPart aPart = a.parts[i];
         PathPart bPart = b.parts[i];
         if cstr:cmp(aPart.name.buf, bPart.name.buf) == 0 {
-            ` if (gens == false) | compare_gens(aPart.gens, bPart.gens) {
-            `     next ~l;
-            ` };
+            if (gens == false) | compare_gens(aPart.gens, bPart.gens) {
+                next ~l;
+            };
         };
         ret false;
     };
     ret true;
 };
 
-bool compare_gens(darr<Path> a, darr<Path> b) {
+bool compare_gens(darr<Expr> a, darr<Expr> b) {
     if a.len != b.len {
         ret false;
     };
 
     for i = 0, i < a.len, i += 1 {
-        if compare_paths(a[i], b[i], true) == false {
-            ret false;
+        match a[i].kind {
+            ExprKind:VarUse(Path pathA) {
+                match b[i].kind {
+                    ExprKind:VarUse(Path pathB) {
+                        if compare_paths(pathA, pathB, true) == false {
+                            ret false;
+                        };
+                    },
+                };
+            },
         };
     };
     ret true;
