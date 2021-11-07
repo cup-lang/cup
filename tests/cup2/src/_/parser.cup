@@ -50,8 +50,9 @@ enum ExprKind (
     TagDef(Path path, darr<Expr> args, darr<Expr> body),
     Block(darr<Expr> body),
     Mod(Path path, darr<Expr> body),
-    Use(Path path),
+    Use(Path path, opt<Path> alias),
     Field(Path _type, str name),
+    TypeField(str name),
     Comp(Path path, darr<Expr> fields, darr<Expr> body),
     Enum(Path path, darr<Expr> opts, darr<Expr> body),
     Prop(Path path, darr<Expr> body),
@@ -68,7 +69,6 @@ enum ExprKind (
     FloatLit(str value),
     BoolLit(bool value),
     ThisLit,
-    TypeLit,
     LocalBlock(darr<Expr> body),
     If(IfBranch _if, darr<IfBranch> _elif, opt<ElseBranch> _else),
     Loop(darr<Expr> body),
@@ -296,8 +296,10 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
             index@ += 1;
         },
         TokenKind:Type {
-            expr.kind = ExprKind:TypeLit;
             index@ += 1;
+            expr.kind = ExprKind:TypeField(
+                expect_token(file, tokens, index, TokenKind:Ident, "expected field name after 'type'").value,
+            );
         },
         TokenKind:LeftBrace {
             index@ += 1;
@@ -621,7 +623,11 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
         TokenKind:Use {
             index@ += 1;
             Path path = parse_path(file, tokens, index);
-            expr.kind = ExprKind:Use(path);
+            opt<Path> alias = opt<Path>:None;
+            if opt_token(tokens, index, TokenKind:As) {
+                alias = opt<Path>:Some(parse_path(file, tokens, index));
+            };
+            expr.kind = ExprKind:Use(path, alias);
         },
         TokenKind:Comp {
             index@ += 1;
@@ -664,7 +670,7 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
             index@ += 1;
             Path _prop = parse_path(file, tokens, index);
             opt<Path> target = opt<Path>:None;
-            if opt_token(tokens, index, TokenKind:Comma) {
+            if opt_token(tokens, index, TokenKind:For) {
                 target = opt<Path>:Some(parse_path(file, tokens, index));
             };
             darr<Expr> body;
@@ -858,13 +864,9 @@ Path parse_opt_path(File file, darr<Token> tokens, ptr<int> index) {
                             int old_index = index@;
                             index@ += 2;
                             ~ll loop {
-                                token = tokens[index@];
-                                match token.kind {
-                                    TokenKind:Greater {
-                                        ret ~ll;
-                                    },
+                                if tokens[index@].kind == TokenKind:Greater {
+                                    ret ~ll;
                                 };
-                                ` Path gen = parse_opt_path(file, tokens, index);
                                 Expr gen = parse_local(file, tokens, index, (-1), true);
                                 if gen.kind == ExprKind:Empty {
                                     index@ = old_index;
@@ -872,8 +874,12 @@ Path parse_opt_path(File file, darr<Token> tokens, ptr<int> index) {
                                     ret ~ll;
                                 };
                                 darr<Expr>:push(part.gens$, gen);
-                                ` darr<Path>:push(part.gens$, gen);
-                                opt_token(tokens, index, TokenKind:Comma);
+                                
+                                if opt_token(tokens, index, TokenKind:Comma) == false {
+                                    expect_token(file, tokens, index, TokenKind:Greater, "expected '>' after last generic");
+                                    index@ -= 1;
+                                    ret ~ll;
+                                };
                             };
                         },
                     };
@@ -980,14 +986,23 @@ sub print_expr(Expr expr, int depth) {
             print_path(path, depth);
             print_opt_exprs(body, depth, "body", true);
         },
-        ExprKind:Use(Path path) {
+        ExprKind:Use(Path path, opt<Path> alias) {
             fmt:print("path = ");
             print_path(path, depth);
+            match alias {
+                opt<Path>:Some(Path _alias) {
+                    fmt:print(", alias = ");
+                    print_path(_alias, depth);
+                },
+            };
         },
         ExprKind:Field(Path _type, str name) {
             fmt:print("type = ");
             print_path(_type, depth);
             fmt:print(", name = %s", name.buf);
+        },
+        ExprKind:TypeField(str name) {
+            fmt:print("name = %s", name.buf);
         },
         ExprKind:Comp(Path path, darr<Expr> fields, darr<Expr> body) {
             fmt:print("path = ");
@@ -1092,7 +1107,6 @@ sub print_expr(Expr expr, int depth) {
             };
         },
         ExprKind:ThisLit {},
-        ExprKind:TypeLit {},
         ExprKind:LocalBlock(darr<Expr> body) {
             print_opt_exprs(body, depth, "body", false);
         },
@@ -1287,6 +1301,7 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:Mod { ret "MOD"; },
         ExprKind:Use { ret "USE"; },
         ExprKind:Field { ret "FIELD"; },
+        ExprKind:TypeField { ret "TYPE_FIELD"; },
         ExprKind:Comp { ret "COMP"; },
         ExprKind:Enum { ret "ENUM"; },
         ExprKind:Prop { ret "PROP"; },
@@ -1302,7 +1317,6 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:FloatLit { ret "FLOAT_LIT"; },
         ExprKind:BoolLit { ret "BOOL_LIT"; },
         ExprKind:ThisLit { ret "THIS_LIT"; },
-        ExprKind:TypeLit { ret "TYPE_LIT"; },
         ExprKind:LocalBlock { ret "LOCAL_BLOCK"; },
         ExprKind:If { ret "IF"; },
         ExprKind:Loop { ret "LOOP"; },

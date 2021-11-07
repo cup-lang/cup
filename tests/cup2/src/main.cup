@@ -133,7 +133,7 @@ int main(int argc, ptr<ptr<u8>> argv) {
     init_analyzer();
     lpa_file(new File {
         name = str:new_from_cstr("core.cup"),
-        data = str:new_from_cstr("comp ptr ();"),
+        data = load_file(str:new_from_cstr("../src/core")),
     }, ast$);
     analyze_all();
     `` TODO: lpa deps
@@ -188,12 +188,7 @@ sub lpa_folder(str path, ptr<darr<Expr>> ast) {
         };
         if ent@.d_type == dir:kind:file {
             str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
-            ptr<file> file_point = file:open(new_path.buf, "r");
-            file:seek(file_point, 0, file:seek_end);
-            str data = str:new_with_len(file:tell(file_point));
-            file:rewind(file_point);
-            file:read(data.buf, data.len + 1, 1, file_point);
-            file:close(file_point);
+            str data = load_file(new_path);
 
             lpa_file(new File {
                 name = new_path,
@@ -202,6 +197,17 @@ sub lpa_folder(str path, ptr<darr<Expr>> ast) {
         };
     };
     dir:close(_dir);
+};
+
+str load_file(str path) {
+    ptr<file> file_point = file:open(path.buf, "r");
+    file:seek(file_point, 0, file:seek_end);
+    str data = str:new_with_len(file:tell(file_point));
+    file:rewind(file_point);
+    file:read(data.buf, data.len, 1, file_point);
+    data[data.len] = '\0';
+    file:close(file_point);
+    ret data;
 };
 
 sub lpa_file(File file, ptr<darr<Expr>> ast) {
@@ -224,8 +230,8 @@ sub lpa_file(File file, ptr<darr<Expr>> ast) {
 sub analyze_all() {
     for i = 0, i < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze[i];
-        analyze_locals(analyze.file, analyze.exprs);
-        print_all_exprs(analyze.exprs);
+        analyze_locals(analyze.file, analyze.exprs, false);
+        ` print_all_exprs(analyze.exprs);
         mem:free(analyze.file.name.buf);
         mem:free(analyze.file.data.buf);
     };

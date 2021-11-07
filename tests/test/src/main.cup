@@ -9,7 +9,6 @@
     ` [?] combo var_defs
     ` [?] combo match/case
 ` analyzer
-    ` [✓] binds
     ` [] check number of args for
         ` [] tag
         ` [] sub_call
@@ -21,18 +20,20 @@
         ` [] when giving to comp_inst
         ` [] when ops
     ` [] check if label defined
-    ` [] check if comp_inst fields exist
     ` [] apply transformations
         ` [] custom ops
         ` [] enum compare == !=
         ` [] #self
             ` [] check if its allowed for currrent expr
-            ` [] this
+            ` [+] this
             ` [] sub_calls (.)
         ` [] try keyword
     ` [] type inference for var_defs
+    ` [] generic aliases
 ` generator
-    ` [] locals
+    ` generics
+        ` generate if not generated
+        ` mangle and return
     ` [] mangle labels
 ` playground
     ` multiple files
@@ -40,12 +41,15 @@
 ` language server
     ` parser error tolerance
 
-#req("stdio.h")
-#bind("printf")
-sub fmt:print() {};
-
 sub main() {
-    fmt:print("Hello, World!");
+    char d = '1';
+    bool foo = true;
+    int c = 1;
+    {
+        int c;
+        c = 1 + 1;
+    };
+    fmt:print("%i", c);
 };
 
 ` enum Test (
