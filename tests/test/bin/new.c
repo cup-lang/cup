@@ -1,3 +1,3 @@
 #include "stdint.h"
 #include "stdio.h"
-typedef struct _2 _2;void main();typedef struct _2{_4* buf;int32_t len;}_2;void main(){uint32_t __1='1';int8_t __2=1;int32_t __3=1;{int32_t __4;__4=(1+1);}printf("%i",__3);};
+typedef struct _2 _2;typedef struct _5 _5;typedef struct _6 _6;void main();typedef struct _2{uint32_t* buf;int32_t len;}_2;typedef struct _5{double* buf;int32_t len;}_5;typedef struct _6{float* buf;int32_t len;}_6;void main(){double __1;_5 __2;_6 __3;_5 __4;};

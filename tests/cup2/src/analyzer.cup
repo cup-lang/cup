@@ -450,6 +450,16 @@ sub apply_pub_scope(opt<Tag> pub, Path path, int scope) {
 };
 
 sub apply_uses(ptr<Path> path) {
+    for i = 0, i < path@.parts.len, i += 1 {
+        for ii = 0, ii < path@.parts[i].gens.len, ii += 1 {
+            match path@.parts[i].gens[ii].kind {
+                ExprKind:VarUse(#ref Path gen) {
+                    apply_uses(gen);      
+                },
+            };
+        };
+    };
+
     ~l loop {
         ~ll for i = 0, i < uses.len, i += 1 {
             if uses[i].is_mod {
@@ -534,20 +544,8 @@ str new_mangle(Expr expr, Path path, bool gens) {
         paths.push(darr<MangledExpr>:new_with_cap(16));
     };
 
-    int pointer_count = 0;
-    if gens {
-        Path ptr_path = path;
-        while (ptr_path.parts[0].gens.len == 1) & cmp_path_to_str(ptr_path, "ptr") {
-            match ptr_path.parts[0].gens[0].kind {
-                ExprKind:VarUse(Path ptr_gen) {
-                    ptr_path = ptr_gen;
-                },
-            };
-            pointer_count += 1;
-        };
-    };
-
-    str name = mangle_from_index(mangle_index += 1, false, pointer_count);
+    dstr n = mangle_from_index(mangle_index += 1, false);
+    str name = dstr:to_str(n$);
 
     darr<MangledExpr>:push(paths[path.parts.len - 1]$, new MangledExpr {
         expr = expr,
@@ -558,7 +556,7 @@ str new_mangle(Expr expr, Path path, bool gens) {
     ret name;
 };
 
-str mangle_from_index(int index, bool local, int pointer_count) {
+dstr mangle_from_index(int index, bool local) {
     dstr _name = dstr:new_with_cap(4);
     
     _name.push('_');
@@ -579,11 +577,7 @@ str mangle_from_index(int index, bool local, int pointer_count) {
         index /= 62;
     };
 
-    for i = 0, i < pointer_count, i += 1 {
-        _name.push('*');
-    };
-
-    ret _name.to_str();
+    ret _name;
 };
 
 bool cmp_path_to_str(Path path, ptr<u8> name) {

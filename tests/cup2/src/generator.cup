@@ -648,12 +648,25 @@ Path apply_generics(Path path) {
         new_path.parts[i].gens.len = part.gens.len;
         for ii = 0, ii < part.gens.len, ii += 1 {
             match part.gens[ii].kind {
+                ExprKind:TypeField(str gen) {
+                    for iii = 0, iii < gens.len, iii += 1 {
+                        if cstr:cmp(gens[iii].name.buf, gen.buf) == 0 {
+                            match gens[iii].expr.kind {
+                                ExprKind:VarUse(Path _gen) {
+                                    new_path.parts[i].gens[ii] = new Expr {
+                                        kind = ExprKind:VarUse(_gen),
+                                    };
+                                },
+                            };
+                        };
+                    };
+                },
                 ExprKind:VarUse(Path gen) {
                     new_path.parts[i].gens[ii] = new Expr {
                         kind = ExprKind:VarUse(apply_generics(gen)),
                     };
                 },
-            }; 
+            };
         };
     };
     ret new_path;
@@ -662,12 +675,20 @@ Path apply_generics(Path path) {
 opt<str> mangle(Path path, bool is_new) {
     path = apply_generics(path);
 
+    int ptr_count = 0;
+    while (path.parts[0].gens.len == 1) & cmp_path_to_str(path, "ptr") {
+        match path.parts[0].gens[0].kind {
+            ExprKind:VarUse(Path gen) {
+                path = gen;
+            },
+        };
+        ptr_count += 1;
+    };
+
     for i = 0, i < path.parts.len, i += 1 {
         for ii = 0, ii < path.parts[i].gens.len, ii += 1 {
             match path.parts[i].gens[ii].kind {
                 ExprKind:VarUse(Path gen) {
-                    opt<str> abc = mangle(gen, false);
-                    fmt:print("%s!!\n", opt<str>:unwrap(abc$));
                     mangle(gen, false);
                 },
             };
@@ -681,7 +702,8 @@ opt<str> mangle(Path path, bool is_new) {
 
         for i = local_vars.len - 1, i >= 0, i -= 1 {
             if cstr:cmp(path.parts[0].name.buf, local_vars[i].buf) == 0 {
-                ret opt<str>:Some(mangle_from_index(i + 1, true, 0));
+                dstr n = mangle_from_index(i + 1, true);
+                ret opt<str>:Some(dstr:to_str(n$));
             };
         };
     };
@@ -690,7 +712,7 @@ opt<str> mangle(Path path, bool is_new) {
     for i = 0, i < len_paths.len, i += 1 {
         Path other = len_paths[i].path;
         if compare_paths(path, other, false) {
-            if (is_new == false) & (cmp_path_to_str(path, "ptr") == false) & has_generics(other) {
+            if (is_new == false) & (ptr_count == 0) & has_generics(other) {
                 int old_gens_len = gens.len;
                 for ii = 0, ii < other.parts.len, ii += 1 {
                     PathPart part = other.parts[ii];
@@ -709,22 +731,36 @@ opt<str> mangle(Path path, bool is_new) {
                 gens.len = old_gens_len;
             };
 
+            len_paths = paths[path.parts.len - 1];
             for i = 0, i < len_paths.len, i += 1 {
                 if compare_paths(path, len_paths[i].path, true) {
                     if is_new {
                         ret opt<str>:None;
                     } else {
-                        ret opt<str>:Some(len_paths[i].name);
+                        ret opt<str>:Some(add_ptr(len_paths[i].name, ptr_count));
                     };
                 };
             };
 
-            ret opt<str>:Some(new_mangle(new Expr {}, path, true));
+            ret opt<str>:Some(add_ptr(new_mangle(new Expr {}, path, true), ptr_count));
         };
     };
 };
 
+str add_ptr(str name, int ptr_count) {
+    if ptr_count == 0 {
+        ret name;
+    };
+    dstr ptr_name = dstr:new_with_cap(name.len + ptr_count);
+    ptr_name.join(name);
+    for i = 0, i < ptr_count, i += 1 {
+        ptr_name.push('*');
+    };
+    ret ptr_name.to_str();
+};
+
 str mangle_local(str name) {
     local_vars.push(name);
-    ret mangle_from_index(local_vars.len, true, 0);
+    dstr n = mangle_from_index(local_vars.len, true);
+    ret dstr:to_str(n$);
 };

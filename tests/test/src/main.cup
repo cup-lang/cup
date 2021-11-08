@@ -31,9 +31,6 @@
     ` [] type inference for var_defs
     ` [] generic aliases
 ` generator
-    ` generics
-        ` generate if not generated
-        ` mangle and return
     ` [] mangle labels
 ` playground
     ` multiple files
@@ -42,14 +39,7 @@
     ` parser error tolerance
 
 sub main() {
-    char d = '1';
-    bool foo = true;
-    int c = 1;
-    {
-        int c;
-        c = 1 + 1;
-    };
-    fmt:print("%i", c);
+    
 };
 
 ` enum Test (

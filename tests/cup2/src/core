@@ -38,6 +38,15 @@ comp str (
     int len,
 );
 
+def str {
+    
+};
+
+comp arr<type T> (
+    ptr<T> buf,
+    int len,
+);
+
 #req("stdio.h")
 #bind("printf")
 sub fmt:print() {};
