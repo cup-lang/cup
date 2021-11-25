@@ -1,14 +1,18 @@
 ` general
-    ` [?] rename `enum` -> `union`
+    ` [?] rename `enum` -> `sum`
     ` [?] rename `|` -> `^`
+    ` [?] #mut
 ` lexer
+    ` [] add @=
     ` [] raw strings
+    ` [] string interpolation ($, $(abc + 2))
 ` parser
     ` [] Path -> Expr
     ` [] chaining ops
     ` [?] combo var_defs
     ` [?] combo match/case
 ` analyzer
+    ` [] type inference
     ` [] check number of args for
         ` [] tag
         ` [] sub_call
@@ -21,6 +25,7 @@
         ` [] when ops
     ` [] check if label defined
     ` [] apply transformations
+        ` [] auto deref and address
         ` [] custom ops
         ` [] enum compare == !=
         ` [] #self
@@ -28,7 +33,6 @@
             ` [+] this
             ` [] sub_calls (.)
         ` [] try keyword
-    ` [] type inference for var_defs
     ` [] generic aliases
 ` generator
     ` [] mangle labels
@@ -38,35 +42,22 @@
 ` language server
     ` parser error tolerance
 
-sub main() {
-    
+comp SomeComp (int a) {
+    #pub int foo () {
+
+    };
 };
 
-` enum Test (
-`     comp A (),
-`     comp B (),
-` );
-
-` mod foo<type AAA> {
-`     enum SomeEnum<type T> (
-`         int,
-`         f32,
-`         comp NewType (),
-`     );
+` #single prop ops:Add<T> {
+`     #self T add (This rhs);
+` };
+` 
+` def ops:Add<int> for int {
+`     #self int add (This rhs) {
+`         ret self + rhs;
+`     };
 ` };
 
-` comp int ();
-` 
-` mod a {
-` 
-`     echo b:c:d;
-` 
-`     mod b {
-`         int c;
-`     };
-` 
-`     mod b:c {
-`         #pub int d;
-`     };
-` 
-` };
+sub main () {
+    SomeComp:foo();
+}; 

@@ -20,7 +20,7 @@ sub generate(str output, darr<Expr> ast) {
     types = dstr:new_with_cap(1024);
     funcs = dstr:new_with_cap(1024);
     gens = darr<GenericInstance>:new_with_cap(4);
-    generate_expr_vec(variables$, ast, false, false, false);
+    generate_expr_vec(0, ast, false, false, false);
     types_headers[types_headers.len] = '\0';
     funcs_headers[funcs_headers.len] = '\0';
     variables[variables.len] = '\0';
@@ -152,6 +152,8 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             dstr:push(comp_out$, ';');
             dstr:join(types$, comp_out.to_str());
             mem:free(comp_out.buf);
+
+            generate_expr_vec(out, body, true, false, true);
         },
         ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
             bool has_gens = has_generics(path);
@@ -200,6 +202,8 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             dstr:push(enum_out$, ';');
             dstr:join(types$, enum_out.to_str());
             mem:free(enum_out.buf);
+
+            generate_expr_vec(out, body, true, false, true);
         },
         ExprKind:Prop(Path path, darr<Expr> body) {},
         ExprKind:Def(Path _prop, opt<Path> target, darr<Expr> body) {
@@ -251,9 +255,11 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
                     parts = darr<PathPart>:new_with_cap(2),
                 };
                 darr<Expr> this_ptr_gens = darr<Expr>:new_with_cap(1);
+                path.parts.len -= 1;
                 darr<Expr>:push(this_ptr_gens$, new Expr {
                     kind = ExprKind:VarUse(path),
                 });
+                path.parts.len += 1;
                 this_ptr.parts[0] = new PathPart {
                     name = str:new_from_cstr("ptr"),
                     gens = this_ptr_gens,
@@ -289,17 +295,17 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
         ExprKind:VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value) {
             Path __type = opt<Path>:unwrap(_type$);
             opt<str> ___type = mangle(__type, false);
-            dstr:join(out, ___type.unwrap());
-            dstr:push(out, ' ');
+            dstr:join(variables$, ___type.unwrap());
+            dstr:push(variables$, ' ');
             opt<str> _path = mangle(path, false);
-            dstr:join(out, _path.unwrap());
+            dstr:join(variables$, _path.unwrap());
             match value {
                 opt<ptr<Expr>>:Some(ptr<Expr> _value) {
-                    dstr:push(out, '=');
-                    generate_expr(out, _value@, false, false, 0);
+                    dstr:push(variables$, '=');
+                    generate_expr(variables$, _value@, false, false, 0);
                 },
             };
-            dstr:push(out, ';');
+            dstr:push(variables$, ';');
         },
         ExprKind:LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value) {
             Path __type = opt<Path>:unwrap(_type$);

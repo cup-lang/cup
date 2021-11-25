@@ -74,11 +74,13 @@ sub analyze_global(File file, ptr<Expr> expr) {
             darr<PathPart>:join_back(_path@.parts$, old_mods);
             analyze_globals(file, body);
             mods.len = old_mods.len;
-            uses.push(new Use {
-                is_mod = true,
-                path = Path:clone(_path),
-                alias = old_path,
-            });
+            if old_mods.len > 0 {
+                uses.push(new Use {
+                    is_mod = true,
+                    path = Path:clone(_path),
+                    alias = old_path,
+                });
+            };
             path = _path;
         },
         ExprKind:Use(Path _path, opt<Path> alias) {
@@ -104,15 +106,22 @@ sub analyze_global(File file, ptr<Expr> expr) {
             };
             ret;
         },
-        ExprKind:Comp(#ref Path _path) {
+        ExprKind:Comp(#ref Path _path, darr<Expr> fields, darr<Expr> body) {
             apply_pub_scope(pub, _path@, scope_index);
+            darr<PathPart> old_mods = Path:clone(new Path { parts = mods }$).parts;
+            mods.join(_path@.parts);
             Path old_path = Path:clone(_path);
-            darr<PathPart>:join_back(_path@.parts$, mods);
-            uses.push(new Use {
-                is_mod = false,
-                path = Path:clone(_path),
-                alias = old_path,
-            });
+            darr<PathPart>:join_back(_path@.parts$, old_mods);
+            analyze_globals(file, fields);
+            analyze_globals(file, body);
+            mods.len = old_mods.len;
+            if old_mods.len > 0 {
+                uses.push(new Use {
+                    is_mod = false,
+                    path = Path:clone(_path),
+                    alias = old_path,
+                });
+            };
             path = _path;
         },
         ExprKind:Enum(#ref Path _path, darr<Expr> opts, darr<Expr> body) {
@@ -120,14 +129,17 @@ sub analyze_global(File file, ptr<Expr> expr) {
             darr<PathPart> old_mods = Path:clone(new Path { parts = mods }$).parts;
             mods.join(_path@.parts);
             Path old_path = Path:clone(_path);
-            darr<PathPart>:join_back(_path@.parts$, mods);
+            darr<PathPart>:join_back(_path@.parts$, old_mods);
             analyze_globals(file, opts);
+            analyze_globals(file, body);
             mods.len = old_mods.len;
-            uses.push(new Use {
-                is_mod = false,
-                path = Path:clone(_path),
-                alias = old_path,
-            });
+            if old_mods.len > 0 {
+                uses.push(new Use {
+                    is_mod = false,
+                    path = Path:clone(_path),
+                    alias = old_path,
+                });
+            };
             path = _path;
         },
         ExprKind:Def(Path _prop, _, darr<Expr> body) {
@@ -141,22 +153,26 @@ sub analyze_global(File file, ptr<Expr> expr) {
             apply_pub_scope(pub, _path@, scope_index);
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
-            uses.push(new Use {
-                is_mod = false,
-                path = Path:clone(_path),
-                alias = old_path,
-            });
+            if mods.len > 0 {
+                uses.push(new Use {
+                    is_mod = false,
+                    path = Path:clone(_path),
+                    alias = old_path,
+                });
+            };
             path = _path;
         },
         ExprKind:VarDef(opt<Path> _type, #ref Path _path) {
             apply_pub_scope(pub, _path@, scope_index);
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
-            uses.push(new Use {
-                is_mod = false,
-                path = Path:clone(_path),
-                alias = old_path,
-            });
+            if mods.len > 0 {
+                uses.push(new Use {
+                    is_mod = false,
+                    path = Path:clone(_path),
+                    alias = old_path,
+                });
+            };
             path = _path;
         },
         _ { ret; },
@@ -271,11 +287,17 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:Comp(Path path, darr<Expr> fields, darr<Expr> body) {
             analyze_locals(file, fields, false);
+            mods.len = 0;
+            mods.join(path.parts);
             analyze_locals(file, body, false);
+            mods.len = 0;
         },
         ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
             ` TODO: analyze_locals(file, opts);
+            mods.len = 0;
+            mods.join(path.parts);
             analyze_locals(file, body, false);
+            mods.len = 0;
         },
         ExprKind:Prop(Path path, darr<Expr> body) {
             analyze_locals(file, body, false);
@@ -330,6 +352,7 @@ sub analyze_local(File file, ptr<Expr> expr) {
         },
         ExprKind:SubCall(#ref Path path, darr<Expr> args) {
             apply_uses(path);
+            check_path_defined_visible(file, path@, PathKind:Sub);
             analyze_locals(file, args, false);
         },
         ExprKind:VarUse(#ref Path path) {

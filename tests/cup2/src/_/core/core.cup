@@ -292,7 +292,7 @@ def arr<T> {
     };
 
     #self
-    dstr to_darr() {
+    darr<T> to_darr() {
         ret new darr<T> {
             buf = this.buf,
             len = this.len,
@@ -386,7 +386,7 @@ def darr<T> {
     };
 
     #self
-    str to_arr() {
+    arr<T> to_arr() {
         ret new arr<T> {
             buf = this.buf,
             len = this.len,

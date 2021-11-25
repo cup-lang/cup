@@ -231,7 +231,7 @@ sub analyze_all() {
     for i = 0, i < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze[i];
         analyze_locals(analyze.file, analyze.exprs, false);
-        ` print_all_exprs(analyze.exprs);
+        print_all_exprs(analyze.exprs);
         mem:free(analyze.file.name.buf);
         mem:free(analyze.file.data.buf);
     };
