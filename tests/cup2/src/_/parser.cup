@@ -54,20 +54,19 @@ enum ExprKind (
     Field(Path _type, str name),
     TypeField(str name),
     Comp(Path path, darr<Expr> fields, darr<Expr> body),
-    Enum(Path path, darr<Expr> opts, darr<Expr> body),
-    Prop(Path path, darr<Expr> body),
-    Def(Path _prop, opt<Path> target, darr<Expr> body),
-    SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body),
+    Sum(Path path, darr<Expr> opts, darr<Expr> body),
+    Trait(Path path, darr<Expr> body),
+    Def(Path _trait, opt<Path> target, darr<Expr> body),
+    ProcDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body),
     VarDef(opt<Path> _type, Path path, opt<ptr<Expr>> value),
 
     LocalVarDef(opt<Path> _type, str name, opt<ptr<Expr>> value),
-    SubCall(Path path, darr<Expr> args),
+    ProcCall(Path path, darr<Expr> args),
     VarUse(Path path),
     StringLit(str value),
     CharLit(str value),
     IntLit(str value),
     FloatLit(str value),
-    BoolLit(bool value),
     ThisLit,
     LocalBlock(darr<Expr> body),
     If(IfBranch _if, darr<IfBranch> _elif, opt<ElseBranch> _else),
@@ -77,7 +76,6 @@ enum ExprKind (
     Each(darr<str> vars, ptr<Expr> iter, darr<Expr> body),
     Match(ptr<Expr> value, darr<Expr> cases),
     Case(darr<Expr> values, darr<Expr> body),
-    Echo(ptr<Expr> value),
     Ret(opt<str> label, opt<ptr<Expr>> value),
     Next(str label),
     Jump(str label),
@@ -242,7 +240,7 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
                         ret ~ll;
                     };
                 };
-                expr.kind = ExprKind:SubCall(path, args);
+                expr.kind = ExprKind:ProcCall(path, args);
                 ret ~l;
             };
 
@@ -281,14 +279,6 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
         },
         TokenKind:FloatLit {
             expr.kind = ExprKind:FloatLit(token.value);
-            index@ += 1;
-        },
-        TokenKind:True {
-            expr.kind = ExprKind:BoolLit(true);
-            index@ += 1;
-        },
-        TokenKind:False {
-            expr.kind = ExprKind:BoolLit(false);
             index@ += 1;
         },
         TokenKind:This {
@@ -411,11 +401,6 @@ Expr parse_local(File file, darr<Token> tokens, ptr<int> index, int op_level, bo
             };
             expect_token(file, tokens, index, TokenKind:RightBrace, "expected '}' after 'match' body");
             expr.kind = ExprKind:Match(value, body);
-        },
-        TokenKind:Echo {
-            index@ += 1;
-            ptr<Expr> value = alloc<Expr>(parse_local(file, tokens, index, 0, false));
-            expr.kind = ExprKind:Echo(value);
         },
         TokenKind:Ret {
             index@ += 1;
@@ -642,7 +627,7 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
             };
             expr.kind = ExprKind:Comp(path, fields, body);
         },
-        TokenKind:Enum {
+        TokenKind:Sum {
             index@ += 1;
             Path path = parse_path(file, tokens, index);
             expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'enum' path");
@@ -653,9 +638,9 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
             } else {
                 body.len = 0;
             };
-            expr.kind = ExprKind:Enum(path, opts, body);
+            expr.kind = ExprKind:Sum(path, opts, body);
         },
-        TokenKind:Prop {
+        TokenKind:Trait {
             index@ += 1;
             Path path = parse_path(file, tokens, index);
             darr<Expr> body;
@@ -664,11 +649,11 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
             } else {
                 body.len = 0;
             };
-            expr.kind = ExprKind:Prop(path, body);
+            expr.kind = ExprKind:Trait(path, body);
         },
         TokenKind:Def {
             index@ += 1;
-            Path _prop = parse_path(file, tokens, index);
+            Path _trait = parse_path(file, tokens, index);
             opt<Path> target = opt<Path>:None;
             if opt_token(tokens, index, TokenKind:For) {
                 target = opt<Path>:Some(parse_path(file, tokens, index));
@@ -679,14 +664,14 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
             } else {
                 body.len = 0;
             };
-            expr.kind = ExprKind:Def(_prop, target, body);
+            expr.kind = ExprKind:Def(_trait, target, body);
         },
-        TokenKind:Sub {
+        TokenKind:Proc {
             index@ += 1;
 
             Path path = parse_path(file, tokens, index);
 
-            expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after 'sub' path");
+            expect_token(file, tokens, index, TokenKind:LeftParen, "expected '(' after the procedure path");
             darr<Expr> args = parse_fields(file, tokens, index);
 
             darr<Expr> body;
@@ -696,7 +681,7 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
                 body.len = 0;
             };
 
-            expr.kind = ExprKind:SubDef(opt<Path>:None, path, args, body);
+            expr.kind = ExprKind:ProcDef(opt<Path>:None, path, args, body);
         },
         TokenKind:Var {
             index@ += 1;
@@ -732,7 +717,7 @@ Expr parse_global(File file, darr<Token> tokens, ptr<int> index) {
                                 body.len = 0;
                             };
 
-                            expr.kind = ExprKind:SubDef(opt<Path>:Some(_type), path, args, body);
+                            expr.kind = ExprKind:ProcDef(opt<Path>:Some(_type), path, args, body);
                         },
                         _ {
                             opt<ptr<Expr>> value = opt<ptr<Expr>>:None;
@@ -1010,20 +995,20 @@ sub print_expr(Expr expr, int depth) {
             print_opt_exprs(fields, depth, "fields", true);
             print_opt_exprs(body, depth, "body", true);
         },
-        ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
+        ExprKind:Sum(Path path, darr<Expr> opts, darr<Expr> body) {
             fmt:print("path = ");
             print_path(path, depth);
             print_opt_exprs(opts, depth, "opts", true);
             print_opt_exprs(body, depth, "body", true);
         },
-        ExprKind:Prop(Path path, darr<Expr> body) {
+        ExprKind:Trait(Path path, darr<Expr> body) {
             fmt:print("path = ");
             print_path(path, depth);
             print_opt_exprs(body, depth, "body", true);
         },
-        ExprKind:Def(Path _prop, opt<Path> target, darr<Expr> body) {
-            fmt:print("prop = ");
-            print_path(_prop, depth);
+        ExprKind:Def(Path _trait, opt<Path> target, darr<Expr> body) {
+            fmt:print("trait = ");
+            print_path(_trait, depth);
             match target {
                 opt<Path>:Some(Path _target) {
                     fmt:print(", target = ");
@@ -1032,7 +1017,7 @@ sub print_expr(Expr expr, int depth) {
             };
             print_opt_exprs(body, depth, "body", true);
         },
-        ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
+        ExprKind:ProcDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
             match ret_type {
                 opt<Path>:Some(Path _ret_type) {
                     fmt:print("ret_type = ");
@@ -1078,7 +1063,7 @@ sub print_expr(Expr expr, int depth) {
                 },
             };
         },
-        ExprKind:SubCall(Path path, darr<Expr> args) {
+        ExprKind:ProcCall(Path path, darr<Expr> args) {
             fmt:print("path = ");
             print_path(path, depth);
             print_opt_exprs(args, depth, "args", true);
@@ -1098,13 +1083,6 @@ sub print_expr(Expr expr, int depth) {
         },
         ExprKind:FloatLit(str value) {
             fmt:print("%s", value);
-        },
-        ExprKind:BoolLit(bool value) {
-            if value {
-                fmt:print("true");
-            } else {
-                fmt:print("false");
-            };
         },
         ExprKind:ThisLit {},
         ExprKind:LocalBlock(darr<Expr> body) {
@@ -1162,10 +1140,6 @@ sub print_expr(Expr expr, int depth) {
         ExprKind:Case(darr<Expr> values, darr<Expr> body) {
             print_opt_exprs(values, depth, "values", false);
             print_opt_exprs(body, depth, "body", true);
-        },
-        ExprKind:Echo(ptr<Expr> value) {
-            fmt:print("value = ");
-            print_expr(value@, depth);
         },
         ExprKind:Ret(opt<str> label, opt<ptr<Expr>> value) {
             match label {
@@ -1303,19 +1277,18 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:Field { ret "FIELD"; },
         ExprKind:TypeField { ret "TYPE_FIELD"; },
         ExprKind:Comp { ret "COMP"; },
-        ExprKind:Enum { ret "ENUM"; },
-        ExprKind:Prop { ret "PROP"; },
+        ExprKind:Sum { ret "ENUM"; },
+        ExprKind:Trait { ret "TRAIT"; },
         ExprKind:Def { ret "DEF"; },
-        ExprKind:SubDef { ret "SUB_DEF"; },
+        ExprKind:ProcDef { ret "PROC_DEF"; },
         ExprKind:VarDef { ret "VAR_DEF"; },
         ExprKind:LocalVarDef { ret "LOCAL_VAR_DEF"; },
-        ExprKind:SubCall { ret "SUB_CALL"; },
+        ExprKind:ProcCall { ret "PROC_CALL"; },
         ExprKind:VarUse { ret "VAR_USE"; },
         ExprKind:StringLit { ret "STRING_LIT"; },
         ExprKind:CharLit { ret "CHAR_LIT"; },
         ExprKind:IntLit { ret "INT_LIT"; },
         ExprKind:FloatLit { ret "FLOAT_LIT"; },
-        ExprKind:BoolLit { ret "BOOL_LIT"; },
         ExprKind:ThisLit { ret "THIS_LIT"; },
         ExprKind:LocalBlock { ret "LOCAL_BLOCK"; },
         ExprKind:If { ret "IF"; },
@@ -1325,7 +1298,6 @@ ptr<u8> get_expr_name(ExprKind kind) {
         ExprKind:Each { ret "EACH"; },
         ExprKind:Match { ret "MATCH"; },
         ExprKind:Case { ret "CASE"; },
-        ExprKind:Echo { ret "ECHO"; },
         ExprKind:Ret { ret "RET"; },
         ExprKind:Next { ret "NEXT"; },
         ExprKind:Jump { ret "JUMP"; },

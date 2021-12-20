@@ -176,7 +176,9 @@ sub lpa_folder(str path, ptr<darr<Expr>> ast) {
                 next ~d;
             };
             str new_path = combine_paths(path, str:new_from_cstr(ent@.d_name));
+            mods.push(new PathPart { pub = true, scope = 0, name = ent@.d_name, gens = new darr<Expr> { len = 0 } });
             lpa_folder(new_path, ast);
+            mods.len -= 1;
             mem:free(new_path.buf);
         };
     };
@@ -231,7 +233,7 @@ sub analyze_all() {
     for i = 0, i < to_analyze.len, i += 1 {
         ToAnalyze analyze = to_analyze[i];
         analyze_locals(analyze.file, analyze.exprs, false);
-        print_all_exprs(analyze.exprs);
+        ` print_all_exprs(analyze.exprs);
         mem:free(analyze.file.name.buf);
         mem:free(analyze.file.data.buf);
     };

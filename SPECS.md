@@ -1,15 +1,14 @@
 # Keywords
-- `true` / `false` - boolean value literals
 - `this` - current instance
-- `type` - type of every type
+- `type` - type of a type
 - `tag` - defines a tag
 - `mod` - defines a module
 - `use` - imports a module
-- `comp` - defines a compund type
-- `enum` - defines a enumerated type
-- `prop` - defines a property
-- `def` - defines a property for a type
-- `sub` - defines a subroutine
+- `comp` - defines a compound type
+- `sum` - defines a sum type
+- `trait` - defines a trait
+- `def` - defines a trait for a type
+- `proc` - defines a procedure
 - `var` - defines a variable
 - `if` / `elif` / `else` - if statement
 - `loop` - loop statement
@@ -23,15 +22,12 @@
 - `jump` - jumps to a label
 - `try` - used with errors
 - `as` - casts to a type
-- `has` - checks if type has property
 # Operators
 1.  - `a[]` - array access
-    - `a()` - subroutine call
+    - `a()` - procedure call
     - `a.b` - member access
 2.  - `-b` - negation
     - `!b` - not
-    - `a@` - dereference
-    - `a$` - reference
 3. Mixable, left to right
     - `*` - multiplication
     - `/` - division
@@ -58,75 +54,74 @@
     - `%=` - modulo assign
     - `^=` - power assign
 # Expressions
-- `Block` - *Block of code*
+- `Block` - Block of code
     - `darr<Expr>` body
-- `Mod` - *Module*
+- `Mod` - Module
     - `Path` path
     - `darr<Expr>` body
-- `Use` - *Use*
+- `Use` - Use
     - `Path` path
-- `Field` - *Field*
+- `Field` - Field
     - `Path` _type
     - `str` name
-- `Comp` - *Compund type*
+- `Comp` - Compound type
     - `Path` path
     - `darr<Expr>` fields
     - `darr<Expr>` body
-- `Enum` - *Enumerated type*
+- `Sum` - Sum type
     - `Path` path
     - `darr<Expr>` opts
     - `darr<Expr>` body
-- `Prop` - *Property*
+- `Trait` - Trait
     - `Path` path
     - `darr<Expr>` body
-- `Def` - *Define*
+- `Def` - Define
     - `Path` path
     - `opt<Path>` target
     - `darr<Expr>` body
-- `TagDef` - *Tag definition*
+- `TagDef` - Tag definition
     - `Path` path
     - `darr<Expr>` args
     - `darr<Expr>` body
-- `SubDef` - *Subroutine definition*
+- `ProcDef` - Procedure definition
     - `opt<Path>` ret_type
     - `Path` path
     - `darr<Expr>` args
     - `darr<Expr>` body
-- `VarDef` - *Variable definition*
+- `VarDef` - Variable definition
     - `opt<Path>` _type
     - `Path` path
     - `opt<ptr<Expr>>` value
-- `LocalVarDef` - *Local variable definition*
+- `LocalVarDef` - Local variable definition
     - `opt<Path>` _type
     - `str` name
     - `opt<ptr<Expr>>` value
-- `SubCall` - *Subroutine call*
+- `ProcCall` - Procedure call
     - `Path` path
     - `darr<Expr>` args
-- `VarUse` - *Variable use*
+- `VarUse` - Variable use
     - `Path` path
-- `StringLit` - *String literal*
+- `StringLit` - String literal
     - `str` value
-- `CharLit` - *Character literal*
+- `CharLit` - Character literal
     - `str` value
-- `IntLit` - *Integer literal*
+- `IntLit` - Integer literal
     - `str` value
-- `FloatLit` - *Floating literal*
+- `FloatLit` - Floating literal
     - `str` value
-- `BoolLit` - *Boolean literal*
+- `BoolLit` - Boolean literal
     - `bool` value
 # Types
 - `isize`, `i8`, `i16`, `i32`, `i64`, `int` = `i32`
 - `usize`, `u8`, `u16`, `u32`, `u64`, `uint` = `u32`
-- `bsize`, `b8`, `b16`, `b32`, `b64`, `bool` = `b8`
+- `bool`
 - `f32` ,`f64`, `float` = `f64`
 - `c8`, `c16`, `c32`, `char` = `c32`
 - `s8`, `s16`, `s32`, `str` = `s32`
 # Basic tags
-- `#con` - marks variable as constant
-- `#cmp` - marks expression as compile time
+- `#cmp` - marks expression as compile time constant
 - `#pub` - marks item as public
-- `#inl` - marks "sub"/"var" to be inlined by the compiler
+- `#inl` - marks "proc"/"var" to be inlined by the compiler
 - `#uni` - unified "comp"
 - `#exh` - exhaustive "match"
 - `#del` - delay execution of a "local"

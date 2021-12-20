@@ -1,0 +1,3 @@
+proc abc () {
+    fmt:print("Hello, World!");
+};

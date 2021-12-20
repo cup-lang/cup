@@ -124,7 +124,7 @@ sub analyze_global(File file, ptr<Expr> expr) {
             };
             path = _path;
         },
-        ExprKind:Enum(#ref Path _path, darr<Expr> opts, darr<Expr> body) {
+        ExprKind:Sum(#ref Path _path, darr<Expr> opts, darr<Expr> body) {
             apply_pub_scope(pub, _path@, scope_index);
             darr<PathPart> old_mods = Path:clone(new Path { parts = mods }$).parts;
             mods.join(_path@.parts);
@@ -142,14 +142,14 @@ sub analyze_global(File file, ptr<Expr> expr) {
             };
             path = _path;
         },
-        ExprKind:Def(Path _prop, _, darr<Expr> body) {
-            apply_pub_scope(pub, _prop, scope_index);
+        ExprKind:Def(Path _trait, _, darr<Expr> body) {
+            apply_pub_scope(pub, _trait, scope_index);
             int old_mods_len = mods.len;
-            mods.join(_prop.parts);
+            mods.join(_trait.parts);
             analyze_globals(file, body);
             mods.len = old_mods_len;
         },
-        ExprKind:SubDef(_, #ref Path _path) {
+        ExprKind:ProcDef(_, #ref Path _path) {
             apply_pub_scope(pub, _path@, scope_index);
             Path old_path = Path:clone(_path);
             darr<PathPart>:join_back(_path@.parts$, mods);
@@ -183,9 +183,9 @@ sub analyze_global(File file, ptr<Expr> expr) {
             match expr@.kind {
                 ExprKind:Mod,
                 ExprKind:Comp,
-                ExprKind:Enum,
+                ExprKind:Sum,
                 ExprKind:Def,
-                ExprKind:SubDef,
+                ExprKind:ProcDef,
                 ExprKind:VarDef {},
                 _ {
                     file.throw(_tag.index, "#pub cannot be applied to this expr");
@@ -200,8 +200,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
         opt<Tag>:Some(Tag _tag) {
             match expr@.kind {
                 ExprKind:Comp,
-                ExprKind:Enum,
-                ExprKind:SubDef,
+                ExprKind:Sum,
+                ExprKind:ProcDef,
                 ExprKind:VarDef {
                     if gen {
                         file.throw(_tag.index, "#bind cannot be applied to generic expressions");
@@ -216,8 +216,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
 
     match expr@.kind {
         ExprKind:Comp,
-        ExprKind:Enum,
-        ExprKind:SubDef,
+        ExprKind:Sum,
+        ExprKind:ProcDef,
         ExprKind:VarDef {
             if path@.parts.len <= paths.len {
                 if is_path_defined(path@) {
@@ -229,8 +229,8 @@ sub analyze_global(File file, ptr<Expr> expr) {
                 opt<Tag>:Some(Tag _tag) {
                     match expr@.kind {
                         ExprKind:Comp,
-                        ExprKind:Enum,
-                        ExprKind:SubDef,
+                        ExprKind:Sum,
+                        ExprKind:ProcDef,
                         ExprKind:VarDef {
                             if _tag.args.len != 1 {
                                 file.throw(_tag.index, "#bind requires one argument of type string");
@@ -292,19 +292,19 @@ sub analyze_local(File file, ptr<Expr> expr) {
             analyze_locals(file, body, false);
             mods.len = 0;
         },
-        ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
+        ExprKind:Sum(Path path, darr<Expr> opts, darr<Expr> body) {
             ` TODO: analyze_locals(file, opts);
             mods.len = 0;
             mods.join(path.parts);
             analyze_locals(file, body, false);
             mods.len = 0;
         },
-        ExprKind:Prop(Path path, darr<Expr> body) {
+        ExprKind:Trait(Path path, darr<Expr> body) {
             analyze_locals(file, body, false);
         },
-        ExprKind:Def(#ref Path _prop, #ref opt<Path> target, darr<Expr> body) {
-            apply_uses(_prop);
-            check_path_defined_visible(file, _prop@, PathKind:Type);
+        ExprKind:Def(#ref Path _trait, #ref opt<Path> target, darr<Expr> body) {
+            apply_uses(_trait);
+            check_path_defined_visible(file, _trait@, PathKind:Type);
             match target@ {
                 opt<Path>:Some(#ref Path _target) {
                     apply_uses(_target);
@@ -313,7 +313,7 @@ sub analyze_local(File file, ptr<Expr> expr) {
             };
             analyze_locals(file, body, false);
         },
-        ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
+        ExprKind:ProcDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
             match ret_type {
                 opt<Path>:Some(#ref Path _ret_type) {
                     apply_uses(_ret_type);
@@ -350,7 +350,7 @@ sub analyze_local(File file, ptr<Expr> expr) {
                 },
             };
         },
-        ExprKind:SubCall(#ref Path path, darr<Expr> args) {
+        ExprKind:ProcCall(#ref Path path, darr<Expr> args) {
             apply_uses(path);
             check_path_defined_visible(file, path@, PathKind:Sub);
             analyze_locals(file, args, false);
@@ -406,9 +406,6 @@ sub analyze_local(File file, ptr<Expr> expr) {
         ExprKind:Case(darr<Expr> values, darr<Expr> body) {
             ` TODO: values
             analyze_locals(file, body, true);
-        },
-        ExprKind:Echo(ptr<Expr> value) {
-            analyze_local(file, value);
         },
         ExprKind:Ret(opt<str> label, opt<ptr<Expr>> value) {
             match value {
@@ -527,18 +524,18 @@ sub check_path_defined_visible(File file, Path path, PathKind kind) {
                         };
                     }
                     elif kind == PathKind:Type {
-                        if (len_paths[i].expr.kind != ExprKind:Comp) & (len_paths[i].expr.kind != ExprKind:Enum) {
+                        if (len_paths[i].expr.kind != ExprKind:Comp) & (len_paths[i].expr.kind != ExprKind:Sum) {
                             file.throw(path.index, "expected a type");
                         };
                     }
                     elif kind == PathKind:Sub {
-                        if len_paths[i].expr.kind != ExprKind:SubDef {
+                        if len_paths[i].expr.kind != ExprKind:ProcDef {
                             file.throw(path.index, "expected a subroutine");
                         };
                     };
                 };
-                bool same_mods = true;
-                ~l for i = 0, i < path.parts.len, i += 1 {
+                bool same_mods = mods.len > 0 & (cstr:cmp(other.parts[0].name.buf, mods[0].name.buf) == 0);
+                ~l for i = 1, i < path.parts.len, i += 1 {
                     if (i < mods.len) & (cstr:cmp(other.parts[i].name.buf, mods[i].name.buf) == 0) {
                         next ~l;
                     };
@@ -555,6 +552,8 @@ sub check_path_defined_visible(File file, Path path, PathKind kind) {
                     };
                     file.throw(path.index, "path is not public or in current scope");
                 };
+                `print_path(other, 0);
+                `fmt:print(", %i \n", scope_index2);
                 ret;
             };
         };

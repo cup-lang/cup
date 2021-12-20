@@ -1,6 +1,10 @@
-- combo var_def
-- tuples
+- playground
+    - multiple files
+    - line numbers
+language server
+    - parser error tolerance
 
+? tuples
 ? clojures
 ? aliases, copy/embed fields
 ? defer, errdefer

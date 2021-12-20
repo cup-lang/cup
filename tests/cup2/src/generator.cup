@@ -155,7 +155,7 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
 
             generate_expr_vec(out, body, true, false, true);
         },
-        ExprKind:Enum(Path path, darr<Expr> opts, darr<Expr> body) {
+        ExprKind:Sum(Path path, darr<Expr> opts, darr<Expr> body) {
             bool has_gens = has_generics(path);
             if (gens.len == 0) & has_gens {
                 ret;
@@ -184,7 +184,7 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
                     ExprKind:Comp(Path _path, darr<Expr> fields, darr<Expr> body) {
                         path = _path;
                     },
-                    ExprKind:Enum(Path _path, darr<Expr> opts, darr<Expr> body) {
+                    ExprKind:Sum(Path _path, darr<Expr> opts, darr<Expr> body) {
                         path = _path;
                     },
                     ExprKind:VarUse(Path _path) {
@@ -205,11 +205,11 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
 
             generate_expr_vec(out, body, true, false, true);
         },
-        ExprKind:Prop(Path path, darr<Expr> body) {},
-        ExprKind:Def(Path _prop, opt<Path> target, darr<Expr> body) {
+        ExprKind:Trait(Path path, darr<Expr> body) {},
+        ExprKind:Def(Path _trait, opt<Path> target, darr<Expr> body) {
             generate_expr_vec(out, body, false, false, false);
         },
-        ExprKind:SubDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
+        ExprKind:ProcDef(opt<Path> ret_type, Path path, darr<Expr> args, darr<Expr> body) {
             int old_local_vars_len = local_vars.len;
 
             bool has_gens = has_generics(path);
@@ -223,19 +223,19 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             };
             str _name = opt<str>:unwrap(name$);
 
-            dstr sub_out = dstr:new_with_cap(256);
+            dstr proc_out = dstr:new_with_cap(256);
             match ret_type {
                 opt<Path>:Some(Path __ret_type) {
                     opt<str> ___ret_type = mangle(__ret_type, false);
-                    dstr:join(sub_out$, ___ret_type.unwrap());
-                    dstr:push(sub_out$, ' ');
+                    dstr:join(proc_out$, ___ret_type.unwrap());
+                    dstr:push(proc_out$, ' ');
                 },
                 opt<Path>:None {
-                    dstr:join_cstr(sub_out$, "void ");
+                    dstr:join_cstr(proc_out$, "void ");
                 },
             };
-            dstr:join(sub_out$, _name);
-            dstr:push(sub_out$, '(');
+            dstr:join(proc_out$, _name);
+            dstr:push(proc_out$, '(');
 
             bool is_self = false;
             bool is_rest = false;
@@ -273,22 +273,22 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
                     tags = new darr<Tag> { len = 0 },
                     label = opt<str>:None,
                 };
-                generate_expr_vec(sub_out$, _args, false, false, false);
+                generate_expr_vec(proc_out$, _args, false, false, false);
             } else {
-                generate_expr_vec(sub_out$, args, false, false, false);
+                generate_expr_vec(proc_out$, args, false, false, false);
             };
             if is_rest {
-                dstr:join_cstr(sub_out$, ",...");
+                dstr:join_cstr(proc_out$, ",...");
             };
             
-            dstr:join(funcs_headers$, sub_out.to_str());
+            dstr:join(funcs_headers$, proc_out.to_str());
             dstr:join_cstr(funcs_headers$, ");");
 
-            dstr:join_cstr(sub_out$, "){");
-            generate_expr_vec(sub_out$, body, true, false, true);
-            dstr:join_cstr(sub_out$, "};");
-            dstr:join(funcs$, sub_out.to_str());
-            mem:free(sub_out.buf);
+            dstr:join_cstr(proc_out$, "){");
+            generate_expr_vec(proc_out$, body, true, false, true);
+            dstr:join_cstr(proc_out$, "};");
+            dstr:join(funcs$, proc_out.to_str());
+            mem:free(proc_out.buf);
 
             local_vars.len = old_local_vars_len;
         },
@@ -321,7 +321,7 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
             };
             dstr:push(out, ';');
         },
-        ExprKind:SubCall(Path path, darr<Expr> args) {
+        ExprKind:ProcCall(Path path, darr<Expr> args) {
             if ((((path.parts.len == 2) & (path.parts[0].gens.len == 0)) & (path.parts[1].gens.len == 1)) & (cstr:cmp(path.parts[0].name.buf, "mem") == 0)) & (cstr:cmp(path.parts[1].name.buf, "size") == 0) {
                 dstr:join_cstr(out, "sizeof(");
                 match path.parts[1].gens[0].kind {
@@ -364,13 +364,6 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
         },
         ExprKind:FloatLit(str value) {
             dstr:join(out, value);
-        },
-        ExprKind:BoolLit(bool value) {
-            if value {
-                dstr:push(out, '1');
-            } else {
-                dstr:push(out, '0');
-            };
         },
         ExprKind:ThisLit {
             dstr:join_cstr(out, "(*this)");
@@ -458,7 +451,6 @@ sub generate_expr(ptr<dstr> out, Expr expr, bool last, bool semicolon, int paren
         ExprKind:Each(darr<str> vars, ptr<Expr> iter, darr<Expr> body) {},
         ExprKind:Match(ptr<Expr> value, darr<Expr> cases) {},
         ExprKind:Case(darr<Expr> values, darr<Expr> body) {},
-        ExprKind:Echo(ptr<Expr> value) {},
         ExprKind:Ret(opt<str> label, opt<ptr<Expr>> value) {
             match label {
                 opt<str>:Some(str _label) {

@@ -6,8 +6,6 @@ enum TokenKind (
     CharLit,
     IntLit,
     FloatLit,
-    True,
-    False,
     This,
     Type,
 
@@ -15,10 +13,10 @@ enum TokenKind (
     Mod,
     Use,
     Comp,
-    Enum,
-    Prop,
+    Sum,
+    Trait,
     Def,
-    Sub,
+    Proc,
     Var,
     New,
 
@@ -31,13 +29,11 @@ enum TokenKind (
     Each,
     In,
     Match,
-    Echo,
     Ret,
     Next,
     Jump,
     Try,
     As,
-    Has,
 
     Semicolon,
     Colon,
@@ -79,22 +75,19 @@ enum TokenKind (
 
 int get_token_length(TokenKind kind) {
     match kind {
-        TokenKind:False,
+        TokenKind:Trait,
         TokenKind:While,
         TokenKind:Match {
             ret 5;
         },
-        TokenKind:True,
         TokenKind:This,
         TokenKind:Type,
         TokenKind:Comp,
-        TokenKind:Enum,
-        TokenKind:Prop,
+        TokenKind:Proc,
         TokenKind:Elif,
         TokenKind:Else,
         TokenKind:Loop,
         TokenKind:Each,
-        TokenKind:Echo,
         TokenKind:Next,
         TokenKind:Jump {
             ret 4;
@@ -102,13 +95,12 @@ int get_token_length(TokenKind kind) {
         TokenKind:Tag,
         TokenKind:Mod,
         TokenKind:Use,
+        TokenKind:Sum,
         TokenKind:Def,
-        TokenKind:Sub,
         TokenKind:Var,
         TokenKind:For,
         TokenKind:Ret,
-        TokenKind:Try,
-        TokenKind:Has {
+        TokenKind:Try {
             ret 3;
         },
         TokenKind:If,
@@ -164,18 +156,16 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:CharLit { ret "CHAR_LIT"; },
         TokenKind:IntLit { ret "INT_LIT"; },
         TokenKind:FloatLit { ret "FLOAT_LIT"; },
-        TokenKind:True { ret "TRUE"; },
-        TokenKind:False { ret "FALSE"; },
         TokenKind:This { ret "THIS"; },
         TokenKind:Type { ret "TYPE"; },
         TokenKind:Tag { ret "TAG"; },
         TokenKind:Mod { ret "MOD"; },
         TokenKind:Use { ret "USE"; },
         TokenKind:Comp { ret "COMP"; },
-        TokenKind:Enum { ret "ENUM"; },
-        TokenKind:Prop { ret "PROP"; },
+        TokenKind:Sum { ret "SUM"; },
+        TokenKind:Trait { ret "TRAIT"; },
         TokenKind:Def { ret "DEF"; },
-        TokenKind:Sub { ret "SUB"; },
+        TokenKind:Proc { ret "PROC"; },
         TokenKind:Var { ret "VAR"; },
         TokenKind:If { ret "IF"; },
         TokenKind:Elif { ret "ELIF"; },
@@ -186,13 +176,11 @@ ptr<u8> get_token_name(TokenKind kind) {
         TokenKind:Each { ret "EACH"; },
         TokenKind:In { ret "IN"; },
         TokenKind:Match { ret "MATCH"; },
-        TokenKind:Echo { ret "ECHO"; },
         TokenKind:Ret { ret "RET"; },
         TokenKind:Next { ret "NEXT"; },
         TokenKind:Jump { ret "JUMP"; },
         TokenKind:Try { ret "TRY"; },
         TokenKind:As { ret "AS"; },
-        TokenKind:Has { ret "HAS"; },
         TokenKind:Semicolon { ret "SEMICOLON"; },
         TokenKind:Colon { ret "COLON"; },
         TokenKind:Comma { ret "COMMA"; },
@@ -254,24 +242,20 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:Use;
     } elif cstr:cmp(value, "comp") == 0 {
         ret TokenKind:Comp;
-    } elif cstr:cmp(value, "enum") == 0 {
-        ret TokenKind:Enum;
-    } elif cstr:cmp(value, "prop") == 0 {
-        ret TokenKind:Prop;
+    } elif cstr:cmp(value, "sum") == 0 {
+        ret TokenKind:Sum;
+    } elif cstr:cmp(value, "trait") == 0 {
+        ret TokenKind:Trait;
     } elif cstr:cmp(value, "def") == 0 {
         ret TokenKind:Def;
-    } elif cstr:cmp(value, "sub") == 0 {
-        ret TokenKind:Sub;
+    } elif cstr:cmp(value, "proc") == 0 {
+        ret TokenKind:Proc;
     } elif cstr:cmp(value, "var") == 0 {
         ret TokenKind:Var;
     } elif cstr:cmp(value, "this") == 0 {
         ret TokenKind:This;
     } elif cstr:cmp(value, "type") == 0 {
         ret TokenKind:Type;
-    } elif cstr:cmp(value, "true") == 0 {
-        ret TokenKind:True;
-    } elif cstr:cmp(value, "false") == 0 {
-        ret TokenKind:False;
     } elif cstr:cmp(value, "if") == 0 {
         ret TokenKind:If;
     } elif cstr:cmp(value, "elif") == 0 {
@@ -290,8 +274,6 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:In;
     } elif cstr:cmp(value, "match") == 0 {
         ret TokenKind:Match;
-    } elif cstr:cmp(value, "echo") == 0 {
-        ret TokenKind:Echo;
     } elif cstr:cmp(value, "ret") == 0 {
         ret TokenKind:Ret;
     } elif cstr:cmp(value, "next") == 0 {
@@ -302,8 +284,6 @@ TokenKind get_keyword(ptr<u8> value) {
         ret TokenKind:Try;
     } elif cstr:cmp(value, "as") == 0 {
         ret TokenKind:As;
-    } elif cstr:cmp(value, "has") == 0 {
-        ret TokenKind:Has;
     };
     ret TokenKind:Empty;
 }; 

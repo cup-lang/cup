@@ -1,6 +1,9 @@
 ` general
-    ` [?] rename `enum` -> `sum`
-    ` [?] rename `|` -> `^`
+    ` [?] this, This, #self
+    ` [?] def, defer 
+    ` [?] #where
+    ` [?] defer as a keyword not #defer
+    ` [?] rename '|' -> '^' (^ is next to &)
     ` [?] #mut
 ` lexer
     ` [] add @=
@@ -15,13 +18,11 @@
     ` [] type inference
     ` [] check number of args for
         ` [] tag
-        ` [] sub_call
+        ` [] proc_call
         ` [] enum_inst
-        ` [] comp_inst
     ` [] check type
         ` [] when assigning check if type matches
-        ` [] when giving to sub_call check
-        ` [] when giving to comp_inst
+        ` [] when giving to proc_call check
         ` [] when ops
     ` [] check if label defined
     ` [] apply transformations
@@ -31,16 +32,11 @@
         ` [] #self
             ` [] check if its allowed for currrent expr
             ` [+] this
-            ` [] sub_calls (.)
+            ` [] proc_calls (.)
         ` [] try keyword
     ` [] generic aliases
 ` generator
     ` [] mangle labels
-` playground
-    ` multiple files
-    ` line numbers
-` language server
-    ` parser error tolerance
 
 comp SomeComp (int a) {
     #pub int foo () {
@@ -48,16 +44,7 @@ comp SomeComp (int a) {
     };
 };
 
-` #single prop ops:Add<T> {
-`     #self T add (This rhs);
-` };
-` 
-` def ops:Add<int> for int {
-`     #self int add (This rhs) {
-`         ret self + rhs;
-`     };
-` };
-
-sub main () {
-    SomeComp:foo();
-}; 
+proc main () {
+    ` SomeComp:foo();
+    foo:abc();
+};

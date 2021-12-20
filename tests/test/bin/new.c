@@ -1,3 +1,3 @@
 #include "stdint.h"
 #include "stdio.h"
-typedef struct _2 _2;typedef struct _5 _5;int32_t _4();void main();typedef struct _2{uint32_t* buf;int32_t len;}_2;typedef struct _5{int32_t a;}_5;int32_t _4(){};void main(){_4();};
+typedef struct _3 _3;typedef struct _1 _1;typedef struct _2 _2;typedef struct _5 _5;typedef struct _9 _9;void _7();int32_t _8();void main();typedef struct _1{}_1;typedef struct _2{}_2;typedef struct _3{int t;union{_1 _3;_2 _3;}u;}_3;typedef struct _5{uint32_t* buf;int32_t len;}_5;typedef struct _9{int32_t a;}_9;void _7(){printf("Hello, World!");};int32_t _8(){};void main(){_7();};
