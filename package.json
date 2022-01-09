@@ -1,0 +1,25 @@
+{
+  "name": "@boscokwong/cup",
+  "version": "1.0.0",
+  "description": "npm package",
+  "main": "index.js",
+  "scripts": {
+    "test": "exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boscokwong/cup.git"
+  },
+  "keywords": [
+    "npm"
+  ],
+  "author": "boscokwong",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/boscokwong/cup/issues"
+  },
+  "homepage": "https://github.com/boscokwong/cup#readme"
+  "publishConfig": {
+   "@boscokwong:registry": "https://npm.pkg.github.com"
+ }
+}
