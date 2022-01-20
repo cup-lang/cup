@@ -1,3 +1,2 @@
-<p align="center"><img src="https://avatars.githubusercontent.com/u/69126889" width="64"></p>
-<h1 align="center">Cup Language</h1>
+<h1 align="center">Cup Language&nbsp;<img align="center" src="https://raw.githubusercontent.com/cup-lang/cup/main/res/cup512discord.png" width="64"></h1>
 <p align="center">Tired of C++? Try Cup.</p>
