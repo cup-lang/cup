@@ -5,11 +5,11 @@
 &nbsp;
 [![Discord](https://img.shields.io/badge/discord-5865f2?logo=discord&logoColor=white)](https://discord.gg/cup)
 &nbsp;
-[![Twitter](https://img.shields.io/badge/twitter-1da1f2?logo=twitter&logoColor=white)](https://twitter.com/cup_lang)
-&nbsp;
 [![Gitter](https://img.shields.io/badge/gitter-ed1965?logo=gitter&logoColor=white)](https://gitter.im/cup/general)
 &nbsp;
 [![Reddit](https://img.shields.io/badge/reddit-ff4500?logo=reddit&logoColor=white)](https://reddit.com/r/cup_lang)
+&nbsp;
+[![Twitter](https://img.shields.io/badge/twitter-1da1f2?logo=twitter&logoColor=white)](https://twitter.com/cup_lang)
 &nbsp;
 [![Twitch](https://img.shields.io/badge/twitch-9146ff?logo=twitch&logoColor=white)](https://twitch.com/cup_lang)
 &nbsp;
