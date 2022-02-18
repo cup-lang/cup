@@ -5,7 +5,9 @@
 &nbsp;
 [![Discord](https://img.shields.io/badge/discord-5865f2?logo=discord&logoColor=white)](https://discord.gg/cup)
 &nbsp;
-[![Gitter](https://img.shields.io/badge/gitter-ed1965?logo=gitter&logoColor=white)](https://gitter.im/cup/general)
+[![Matrix](https://img.shields.io/badge/matrix-fff?logo=matrix&logoColor=black)](https://matrix.to/#/#cup:matrix.org)
+&nbsp;
+[![Gitter](https://img.shields.io/badge/gitter-ed1965?logo=gitter&logoColor=white)](https://gitter.im/cup)
 &nbsp;
 [![Reddit](https://img.shields.io/badge/reddit-ff4500?logo=reddit&logoColor=white)](https://reddit.com/r/cup_lang)
 &nbsp;
