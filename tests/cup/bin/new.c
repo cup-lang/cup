@@ -1,2 +1,0 @@
-#include "stdlib.h"
-typedef struct _E _E;typedef struct _F _F;int main();typedef struct _E{int t;union{struct{_F thing;}Some;}u;}_E;typedef struct _F{uint8_t* buf;int len;}_F;int main(){_E __1=(_E){.t=1};};

@@ -1,132 +1,76 @@
-# Keywords
-- `this` - current instance
-- `type` - type of a type
-- `tag` - defines a tag
-- `mod` - defines a module
-- `use` - imports a module
-- `comp` - defines a compound type
-- `sum` - defines a sum type
-- `trait` - defines a trait
-- `def` - defines a trait for a type
-- `proc` - defines a procedure
-- `var` - defines a variable
-- `if` / `elif` / `else` - if statement
-- `loop` - loop statement
-- `while` -  while statement
-- `for` - for statement
-- `each` / `in` - each statement
-- `match` - match statement
-- `echo` - prints values
-- `ret` - returns values
-- `next` - continues the execution
-- `jump` - jumps to a label
-- `try` - used with errors
-- `as` - casts to a type
+```cup
+>comment
+A Type $~ b$This:arg , c$Int
+e $ D:None ~ f g + F'1.2'
+if l = m, (), if not l = m, (), ()
+loop o < p, (), q +~ r
+a; ret "s u", a
+y [ Z
+```
+# Naming Conventions
+- objects - `lower_case`
+- types - `Upper_Case`
 # Operators
-1.  - `a[]` - array access
-    - `a()` - procedure call
-    - `a.b` - member access
-2.  - `-b` - negation
-    - `!b` - not
-3. Mixable, left to right
-    - `*` - multiplication
-    - `/` - division
-    - `%` - modulo
-    - `^` - power
-4. Mixable, left to right
-    - `+` - addition
-    - `-` - subtraction
-5. Not mixable, chaining
-    - `&` - logical and
-    - `|` - logical or
-    - `<` - less than
-    - `>` - greater than
-    - `<=` - less than or equal
-    - `>=` - greater than or equal
-    - `==` - equal
-    - `!=` - not equal
-6. Mixable, right to left
-    - `=` - assign
-    - `+=` - add assign
-    - `-=` - subtract assign
-    - `*=` - multiply assign
-    - `/=` - divide assing
-    - `%=` - modulo assign
-    - `^=` - power assign
+- `A : b` - member access (chaining)
+- `a . B` - index access
+---
+- `@ A` - managed reference type
+- `# A` - unmanaged reference type
+- `? A` - optional type
+- `A | B` - function type
+- `A ! B` - error type
+---
+- `a [ B` - safe cast
+- `a { B` - unsafe cast
+---
+- `a + b` - addition
+- `a - b` - subtraction
+- `a * b` - multiplication
+- `a / b` - division
+- `a % b` - reminder
+---
+- `a = b` - equal (chaining)
+- `a @= b` - reference equal (chaining)
+- `a & b` - logical and (chaining)
+- `a ^ b` - logical or (chaining)
+- `a < b` - less (chaining)
+- `a <= b` - less or equal (chaining)
+---
+Right-to-left
+- `a b` - argument
+- `a , b` - type (chaining)
+---
+- `A $ b` - object define
+- `a ~ b` - value assign (chaining)
+- `a $~ b` - object assign (chaining)
+- `a @~ b` - reference assign (chaining)
+- `a +~ b` - add assign (chaining)
+- `a -~ b` - subtract assign (chaining)
+- `a *~ b` - multiply assign (chaining)
+- `a /~ b` - divide assign (chaining)
+- `a %~ b` - reminder assign (chaining)
+---
+- `a ; b` - label
+- `a \n b` - type (chaining)
+# Basic Types
+- `Nat`, `N8`, `N16`, `N32`, `N64`
+- `Int`, `I8`, `I16`, `I32`, `I64`
+- `Real`, `R32`, `R64`
+- `Char`, `C8`, `C16`, `C32`
+- `Text`, `T8`, `T16`, `T32`
+- `Truth`, `Truth:True`, `Truth:False`
 # Expressions
-- `Block` - Block of code
-    - `darr<Expr>` body
-- `Mod` - Module
-    - `Path` path
-    - `darr<Expr>` body
-- `Use` - Use
-    - `Path` path
-- `Field` - Field
-    - `Path` _type
-    - `str` name
-- `Comp` - Compound type
-    - `Path` path
-    - `darr<Expr>` fields
-    - `darr<Expr>` body
-- `Sum` - Sum type
-    - `Path` path
-    - `darr<Expr>` opts
-    - `darr<Expr>` body
-- `Trait` - Trait
-    - `Path` path
-    - `darr<Expr>` body
-- `Def` - Define
-    - `Path` path
-    - `opt<Path>` target
-    - `darr<Expr>` body
-- `TagDef` - Tag definition
-    - `Path` path
-    - `darr<Expr>` args
-    - `darr<Expr>` body
-- `ProcDef` - Procedure definition
-    - `opt<Path>` ret_type
-    - `Path` path
-    - `darr<Expr>` args
-    - `darr<Expr>` body
-- `VarDef` - Variable definition
-    - `opt<Path>` _type
-    - `Path` path
-    - `opt<ptr<Expr>>` value
-- `LocalVarDef` - Local variable definition
-    - `opt<Path>` _type
-    - `str` name
-    - `opt<ptr<Expr>>` value
-- `ProcCall` - Procedure call
-    - `Path` path
-    - `darr<Expr>` args
-- `VarUse` - Variable use
-    - `Path` path
-- `StringLit` - String literal
-    - `str` value
-- `CharLit` - Character literal
-    - `str` value
-- `IntLit` - Integer literal
-    - `str` value
-- `FloatLit` - Floating literal
-    - `str` value
-- `BoolLit` - Boolean literal
-    - `bool` value
-# Types
-- `isize`, `i8`, `i16`, `i32`, `i64`, `int` = `i32`
-- `usize`, `u8`, `u16`, `u32`, `u64`, `uint` = `u32`
-- `bool`
-- `f32` ,`f64`, `float` = `f64`
-- `c8`, `c16`, `c32`, `char` = `c32`
-- `s8`, `s16`, `s32`, `str` = `s32`
-# Basic tags
-- `#cmp` - marks expression as compile time constant
-- `#pub` - marks item as public
-- `#inl` - marks "proc"/"var" to be inlined by the compiler
-- `#uni` - unified "comp"
-- `#exh` - exhaustive "match"
-- `#del` - delay execution of a "local"
-- `#self` - marks sub to act on a instance
-- `#rest` - marks arg as a rest arg
-- `#os(str os_name)`
-- `#bind(str sub_name)`
-- `#req(str header)`
+- `Ident`
+    - name - `Text`
+- `Text`
+    - value - `Text`
+- `Number`
+    - value - `Int/Real`
+- `Operation`
+    - exprs - `DArr Expr`
+    - opKind - `TokenKind`
+# Build Types
+- `default` - all checks
+- `-debug` - debug info
+- `-fast` - no checks
+- `-small` - no inline
