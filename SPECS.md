@@ -1,7 +1,7 @@
 ```cup
->comment
-A Type $~ b$This:arg , c$Int
-e $ D:None ~ f g + F'1.2'
+> comment
+A Type $~ b $ This.arg, c $ Int
+e $ D.None ~ f g + F'1.2'
 if l = m, (), if not l = m, (), ()
 loop o < p, (), q +~ r
 a; ret "s u", a
@@ -11,8 +11,7 @@ y [ Z
 - objects - `lower_case`
 - types - `Upper_Case`
 # Operators
-- `A : b` - member access (chaining)
-- `a . B` - index access
+- `a . B` - member access (chaining)
 ---
 - `@ A` - managed reference type
 - `# A` - unmanaged reference type
@@ -22,6 +21,7 @@ y [ Z
 ---
 - `a [ B` - safe cast
 - `a { B` - unsafe cast
+- `A $ b` - object define
 ---
 - `a + b` - addition
 - `a - b` - subtraction
@@ -38,9 +38,6 @@ y [ Z
 ---
 Right-to-left
 - `a b` - argument
-- `a , b` - type (chaining)
----
-- `A $ b` - object define
 - `a ~ b` - value assign (chaining)
 - `a $~ b` - object assign (chaining)
 - `a @~ b` - reference assign (chaining)
@@ -49,16 +46,18 @@ Right-to-left
 - `a *~ b` - multiply assign (chaining)
 - `a /~ b` - divide assign (chaining)
 - `a %~ b` - reminder assign (chaining)
+- `a , b` - block (chaining)
 ---
+- `A : b` - argument
 - `a ; b` - label
-- `a \n b` - type (chaining)
+- `a \n b` - block (chaining)
 # Basic Types
 - `Nat`, `N8`, `N16`, `N32`, `N64`
 - `Int`, `I8`, `I16`, `I32`, `I64`
 - `Real`, `R32`, `R64`
 - `Char`, `C8`, `C16`, `C32`
 - `Text`, `T8`, `T16`, `T32`
-- `Truth`, `Truth:True`, `Truth:False`
+- `Logic`, `Logic.True`, `Logic.False`
 # Expressions
 - `Ident`
     - name - `Text`
