@@ -8,8 +8,8 @@ a; ret "s u", a
 y [ Z
 ```
 # Naming Conventions
-- objects - `lower_case`
-- types - `Upper_Case`
+- objects - `lowerCase`
+- types - `UpperCase`
 # Operators
 - `a . B` - member access (chaining)
 ---
@@ -37,7 +37,7 @@ y [ Z
 - `a <= b` - less or equal (chaining)
 ---
 Right-to-left
-- `a b` - argument
+- `a : b` - argument
 - `a ~ b` - value assign (chaining)
 - `a $~ b` - object assign (chaining)
 - `a @~ b` - reference assign (chaining)
@@ -46,11 +46,10 @@ Right-to-left
 - `a *~ b` - multiply assign (chaining)
 - `a /~ b` - divide assign (chaining)
 - `a %~ b` - reminder assign (chaining)
-- `a , b` - block (chaining)
+- `a, b` - block (chaining)
 ---
-- `A : b` - argument
 - `a ; b` - label
-- `a \n b` - block (chaining)
+- `a \n b` - new-line block (chaining)
 # Basic Types
 - `Nat`, `N8`, `N16`, `N32`, `N64`
 - `Int`, `I8`, `I16`, `I32`, `I64`

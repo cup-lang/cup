@@ -90,7 +90,7 @@ Expr* lex_parse (Str path) {
 	TokenArr tokens = lex(file);
 	// print_token_arr(tokens);
 	Expr* expr = parse(file, tokens);
-	print_expr(expr, 0);
+	print_expr(expr, 0, FALSE);
 	return expr;
 }
 

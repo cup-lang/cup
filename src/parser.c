@@ -51,12 +51,24 @@ ExprArr new_expr_arr (int cap) {
 	};
 }
 
-void push_expr_arr (ExprArr* arr, Expr expr) {
-	arr->buf[arr->len++] = expr;
-	if (arr->len == arr->cap) {
+void try_resize_expr_arr (ExprArr* arr) {
+	if (arr->len >= arr->cap) {
 		arr->cap *= 2;
 		arr->buf = realloc(arr->buf, sizeof(Expr) * arr->cap);
 	}
+}
+
+void push_expr_arr (ExprArr* arr, Expr expr) {
+	arr->len++;
+	try_resize_expr_arr(arr);
+	arr->buf[arr->len - 1] = expr;
+}
+
+void push_front_expr_arr (ExprArr* arr, Expr expr) {
+	arr->len++;
+	try_resize_expr_arr(arr);
+	memmove(arr->buf + 1, arr->buf, (arr->len - 1) * sizeof(Expr));
+	arr->buf[0] = expr;
 }
 
 void do_indent (int indent) {
@@ -65,8 +77,10 @@ void do_indent (int indent) {
 	}
 }
 
-void print_expr (Expr* expr, int indent) {
-	do_indent(indent);
+void print_expr (Expr* expr, int indent, char should_indent) {
+	if (should_indent) {
+		do_indent(indent);
+	}
 	switch (expr->kind) {
 		case EX_EMPTY:
 			COLOR(GREEN);
@@ -77,36 +91,46 @@ void print_expr (Expr* expr, int indent) {
 			printf("%s", expr->u.ident.value);
 			break;
 		case EX_TEXT:
-			COLOR(GREEN);
-			putchar('"');
 			COLOR(MAGENTA);
+			putchar('"');
+			COLOR(RESET);
 			printf("%s", expr->u.text.value);
-			COLOR(GREEN);
+			COLOR(MAGENTA);
 			putchar('"');
 			COLOR(RESET);
 			break;
 		case EX_NUM:
-			COLOR(GREEN);
-			putchar('\'');
 			COLOR(MAGENTA);
+			putchar('\'');
+			COLOR(RESET);
 			printf("%s", expr->u.num.value);
-			COLOR(GREEN);
+			COLOR(MAGENTA);
 			putchar('\'');
 			COLOR(RESET);
 			break;
 		case EX_OP:
 			ExprArr exprs = expr->u.op.exprs;
-			char is_block = expr->u.op.kind == BLOCK;
-			putchar('(');
-			if (is_block) {
+			char is_newline = expr->u.op.kind == NEW_LINE;
+			if (exprs.len != 1) {
+				COLOR(GREEN);
+				putchar('(');
+				COLOR(RESET);
+			}
+			if (is_newline) {
 				indent += 1;
 				putchar('\n');
 			}
 			for (int i = 0; i < exprs.len; ++i) {
-				print_expr(exprs.buf + i, is_block ? indent : 0);
+				// Unary operator
+				if (exprs.len == 1) {
+					COLOR(MAGENTA);
+					printf("%s", TOKEN_NAMES[expr->u.op.kind]);
+					COLOR(RESET);
+				}
+				print_expr(exprs.buf + i, indent, is_newline);
 				if (i != exprs.len - 1) {
-					COLOR(GREEN);
-					if (is_block) {
+					COLOR(MAGENTA);
+					if (is_newline) {
 						putchar('\n');
 					} else {
 						printf(" %s ", TOKEN_NAMES[expr->u.op.kind]);
@@ -114,12 +138,16 @@ void print_expr (Expr* expr, int indent) {
 					COLOR(RESET);
 				}
 			}
-			if (is_block) {
+			if (is_newline) {
 				indent -= 1;
 				putchar('\n');
 				do_indent(indent);
 			}
-			putchar(')');
+			if (exprs.len != 1) {
+				COLOR(GREEN);
+				putchar(')');
+				COLOR(RESET);
+			}
 			break;
 		default:
 			COLOR(RED);
@@ -149,40 +177,48 @@ int count_indents (TokenArr tokens, int* index) {
 	return indent;
 }
 
+char has_lower_precedence (int op_level, int new_op_level, char is_ltr) {
+	return op_level != 0 &&
+		// When left to right
+		(is_ltr && op_level <= new_op_level) ||
+		// When right to left
+		(!is_ltr && op_level < new_op_level);
+}
+
 Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int op_level) {
 	Expr* expr = malloc(sizeof(Expr));
+	// Prevents chaining
 	char was_paren = FALSE;
 
 	Token token = tokens.buf[*index];
-	if (token.kind == NEW_LINE) {
-		// Count indents
+	while (token.kind == NEW_LINE || token.kind == INDENT) {
 		int indent = count_indents(tokens, index);
-
-		// End block
-		// if (indent < last_indent) {
-		// 	*index -= indent;
-		// 	return NULL;
-		// }
 
 		// New block
 		if (indent > last_indent) {
-			last_indent = indent;
-			return parse_expr(file, tokens, index, last_indent, 0);
+			return parse_expr(file, tokens, index, indent, 0);
 		}
+		// End block
+		else if (indent < last_indent) {
+			*index -= indent;
+			return NULL;
+		}
+
+		last_indent = indent;
+		token = tokens.buf[*index];
 	}
-	token = tokens.buf[*index];
 
 	if (token.kind == PAREN_L) {
 		*index += 1;
 		was_paren = TRUE;
-		if (tokens.buf[*index].kind == PAREN_R) {
+		Expr* new_expr = parse_expr(file, tokens, index, 0, 0);
+		if (new_expr == NULL) {
 			expr->kind = EX_EMPTY;
-			*index += 1;
 		} else {
-			int indent = count_indents(tokens, index);
-			expr = parse_expr(file, tokens, index, indent, 0);
-			expect_token(file, tokens, index, PAREN_R, "expected ')' after '('");
+			expr = new_expr;
 		}
+		count_indents(tokens, index);
+		expect_token(file, tokens, index, PAREN_R, "expected ')' after '('");
 	} else if (token.kind == IDENT) {
 		expr->kind = EX_IDENT;
 		expr->u.ident.value = token.value;
@@ -195,38 +231,51 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		expr->kind = EX_NUM;
 		expr->u.num.value = token.value;
 		*index += 1;
-	} else if (token.kind == M_REF || token.kind == U_REF || token.kind == OPT) {
-	} else if (token.kind == PAREN_R) {
-		expr->kind = EX_EMPTY;
-		return expr;
-	} else if (token.kind == EMPTY) {
+	}
+	// Unary, do nothing yet
+	else if (token.kind == M_REF || token.kind == U_REF || token.kind == OPT) {}
+	else {
 		return NULL;
-	} else {
-		THROW(file, token.index, "expected an expression, got '%s'", TOKEN_NAMES[token.kind]);
 	}
 
-	char was_block = FALSE;
 	while (TRUE) {
 		int new_op_level = 0;
 		token = tokens.buf[*index];
 		TokenKind op_kind = EMPTY;
 		Expr* other;
 
-		if (
-			token.kind == LABEL ||
-			token.kind == ARG
-		) {
+		if (token.kind == LABEL) {
 			new_op_level = 7;
 			op_kind = token.kind;
+		} else if (token.kind == NEW_LINE) {
+			new_op_level = 7;
+			op_kind = NEW_LINE;
+			
+			int old_index = *index;
+			int indent = count_indents(tokens, index);
+
+			// New block
+			if (indent > last_indent) {
+				printf("~# was %i got %i (at %i)\n", op_level, new_op_level, *index);
+				if (has_lower_precedence(op_level, new_op_level, TRUE)) {
+					printf("<# lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
+					*index = old_index;
+					break;
+				}
+				other = parse_expr(file, tokens, index, indent, 0);
+				goto parsed_other;
+			}
+			// Same block
+			else if (indent == last_indent) {
+				*index -= 1;
+			}
+			// End block
+			else {
+				*index = old_index;
+				break;
+			}
 		} else if (
-			token.kind == PAREN_L ||
-			token.kind == IDENT ||
-			token.kind == TEXT ||
-			token.kind == NUM
-		) {
-			new_op_level = 6;
-			op_kind = ARG;
-		} else if (
+			token.kind == ARG ||
 			token.kind == ASSIGN ||
 			token.kind == OBJ_ASSIGN ||
 			token.kind == REF_ASSIGN ||
@@ -234,26 +283,11 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 			token.kind == SUB_ASSIGN ||
 			token.kind == MUL_ASSIGN ||
 			token.kind == DIV_ASSIGN ||
-			token.kind == REM_ASSIGN
+			token.kind == REM_ASSIGN ||
+			token.kind == BLOCK
 		) {
 			new_op_level = 6;
 			op_kind = token.kind;
-		} else if (token.kind == BLOCK) {
-			new_op_level = 6;
-			op_kind = BLOCK;
-			was_block = TRUE;
-		} else if (token.kind == NEW_LINE) {
-			int indent = count_indents(tokens, index);
-
-			if (indent > last_indent) {
-				other = parse_expr(file, tokens, index, indent, 0);
-				goto parsed_other;
-			} else if (indent == last_indent) {
-				new_op_level = 7;
-				op_kind = BLOCK;
-				was_block = TRUE;
-				*index -= 1;
-			}
 		} else if (
 			token.kind == EQUAL ||
 			token.kind == REF_EQUAL ||
@@ -289,48 +323,46 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		) {
 			new_op_level = 2;
 			op_kind = token.kind;
-		} else if (token.kind == MEMBER || token.kind == INDEX) {
+		} else if (token.kind == MEMBER) {
 			new_op_level = 1;
 			op_kind = token.kind;
+		} else if (token.kind == PAREN_R || token.kind == EMPTY) {
+			break;
 		}
 
 		// Unary operators
 		if (token.kind == M_REF ||token.kind == U_REF || token.kind == OPT) {
 			*index += 1;
+			Expr* new_expr = parse_expr(file, tokens, index, last_indent, new_op_level);
+			if (new_expr == NULL) {
+				Token token = tokens.buf[*index];
+				THROW(file, token.index, "expected an expression, got '%s'", TOKEN_NAMES[token.kind]);
+			}
 			expr->kind = EX_OP;
 			expr->u.op.kind = op_kind;
 			expr->u.op.exprs = new_expr_arr(1);
-			push_expr_arr(&expr->u.op.exprs, *parse_expr(file, tokens, index, last_indent, new_op_level));
+			push_expr_arr(&expr->u.op.exprs, *new_expr);
 			continue;
 		}
 
 		// No operator was found
 		if (new_op_level == 0) {
-			break;
+			THROW(file, token.index, "expected a symbol got '%s'", TOKEN_NAMES[token.kind]);
 		}
 
 		op_rhs:
 		printf("~ was %i got %i (at %i)\n", op_level, new_op_level, *index);
-		char is_ltr = op_level != 6 || was_block;
 		// Operator has lower precedence
-		if (
-			op_level != 0 &&
-			// Left to right
-			(is_ltr && op_level <= new_op_level) ||
-			// Right to left
-			(!is_ltr && op_level < new_op_level)
-		) {
+		if (has_lower_precedence(op_level, new_op_level, op_level != 6)) {
 			printf("< lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
-			if (new_op_level == 7 && op_kind == BLOCK) {
+			if (op_kind == NEW_LINE) {
 				*index -= last_indent;
 			}
 			break;
 		}
 
-		// Every operator except "argumentation with space"
-		if (!(op_kind == ARG && new_op_level == 6)) {
-			*index += 1;
-		}
+		// Consume the operator
+		*index += 1;
 
 		other = parse_expr(file, tokens, index, last_indent, new_op_level);
 		parsed_other:
@@ -343,16 +375,27 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		if (
 			!was_paren &&
 			expr->kind == EX_OP &&
-			expr->u.op.kind == op_kind && (
+			expr->u.op.kind == op_kind &&
+			(
+				op_kind == MEMBER ||
 				// Logic operators
 				new_op_level == 5 ||
-				// Assign operators
+				// ' ' and assign operators except ':'
 				(new_op_level == 6 && op_kind != ARG) ||
-				op_kind == MEMBER ||
-				op_kind == BLOCK
+				op_kind == NEW_LINE
 			)
 		) {
 			push_expr_arr(&expr->u.op.exprs, *other);
+		}
+		// Chaining right-to-left block
+		else if (
+			!was_paren &&
+			other->kind == EX_OP &&
+			other->u.op.kind == op_kind &&
+			op_kind == BLOCK
+		) {
+			push_front_expr_arr(&other->u.op.exprs, *expr);
+			expr = other;
 		}
 		// Binary operator
 		else {
@@ -370,15 +413,18 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 }
 
 Expr* parse (File file, TokenArr tokens) {
-	if (tokens.len == 1 && tokens.buf[0].kind == EMPTY) {
-		Expr* expr = malloc(sizeof(Expr));
-		expr->kind = EX_EMPTY;
-		return expr;
-	}
-
 	int* index = malloc(sizeof(int));
 	*index = 0;
 
-	int indent = count_indents(tokens, index);
-	return parse_expr(file, tokens, index, indent, 0);
+	Expr* expr = parse_expr(file, tokens, index, 0, 0);
+	if (*index < tokens.len - 1) {
+		Token token = tokens.buf[*index];
+		THROW(file, token.index, "expected an expression, got '%s'", TOKEN_NAMES[token.kind]);
+	}
+	if (expr == NULL) {
+		expr = malloc(sizeof(Expr));
+		expr->kind = EX_EMPTY;
+		return expr;
+	}
+	return expr;
 }

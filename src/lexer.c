@@ -2,7 +2,7 @@ typedef enum TokenKind {
 	NONE, // fake optional
 	EMPTY, INDENT, IDENT, TEXT, NUM,
 	PAREN_L, PAREN_R,
-	MEMBER, INDEX,
+	MEMBER,
 	M_REF, U_REF, OPT, FUN, ERR,
 	S_CAST, U_CAST,
 	ADD, SUB, MUL, DIV, REM,
@@ -29,20 +29,20 @@ Token token_of_kind_with_value (TokenKind kind, Str value, int index) {
 const char* const TOKEN_NAMES[] = {
 	[EMPTY] = "EMPTY", [INDENT] = "--->", [IDENT] = "IDENT", [TEXT] = "TEXT", [NUM] = "NUM",
 	[PAREN_L] = "(", [PAREN_R] = ")",
-	[MEMBER] = ".", [INDEX] = ".",
+	[MEMBER] = ".",
 	[M_REF] = "@", [U_REF] = "#", [OPT] = "?", [FUN] = "|", [ERR] = "!",
 	[S_CAST] = "[", [U_CAST] = "{",
 	[ADD] = "+", [SUB] = "-", [MUL] = "*", [DIV] = "/", [REM] = "%",
 	[EQUAL] = "=", [REF_EQUAL] = "@=", [AND] = "&", [OR] = "^", [LESS] = "<", [LESS_EQUAL] = "<=",
 	[BLOCK] = ",",
 	[OBJ] = "$", [ASSIGN] = "~", [OBJ_ASSIGN] = "$~", [REF_ASSIGN] = "@~", [ADD_ASSIGN] = "+~", [SUB_ASSIGN] = "-~", [MUL_ASSIGN] = "*~", [DIV_ASSIGN] = "/~", [REM_ASSIGN] = "%~",
-	[LABEL] = ";", [ARG] = ":", [NEW_LINE] = "NEW_LINE",
+	[LABEL] = ";", [ARG] = ":", [NEW_LINE] = "NEW LINE",
 };
 
 const int TOKEN_LENGTHS[] = {
 	[EMPTY] = 5, [INDENT] = 1, [IDENT] = 5, [TEXT] = 4, [NUM] = 3,
 	[PAREN_L] = 1, [PAREN_R] = 1,
-	[MEMBER] = 1, [INDEX] = 1,
+	[MEMBER] = 1,
 	[M_REF] = 1, [U_REF] = 1, [OPT] = 1, [FUN] = 1, [ERR] = 1,
 	[S_CAST] = 1, [U_CAST] = 1,
 	[ADD] = 1, [SUB] = 1, [MUL] = 1, [DIV] = 1, [REM] = 1,
@@ -84,26 +84,26 @@ void print_token_arr (TokenArr tokens) {
 			printf(tokens.buf[i].value.buf);
 		} else if (kind == TEXT) {
 			putchar(' ');
-			COLOR(MAGENTA);
+			COLOR(GREEN);
 			putchar('"');
 			COLOR(RESET);
 			printf(tokens.buf[i].value.buf);
-			COLOR(MAGENTA);
+			COLOR(GREEN);
 			putchar('"');
 			COLOR(RESET);
 		} else if (kind == NUM) {
 			putchar(' ');
-			COLOR(MAGENTA);
+			COLOR(GREEN);
 			putchar('\'');
 			COLOR(RESET);
 			printf(tokens.buf[i].value.buf);
-			COLOR(MAGENTA);
+			COLOR(GREEN);
 			putchar('\'');
 			COLOR(RESET);
 		} else if (kind == NEW_LINE) {
 			putchar('\n');
 		} else {
-			COLOR(MAGENTA);
+			COLOR(GREEN);
 			printf("%s", TOKEN_NAMES[kind]);
 			COLOR(RESET);
 		}
@@ -111,7 +111,7 @@ void print_token_arr (TokenArr tokens) {
 	putchar('\n');
 }
 
-void tryMakeIdent (TokenArr* tokens, GStr* value, int index) {
+void try_make_ident (TokenArr* tokens, GStr* value, int index) {
 	if (value->len > 0) {
 		push_token_arr(tokens, token_of_kind_with_value(
 			IDENT,
@@ -149,7 +149,7 @@ TokenArr lex (File file) {
 		if (state == LS_COMMENT) {
 			if (c == '\n') {
 				state = LS_NONE;
-				tryMakeIdent(&tokens, &value, i);
+				try_make_ident(&tokens, &value, i);
 				push_token_arr(&tokens, token_of_kind(NEW_LINE, i));
 			}
 			continue;
@@ -310,13 +310,13 @@ TokenArr lex (File file) {
 		}
 
 		if (tok_kind == NONE) {
-			if (is_alpha_num(c)) {
+			if (is_alpha_num(c) || c == '_') {
 				push_gstr(&value, c);
 			} else {
 				THROW(file, i, "unexpected symbol '%c'", c);
 			}
 		} else {
-			tryMakeIdent(&tokens, &value, i);
+			try_make_ident(&tokens, &value, i);
 
 			if (tok_kind != EMPTY) {
 				push_token_arr(&tokens, token_of_kind(
