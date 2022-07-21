@@ -72,6 +72,7 @@ typedef struct File {
 #include "throw.c"
 #include "lexer.c"
 #include "parser.c"
+#include "interp.c"
 
 Str read_file (char* path) {
 	FILE *input;
@@ -84,14 +85,14 @@ Str read_file (char* path) {
 	return file;
 }
 
-Expr* lex_parse (Str path) {
+void lex_parse_interp (Str path) {
 	printf("Compiling: %s\n", path);
 	File file = { .path = path, .data = read_file(path.buf) };
 	TokenArr tokens = lex(file);
 	// print_token_arr(tokens);
 	Expr* expr = parse(file, tokens);
-	print_expr(expr, 0, FALSE);
-	return expr;
+	// print_expr(expr, 0, FALSE);
+	interpret(file, expr);
 }
 
 Str join_paths (Str a, Str b) {
@@ -102,7 +103,7 @@ Str join_paths (Str a, Str b) {
 	return str;
 }
 
-Expr* lex_parse_rec (Str path) {
+Expr* lex_parse_interp_rec (Str path) {
 	DIR *dir = opendir(path.buf);
 	struct dirent *ent;
 	while ((ent = readdir(dir)) != NULL) {
@@ -116,10 +117,10 @@ Expr* lex_parse_rec (Str path) {
 		
 		switch (ent->d_type) {
 			case DT_DIR:
-				lex_parse_rec(new_path);
+				lex_parse_interp_rec(new_path);
 				break;
 			case DT_REG: {
-				lex_parse(new_path);
+				lex_parse_interp(new_path);
 				break;
 			}
 		}
@@ -130,8 +131,10 @@ Expr* lex_parse_rec (Str path) {
 }
 
 int main () {
-	lex_parse(new_str_from_ptr("src/cup/main.cup"));
+	/// TODO: Lexer validate numbers (one or zero floating points, negation sign, base (0 bX), size (0 sX))
+	/// TODO: Save index and file for expressions
+	/// TODO: Combine files into 1 expression
+	lex_parse_interp(new_str_from_ptr("src/cup/main.cup"));
 	// lex_parse_rec(new_str_from_ptr("src/cup"));
-	// analyze(expr);
 	return 0;
 }

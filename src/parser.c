@@ -16,26 +16,26 @@ typedef struct ExprArr {
 
 typedef struct Ident {
 	Str value;
-} Ident;
+} ExprIdent;
 
 typedef struct Text {
 	Str value;
-} Text;
+} ExprText;
 
 typedef struct Num {
 	Str value;
-} Num;
+} ExprNum;
 
 typedef struct Op {
 	TokenKind kind;
 	ExprArr exprs;
-} Op;
+} ExprOp;
 
 typedef union ExprUnion {
-	Ident ident;
-	Text text;
-	Num num;
-	Op op;
+	ExprIdent ident;
+	ExprText text;
+	ExprNum num;
+	ExprOp op;
 } ExprUnion;
 
 typedef struct Expr {
@@ -256,9 +256,9 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 
 			// New block
 			if (indent > last_indent) {
-				printf("~# was %i got %i (at %i)\n", op_level, new_op_level, *index);
+				/// DEBUG: printf("~# was %i got %i (at %i)\n", op_level, new_op_level, *index);
 				if (has_lower_precedence(op_level, new_op_level, TRUE)) {
-					printf("<# lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
+					/// DEBUG: printf("<# lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
 					*index = old_index;
 					break;
 				}
@@ -351,10 +351,10 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		}
 
 		op_rhs:
-		printf("~ was %i got %i (at %i)\n", op_level, new_op_level, *index);
+		/// DEBUG: printf("~ was %i got %i (at %i)\n", op_level, new_op_level, *index);
 		// Operator has lower precedence
 		if (has_lower_precedence(op_level, new_op_level, op_level != 6)) {
-			printf("< lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
+			/// DEBUG: printf("< lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
 			if (op_kind == NEW_LINE) {
 				*index -= last_indent;
 			}
@@ -367,7 +367,7 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		other = parse_expr(file, tokens, index, last_indent, new_op_level);
 		parsed_other:
 		if (other == NULL) {
-			printf("! was NULL (at %i)\n", *index);
+			/// DEBUG: printf("! was NULL (at %i)\n", *index);
 			break;
 		}
 
