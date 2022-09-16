@@ -8,11 +8,7 @@ typedef enum ExprKind {
 
 typedef struct Expr Expr;
 
-typedef struct ExprArr {
-	Expr* buf;
-	int len;
-	int cap;
-} ExprArr;
+ARRAY_STRUCT(Expr)
 
 typedef struct Ident {
 	Str value;
@@ -41,35 +37,11 @@ typedef union ExprUnion {
 typedef struct Expr {
 	ExprKind kind;
 	ExprUnion u;
+	File file;
+	int index;
 } Expr;
 
-ExprArr new_expr_arr (int cap) {
-	return (ExprArr){
-		.buf = malloc(cap * sizeof(Expr)),
-		.len = 0,
-		.cap = cap
-	};
-}
-
-void try_resize_expr_arr (ExprArr* arr) {
-	if (arr->len >= arr->cap) {
-		arr->cap *= 2;
-		arr->buf = realloc(arr->buf, sizeof(Expr) * arr->cap);
-	}
-}
-
-void push_expr_arr (ExprArr* arr, Expr expr) {
-	arr->len++;
-	try_resize_expr_arr(arr);
-	arr->buf[arr->len - 1] = expr;
-}
-
-void push_front_expr_arr (ExprArr* arr, Expr expr) {
-	arr->len++;
-	try_resize_expr_arr(arr);
-	memmove(arr->buf + 1, arr->buf, (arr->len - 1) * sizeof(Expr));
-	arr->buf[0] = expr;
-}
+ARRAY_FUNCS(Expr, expr)
 
 void do_indent (int indent) {
 	for (int i = 0; i < indent; ++i) {
@@ -186,7 +158,6 @@ char has_lower_precedence (int op_level, int new_op_level, char is_ltr) {
 }
 
 Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int op_level) {
-	Expr* expr = malloc(sizeof(Expr));
 	// Prevents chaining
 	char was_paren = FALSE;
 
@@ -207,6 +178,10 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		last_indent = indent;
 		token = tokens.buf[*index];
 	}
+
+	Expr* expr = malloc(sizeof(Expr));
+	expr->file = file;
+	expr->index = token.index;
 
 	if (token.kind == PAREN_L) {
 		*index += 1;
@@ -361,6 +336,7 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 			break;
 		}
 
+		int op_index = token.index;
 		// Consume the operator
 		*index += 1;
 
@@ -380,7 +356,7 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 				op_kind == MEMBER ||
 				// Logic operators
 				new_op_level == 5 ||
-				// ' ' and assign operators except ':'
+				// BLOCK and assign operators except ARG
 				(new_op_level == 6 && op_kind != ARG) ||
 				op_kind == NEW_LINE
 			)
@@ -402,6 +378,8 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 			Expr old_expr = *expr;
 			expr = malloc(sizeof(Expr));
 			expr->kind = EX_OP;
+			expr->file = file;
+			expr->index = op_index;
 			expr->u.op.kind = op_kind;
 			expr->u.op.exprs = new_expr_arr(2);
 			push_expr_arr(&expr->u.op.exprs, old_expr);
@@ -424,7 +402,8 @@ Expr* parse (File file, TokenArr tokens) {
 	if (expr == NULL) {
 		expr = malloc(sizeof(Expr));
 		expr->kind = EX_EMPTY;
-		return expr;
+		expr->file = file;
+		expr->index = 0;
 	}
 	return expr;
 }

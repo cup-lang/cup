@@ -52,27 +52,7 @@ const int TOKEN_LENGTHS[] = {
 	[LABEL] = 1, [ARG] = 1, [NEW_LINE] = 1,
 };
 
-typedef struct TokenArr {
-	Token* buf;
-	int len;
-	int cap;
-} TokenArr;
-
-TokenArr new_token_arr (int cap) {
-	return (TokenArr){
-		.buf = malloc(cap * sizeof(Token)),
-		.len = 0,
-		.cap = cap
-	};
-}
-
-void push_token_arr (TokenArr* arr, Token token) {
-	arr->buf[arr->len++] = token;
-	if (arr->len == arr->cap) {
-		arr->cap *= 2;
-		arr->buf = realloc(arr->buf, sizeof(Token) * arr->cap);
-	}
-}
+ARRAY(Token, token)
 
 void print_token_arr (TokenArr tokens) {
 	for (int i = 0; i < tokens.len; ++i) {
@@ -81,13 +61,13 @@ void print_token_arr (TokenArr tokens) {
 			if (i != 0 && tokens.buf[i - 1].kind == IDENT) {
 				putchar(' ');
 			}
-			printf(tokens.buf[i].value.buf);
+			printf("%s", tokens.buf[i].value.buf);
 		} else if (kind == TEXT) {
 			putchar(' ');
 			COLOR(GREEN);
 			putchar('"');
 			COLOR(RESET);
-			printf(tokens.buf[i].value.buf);
+			printf("%s", tokens.buf[i].value.buf);
 			COLOR(GREEN);
 			putchar('"');
 			COLOR(RESET);
@@ -96,7 +76,7 @@ void print_token_arr (TokenArr tokens) {
 			COLOR(GREEN);
 			putchar('\'');
 			COLOR(RESET);
-			printf(tokens.buf[i].value.buf);
+			printf("%s", tokens.buf[i].value.buf);
 			COLOR(GREEN);
 			putchar('\'');
 			COLOR(RESET);

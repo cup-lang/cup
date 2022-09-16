@@ -1,56 +1,61 @@
 ```cup
 > comment
-A Type $~ b $ This.arg, c $ Int
-e $ D.None ~ f g + F'1.2'
-if l = m, (), if not l = m, (), ()
+arg Type,
+A:Type ~ b:arg, c:Int
+e:D.None ~ f g + F '1.2'
+if (l = m), (), if !(l = m), (), ()
 loop o < p, (), q +~ r
-a; ret "s u", a
-y [ Z
+a # ret "s u", a
 ```
 # Naming Conventions
 - objects - `lowerCase`
 - types - `UpperCase`
 # Operators
-- `a . B` - member access (chaining)
+1st (chaining)
+- `a.b` - member access
 ---
-- `@ A` - managed reference type
-- `# A` - unmanaged reference type
-- `? A` - optional type
-- `A | B` - function type
-- `A ! B` - error type
+2nd
+- `!a` - negation
+- `@A` - reference type
+- `?A` - optional type
+- `A$B` - error type
 ---
-- `a [ B` - safe cast
-- `a { B` - unsafe cast
-- `A $ b` - object define
+3rd (right-to-left)
+- `a b` - argument
+- `a: B` - object define
+- `a, b` - comma block (chaining)
 ---
+4th
 - `a + b` - addition
 - `a - b` - subtraction
 - `a * b` - multiplication
 - `a / b` - division
 - `a % b` - reminder
 ---
-- `a = b` - equal (chaining)
-- `a @= b` - reference equal (chaining)
-- `a & b` - logical and (chaining)
-- `a ^ b` - logical or (chaining)
-- `a < b` - less (chaining)
-- `a <= b` - less or equal (chaining)
+5th (chaining)
+- `a < b` - less
+- `a <= b` - less or equal
 ---
-Right-to-left
-- `a : b` - argument
-- `a ~ b` - value assign (chaining)
-- `a $~ b` - object assign (chaining)
-- `a @~ b` - reference assign (chaining)
-- `a +~ b` - add assign (chaining)
-- `a -~ b` - subtract assign (chaining)
-- `a *~ b` - multiply assign (chaining)
-- `a /~ b` - divide assign (chaining)
-- `a %~ b` - reminder assign (chaining)
-- `a, b` - block (chaining)
+6th
+- `a = b` - equal
+- `a @= b` - reference equal
+- `a & b` - logical and
+- `a | b` - logical or
+- `a ^ b` - logical xor
 ---
-- `a ; b` - label
+7th (right-to-left)
+- `a ~ b` - value assign
+- `a @~ b` - reference assign
+- `a +~ b` - add assign
+- `a -~ b` - subtract assign
+- `a *~ b` - multiply assign
+- `a /~ b` - divide assign
+- `a %~ b` - reminder assign
+---
+- `a # b` - label
 - `a \n b` - new-line block (chaining)
 # Basic Types
+- `Type`, `Call`, `Expr`
 - `Nat`, `N8`, `N16`, `N32`, `N64`
 - `Int`, `I8`, `I16`, `I32`, `I64`
 - `Real`, `R32`, `R64`

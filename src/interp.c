@@ -1,6 +1,8 @@
 #include <stdint.h>
 
 typedef enum ValueKind {
+	VAL_EMPTY,
+	VAL_TYPE,
 	VAL_COMP,
 	VAL_REF,
 	VAL_N8,
@@ -15,18 +17,12 @@ typedef enum ValueKind {
 	VAL_R64,
 } ValueKind;
 
-typedef struct Object Object;
-
-typedef struct ObjectArr {
-	Object* buf;
-	int len;
-	int cap;
-} ObjectArr;
+typedef struct Value Value;
+ARRAY_STRUCT(Value)
 
 typedef union ValueUnion {
-	/// TODO: Make this a ValueArr
-	ObjectArr comp;
-	Object* ref;
+	ValueArr comp;
+	struct Object* ref;
 	uint8_t n8;
 	uint16_t n16;
 	uint32_t n32;
@@ -44,46 +40,20 @@ typedef struct Value {
 	ValueUnion u;
 } Value;
 
+ARRAY_FUNCS(Value, value)
+
 typedef struct Object {
 	Str name;
 	Value type;
 	Value value;
 } Object;
 
-ObjectArr new_object_arr (int cap) {
-	return (ObjectArr){
-		.buf = malloc(cap * sizeof(Object)),
-		.len = 0,
-		.cap = cap
-	};
-}
-
-void try_resize_object_arr (ObjectArr* stack) {
-	if (stack->len >= stack->cap) {
-		stack->cap *= 2;
-		stack->buf = realloc(stack->buf, sizeof(Object) * stack->cap);
-	}
-}
-
-Object* push_object_arr (ObjectArr* arr, Object obj) {
-	arr->len++;
-	try_resize_object_arr(arr);
-	arr->buf[arr->len - 1] = obj;
-	return arr->buf + arr->len - 1;
-}
-
-Object pop_object_arr (ObjectArr* arr) {
-	if (arr->len == 0) {
-		printf("Can't pop from empty array!");
-		exit(1);
-	}
-	arr->len--;
-	return arr->buf[arr->len];
-}
+ARRAY(Object, object)
 
 Value get_deep_value (Value val) {
 	switch (val.kind) {
 		case VAL_REF:
+			/// TODO: Dereference if "val.u.ref->type" is a reference
 			return get_deep_value(val.u.ref->value);
 			break;
 		default:
@@ -93,20 +63,25 @@ Value get_deep_value (Value val) {
 
 Value add_values (Value lhs, Value rhs) {
 	switch (lhs.kind) {
-		case VAL_I8:
+		case VAL_I32:
 			return (Value) {
-				.kind = VAL_I8,
-				.u.i8 = lhs.u.i8 + rhs.u.i8,
+				.kind = VAL_I32,
+				.u.i32 = lhs.u.i32 + rhs.u.i32,
 			};
 			break;
 	}
 }
 
-Value interpret_expr (File file, ObjectArr* stack, Expr* expr) {
+Value interpret_expr (ObjectArr* stack, Expr* expr) {
 	switch (expr->kind) {
 		case EX_EMPTY:
+			return (Value) { .kind = VAL_EMPTY };
 			break;
 		case EX_IDENT:
+			// Search for object on stack
+			if (strcmp(expr->u.ident.value.buf, "Type") == 0) {
+				return (Value) { .kind = VAL_TYPE };
+			}
 			for (int i = stack->len - 1; i >= 0; --i) {
 				if (strcmp(expr->u.ident.value.buf, stack->buf[i].name.buf) == 0) {
 					return (Value) {
@@ -115,70 +90,93 @@ Value interpret_expr (File file, ObjectArr* stack, Expr* expr) {
 					};
 				}
 			}
+			THROW(expr->file, expr->index, "object not defined", 0);
 			break;
 		case EX_TEXT:
+			/// TODO: Allocate text on heap
 			break;
 		case EX_NUM:
-			/// TODO: parse numbers
 			return (Value) {
-				.kind = VAL_I8,
-				.u.i8 = atoi(expr->u.num.value.buf),
+				.kind = VAL_I32,
+				.u.i32 = atoi(expr->u.num.value.buf),
 			};
 		case EX_OP:
 			ExprArr exprs = expr->u.op.exprs;
 			switch (expr->u.op.kind) {
 				case ADD: {
-					Value lhs = interpret_expr(file, stack, exprs.buf);
-					Value rhs = interpret_expr(file, stack, exprs.buf + 1);
+					Value lhs = interpret_expr(stack, exprs.buf);
+					Value rhs = interpret_expr(stack, exprs.buf + 1);
 					return add_values(get_deep_value(lhs), get_deep_value(rhs));
 				}
 				case BLOCK:
-				case NEW_LINE:
+				case NEW_LINE: {
 					int stack_len = stack->len;
 					for (int i = 0; i < exprs.len; ++i) {
-						interpret_expr(file, stack, exprs.buf + i);
+						interpret_expr(stack, exprs.buf + i);
 					}
 					stack->len = stack_len;
+					/// FIX: return value
 					break;
-				case OBJ:
+				}
+				case OBJ: {
+					Value rhs = interpret_expr(stack, exprs.buf + 1);
 					Object* obj = push_object_arr(stack, (Object) {
 						.name = exprs.buf[0].u.ident.value.buf,
-						.type = {},
-						.value = {},
+						.type = rhs,
 					});
 					return (Value) {
 						.kind = VAL_REF,
 						.u.ref = obj,
 					};
-				case ASSIGN:
-					Value lhs = interpret_expr(file, stack, exprs.buf);
-					Value rhs = interpret_expr(file, stack, exprs.buf + 1);
+				}
+				case ASSIGN: {
+					Value lhs = interpret_expr(stack, exprs.buf);
+					Value rhs = interpret_expr(stack, exprs.buf + 1);
 					lhs.u.ref->value = rhs;
 					return rhs;
+				}
+				case REF_ASSIGN: {
+					Value lhs = interpret_expr(stack, exprs.buf);
+					Value rhs = interpret_expr(stack, exprs.buf + 1);
+					/// TODO: Assert that lhs is a reference type
+					lhs.u.ref->value = rhs.u.ref->value;
+					return lhs;
+				}
 				case ADD_ASSIGN: {
-					Value lhs = interpret_expr(file, stack, exprs.buf);
-					Value rhs = interpret_expr(file, stack, exprs.buf + 1);
+					Value lhs = interpret_expr(stack, exprs.buf);
+					Value rhs = interpret_expr(stack, exprs.buf + 1);
 					lhs.u.ref->value = add_values(get_deep_value(lhs), get_deep_value(rhs));
 					return lhs;
 				}
 				case ARG: {
-					Value rhs = interpret_expr(file, stack, exprs.buf + 1);
-					if (strcmp(exprs.buf[0].u.ident.value.buf, "printInt") == 0) {
-						printf("%i\n", rhs.u.i8);
+					Value lhs = get_deep_value(interpret_expr(stack, exprs.buf));
+					Value rhs = get_deep_value(interpret_expr(stack, exprs.buf + 1));
+					
+					if (lhs.kind == VAL_TYPE) {
+						push_object_arr(stack, (Object) {
+							.name = ""
+						});
 					}
-					return (Value) {
-						.kind = VAL_COMP,
-						.u.comp.len = 0,
-					};
+					
+					if (strcmp(exprs.buf[0].u.ident.value.buf, "allocInt") == 0) {
+						return (Value) {
+							.kind = VAL_I32,
+							.u.i32 = (size_t)malloc(sizeof(int)),
+						};
+					} else if (strcmp(exprs.buf[0].u.ident.value.buf, "printInt") == 0) {
+						printf("%i\n", rhs.u.i32);
+					}
+					/// FIX: return value
+					break;
 				}
 				default:
-					THROW(file, 0, "operator not yet implemented", 0);
+					THROW(expr->file, expr->index, "operator not yet implemented", 0);
 			}
 			break;
 	}
 }
 
-void interpret (File file, Expr* expr) {
+void interpret (Expr* expr) {
 	ObjectArr stack = new_object_arr(32);
-	interpret_expr(file, &stack, expr);
+	interpret_expr(&stack, expr);
 }

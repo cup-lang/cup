@@ -1,3 +1,2 @@
->>Simple Hello World Program
-OS:Linux:print "Hello, World!"
-OS:Linux:exit '0'
+OS.Linux.print "Hello, World!"
+OS.Linux.exit '0'

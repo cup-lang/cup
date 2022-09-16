@@ -70,6 +70,7 @@ typedef struct File {
 } File;
 
 #include "throw.c"
+#include "array.c"
 #include "lexer.c"
 #include "parser.c"
 #include "interp.c"
@@ -85,14 +86,12 @@ Str read_file (char* path) {
 	return file;
 }
 
-void lex_parse_interp (Str path) {
+Expr* lex_parse (Str path) {
 	printf("Compiling: %s\n", path);
 	File file = { .path = path, .data = read_file(path.buf) };
 	TokenArr tokens = lex(file);
 	// print_token_arr(tokens);
-	Expr* expr = parse(file, tokens);
-	// print_expr(expr, 0, FALSE);
-	interpret(file, expr);
+	return parse(file, tokens);
 }
 
 Str join_paths (Str a, Str b) {
@@ -103,9 +102,15 @@ Str join_paths (Str a, Str b) {
 	return str;
 }
 
-Expr* lex_parse_interp_rec (Str path) {
+Expr* lex_parse_rec (Str path) {
 	DIR *dir = opendir(path.buf);
 	struct dirent *ent;
+
+	Expr* expr = malloc(sizeof(Expr));
+	expr->kind = EX_OP;
+	expr->u.op.kind = NEW_LINE;
+	expr->u.op.exprs = new_expr_arr(4);
+
 	while ((ent = readdir(dir)) != NULL) {
 		Str file = new_str_from_ptr(ent->d_name);
 
@@ -117,24 +122,30 @@ Expr* lex_parse_interp_rec (Str path) {
 		
 		switch (ent->d_type) {
 			case DT_DIR:
-				lex_parse_interp_rec(new_path);
+				push_expr_arr(&expr->u.op.exprs, *lex_parse_rec(new_path));
 				break;
 			case DT_REG: {
-				lex_parse_interp(new_path);
+				push_expr_arr(&expr->u.op.exprs, *lex_parse(new_path));
+				printf("! %i\n", expr->u.op.exprs.len);
 				break;
 			}
 		}
-
-		free(new_path.buf);
 	}
+
 	closedir(dir);
+
+	return expr;
 }
 
 int main () {
+	/// TODO: Lexer remove unsafe cast ({)
+	/// TODO: Lexer remove ref assign (@~)
+	/// TODO: Lexer remove obj assign ($~)
+	/// TODO: Lexer change safe cast to try match type and symbol from [ to |
 	/// TODO: Lexer validate numbers (one or zero floating points, negation sign, base (0 bX), size (0 sX))
-	/// TODO: Save index and file for expressions
-	/// TODO: Combine files into 1 expression
-	lex_parse_interp(new_str_from_ptr("src/cup/main.cup"));
-	// lex_parse_rec(new_str_from_ptr("src/cup"));
+	Expr* expr = lex_parse(new_str_from_ptr("src/cup/main.cup"));
+	// Expr* expr = lex_parse_rec(new_str_from_ptr("src/cup"));
+	print_expr(expr, 0, FALSE);
+	interpret(expr);
 	return 0;
 }
