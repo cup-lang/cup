@@ -208,7 +208,7 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		*index += 1;
 	}
 	// Unary, do nothing yet
-	else if (token.kind == M_REF || token.kind == U_REF || token.kind == OPT) {}
+	else if (token.kind == NEG || token.kind == REF || token.kind == OPT) {}
 	else {
 		return NULL;
 	}
@@ -219,11 +219,9 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		TokenKind op_kind = EMPTY;
 		Expr* other;
 
-		if (token.kind == LABEL) {
-			new_op_level = 7;
-			op_kind = token.kind;
-		} else if (token.kind == NEW_LINE) {
-			new_op_level = 7;
+		
+		if (token.kind == NEW_LINE) {
+			new_op_level = 9;
 			op_kind = NEW_LINE;
 			
 			int old_index = *index;
@@ -231,9 +229,7 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 
 			// New block
 			if (indent > last_indent) {
-				/// DEBUG: printf("~# was %i got %i (at %i)\n", op_level, new_op_level, *index);
 				if (has_lower_precedence(op_level, new_op_level, TRUE)) {
-					/// DEBUG: printf("<# lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
 					*index = old_index;
 					break;
 				}
@@ -250,24 +246,32 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 				break;
 			}
 		} else if (
-			token.kind == ARG ||
+			token.kind == LABEL ||
+			token.kind == ARG
+		) {
+			new_op_level = 8;
+			op_kind = token.kind;
+		} else if (
 			token.kind == ASSIGN ||
-			token.kind == OBJ_ASSIGN ||
 			token.kind == REF_ASSIGN ||
 			token.kind == ADD_ASSIGN ||
 			token.kind == SUB_ASSIGN ||
 			token.kind == MUL_ASSIGN ||
 			token.kind == DIV_ASSIGN ||
-			token.kind == REM_ASSIGN ||
-			token.kind == BLOCK
+			token.kind == REM_ASSIGN
 		) {
-			new_op_level = 6;
+			new_op_level = 7;
 			op_kind = token.kind;
 		} else if (
 			token.kind == EQUAL ||
 			token.kind == REF_EQUAL ||
 			token.kind == AND ||
 			token.kind == OR ||
+			token.kind == XOR
+		) {
+			new_op_level = 6;
+			op_kind = token.kind;
+		} else if (
 			token.kind == LESS ||
 			token.kind == LESS_EQUAL
 		) {
@@ -283,17 +287,23 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 			new_op_level = 4;
 			op_kind = token.kind;
 		} else if (
-			token.kind == S_CAST ||
-			token.kind == U_CAST ||
-			token.kind == OBJ
+			token.kind == IDENT ||
+			token.kind == TEXT ||
+			token.kind == NUM ||
+			token.kind == PAREN_L
+		) {
+			new_op_level = 3;
+			op_kind = ARG;
+		} else if (
+			token.kind == OBJ ||
+			token.kind == BLOCK
 		) {
 			new_op_level = 3;
 			op_kind = token.kind;
 		} else if (
-			token.kind == M_REF ||
-			token.kind == U_REF ||
+			token.kind == NEG ||
+			token.kind == REF ||
 			token.kind == OPT ||
-			token.kind == FUN ||
 			token.kind == ERR
 		) {
 			new_op_level = 2;
@@ -306,7 +316,7 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		}
 
 		// Unary operators
-		if (token.kind == M_REF ||token.kind == U_REF || token.kind == OPT) {
+		if (token.kind == NEG || token.kind == REF || token.kind == OPT) {
 			*index += 1;
 			Expr* new_expr = parse_expr(file, tokens, index, last_indent, new_op_level);
 			if (new_expr == NULL) {
@@ -326,10 +336,8 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 		}
 
 		op_rhs:
-		/// DEBUG: printf("~ was %i got %i (at %i)\n", op_level, new_op_level, *index);
 		// Operator has lower precedence
-		if (has_lower_precedence(op_level, new_op_level, op_level != 6)) {
-			/// DEBUG: printf("< lower was %i got %i (at %i)\n", op_level, new_op_level, *index);
+		if (has_lower_precedence(op_level, new_op_level, op_level != 3 && op_level != 7)) {
 			if (op_kind == NEW_LINE) {
 				*index -= last_indent;
 			}
@@ -338,12 +346,13 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 
 		int op_index = token.index;
 		// Consume the operator
-		*index += 1;
+		if (op_kind != ARG || new_op_level != 3) {
+			*index += 1;
+		}
 
 		other = parse_expr(file, tokens, index, last_indent, new_op_level);
 		parsed_other:
 		if (other == NULL) {
-			/// DEBUG: printf("! was NULL (at %i)\n", *index);
 			break;
 		}
 
@@ -354,10 +363,11 @@ Expr* parse_expr (File file, TokenArr tokens, int* index, int last_indent, int o
 			expr->u.op.kind == op_kind &&
 			(
 				op_kind == MEMBER ||
+				op_kind == BLOCK ||
 				// Logic operators
-				new_op_level == 5 ||
-				// BLOCK and assign operators except ARG
-				(new_op_level == 6 && op_kind != ARG) ||
+				new_op_level == 5 || new_op_level == 6 ||
+				// Assign operators
+				new_op_level == 7 ||
 				op_kind == NEW_LINE
 			)
 		) {

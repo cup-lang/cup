@@ -138,13 +138,8 @@ Expr* lex_parse_rec (Str path) {
 }
 
 int main () {
-	/// TODO: Lexer remove unsafe cast ({)
-	/// TODO: Lexer remove ref assign (@~)
-	/// TODO: Lexer remove obj assign ($~)
-	/// TODO: Lexer change safe cast to try match type and symbol from [ to |
-	/// TODO: Lexer validate numbers (one or zero floating points, negation sign, base (0 bX), size (0 sX))
-	Expr* expr = lex_parse(new_str_from_ptr("src/cup/main.cup"));
-	// Expr* expr = lex_parse_rec(new_str_from_ptr("src/cup"));
+	// Expr* expr = lex_parse(new_str_from_ptr("src/cup/main.cup"));
+	Expr* expr = lex_parse_rec(new_str_from_ptr("src/cup"));
 	print_expr(expr, 0, FALSE);
 	interpret(expr);
 	return 0;

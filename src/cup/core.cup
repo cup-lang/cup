@@ -1,60 +1,60 @@
 >> Natural number
-Nat:Type
-N8:Type
-N16:Type
-N32:Type
-N64:Type
+Nat: Type
+N8: Type
+N16: Type
+N32: Type
+N64: Type
 
 >> Integer
-Int:Type
-I8:Type
-I16:Type
-I32:Type
-I64:Type
+Int: Type
+I8: Type
+I16: Type
+I32: Type
+I64: Type
 
 >> Real number
-Real:Type
-R32:Type
-R64:Type
+Real: Type
+R32: Type
+R64: Type
 
 >> Callable
-Call:Type:(arg:Type, ret:Type)
+Call: Type (arg: Type, ret: Type)
 
 >> Logic
-Logic:Type ~ Var
-	True:Type
-	False:Type
+Logic: Type ~ Var#
+	True: Type
+	False: Type
 
 >> Array
-Arr:Type:Type ~
-	buf:Ptr
-	len:Nat
+Arr: Type Type ~
+	buf: Ptr
+	len: Nat
 
 >> Dynamic size array
-DArr:Type:Type ~
-	buf:Ptr
-	len:Nat
-	cap:Nat
+DArr: Type Type ~
+	buf: Ptr
+	len: Nat
+	cap: Nat
 
 >> Character
-Char:Type ~ use:
-	code:Nat
+Char: Type ~ use#
+	code: Nat
 
 >> Text
-Text:Type ~ use:
-	arr:Arr:Char
+Text: Type ~ use#
+	arr: Arr Char
 >> Dynamic size text
-DText:Type ~ use:
-	arr:DArr:Char
+DText: Type ~ use#
+	arr: DArr Char
 
 >> Optional
 Opt:Type:Type ~
-	Var:
+	Var#
 		arg
-		None:Type
+		None: Type
 
 >> Variant
-Var:Type:(Arr:Type)
+Var: Type (Arr Type)
 
 CPU.X64: Expr $~ arg
 CPU.X64.byte: N8 $~ ()
@@ -62,81 +62,82 @@ CPU.X64.byte4: N64 $~ ()
 CPU.X64.data: Expr $~ arg
 
 CPU.X64.Reg:Type ~ N8
-CPU.X64.regs.rax:CPU.X64.Reg ~ '0'
-CPU.X64.regs.rcx:CPU.X64.Reg ~ '1'
-CPU.X64.regs.rdx:CPU.X64.Reg ~ '2'
-CPU.X64.regs.rbx:CPU.X64.Reg ~ '3'
-CPU.X64.regs.rsp:CPU.X64.Reg ~ '4'
-CPU.X64.regs.rbp:CPU.X64.Reg ~ '5'
-CPU.X64.regs.rsi:CPU.X64.Reg ~ '6'
-CPU.X64.regs.rdi:CPU.X64.Reg ~ '7'
-CPU.X64.regs.r8 :CPU.X64.Reg ~ '8'
-CPU.X64.regs.r9 :CPU.X64.Reg ~ '9'
-CPU.X64.regs.r10:CPU.X64.Reg ~ '10'
-CPU.X64.regs.r11:CPU.X64.Reg ~ '11'
-CPU.X64.regs.r12:CPU.X64.Reg ~ '12'
-CPU.X64.regs.r13:CPU.X64.Reg ~ '13'
-CPU.X64.regs.r14:CPU.X64.Reg ~ '14'
-CPU.X64.regs.r15:CPU.X64.Reg ~ '15'
+CPU.X64.regs.rax: CPU.X64.Reg ~ '0'
+CPU.X64.regs.rcx: CPU.X64.Reg ~ '1'
+CPU.X64.regs.rdx: CPU.X64.Reg ~ '2'
+CPU.X64.regs.rbx: CPU.X64.Reg ~ '3'
+CPU.X64.regs.rsp: CPU.X64.Reg ~ '4'
+CPU.X64.regs.rbp: CPU.X64.Reg ~ '5'
+CPU.X64.regs.rsi: CPU.X64.Reg ~ '6'
+CPU.X64.regs.rdi: CPU.X64.Reg ~ '7'
+CPU.X64.regs.r8:  CPU.X64.Reg ~ '8'
+CPU.X64.regs.r9:  CPU.X64.Reg ~ '9'
+CPU.X64.regs.r10: CPU.X64.Reg ~ '10'
+CPU.X64.regs.r11: CPU.X64.Reg ~ '11'
+CPU.X64.regs.r12: CPU.X64.Reg ~ '12'
+CPU.X64.regs.r13: CPU.X64.Reg ~ '13'
+CPU.X64.regs.r14: CPU.X64.Reg ~ '14'
+CPU.X64.regs.r15: CPU.X64.Reg ~ '15'
 
 >> x64 instructions
-CPU.X64.Ins:Type ~
-	Var:
-		MovReg:Type ~
-			reg:CPU.X64.Reg
-			value:N64
-		Mov:Type ~
-			address:N64
-			value:N64
-		PushReg:Type ~ CPU.X64.Reg
-		Push:Type ~ N64
-		PopReg:Type ~ CPU.X64.Reg
-		Pop:Type ~ N64
-		Call:Type ~ N64
-		Ret:Type
-		SysCall:Type
+CPU.X64.Ins: Type ~
+	Var#
+		MovReg: Type ~
+			reg: CPU.X64.Reg
+			value: N64
+		Mov: Type ~
+			address: N64
+			value: N64
+		PushReg: Type ~ CPU.X64.Reg
+		Push: Type ~ N64
+		PopReg: Type ~ CPU.X64.Reg
+		Pop: Type ~ N64
+		Call: Type ~ N64
+		Ret: Type
+		SysCall: Type
 
 >> Instruction to binary
-CPU.X64.insToBin: Call, CPU.X64.Ins, (),
-	if arg.is CPU.X64.Ins.MovReg, (
+CPU.X64.insToBin: Call CPU.X64.Ins, (),
+	if (arg.is CPU.X64.Ins.MovReg), (
 		CPU.X64.byte ih"b8" + arg.reg
 		CPU.X64.byte4 arg.value
-	), if arg.is CPU.X64.Ins.Mov, (
+	), if (arg.is CPU.X64.Ins.Mov), (
 		CPU.X64.byte ih"8b"
 		CPU.X64.byte4 arg.address
 		CPU.X64.byte4 arg.value
 	)
 
-CPU.X64.sys_call: Call, (), (),
+CPU.X64.sys_call: Call (), (),
 	CPU.X64.byte ih"0f"
 	CPU.X64.byte ih"05"
 
-CPU.X64.push_reg: Call, CPU.X64.Reg, (),
+CPU.X64.push_reg: Call CPU.X64.Reg, (),
 	CPU.X64.byte ih"50" + arg
 
-CPU.X64.push: Call, N64, (),
+CPU.X64.push: Call N64, (),
 	CPU.X64.byte ih"68"
 	>> modrm byte
 	>> seb byte
 	CPU.X64.byte4 arg
 
-CPU.X64.pop_reg: Call, CPU.X64.Reg, (),
+CPU.X64.pop_reg: Call CPU.X64.Reg, (),
 	CPU.X64.byte ih"58" + arg
 
-CPU.X64.pop: Call, N64, (),
+CPU.X64.pop: Call N64, (),
 	CPU.X64.byte ih"8f"
 	>> modrm byte
 	>> seb byte
 	CPU.X64.byte4 arg
 
-CPU.X64.call: Call, N64, (),
+CPU.X64.call: Call N64, (),
 	CPU.X64.byte ih"e8"
 	CPU.X64.byte arg
 
-CPU.X64.ret: Call, (), (),
+CPU.X64.ret: Call (), (),
 	CPU.X64.byte ih"c3"
 
-CPU.X64 OS.Linux.write: Call N64, (),
+CPU.X64#
+OS.Linux.write: Call N64, (),
 	CPU.X64.push_reg CPU.X64.rax
 	CPU.X64.push_reg CPU.X64.rdi
 	>> "write" syscall
@@ -147,7 +148,8 @@ CPU.X64 OS.Linux.write: Call N64, (),
 	CPU.X64.pop_reg CPU.X64.rdi
 	CPU.X64.pop_reg CPU.X64.rax
 
-CPU.X64 OS.Linux.print: Call Str, (),
+CPU.X64#
+OS.Linux.print: Call Str, (),
 	CPU.X64.push_reg CPU.X64.rdx
 	CPU.X64.push_reg CPU.X64.rsi
 	CPU.X64.mov_reg CPU.X64.rdx, arg.len
@@ -156,7 +158,8 @@ CPU.X64 OS.Linux.print: Call Str, (),
 	CPU.X64.pop_reg CPU.X64.rsi
 	CPU.X64.pop_reg CPU.X64.rdx
 
-CPU.X64 OS.Linux.exit: Call Int, (),
+CPU.X64#
+OS.Linux.exit: Call Int, (),
 	CPU.X64.mov_reg CPU.X64.rax, '60'
 	CPU.X64.mov_reg CPU.X64.rbx, '0'
 	CPU.X64.sys_call ()

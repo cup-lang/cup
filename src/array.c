@@ -1,12 +1,14 @@
 #define ARRAY(type, type_lower) \
 ARRAY_STRUCT(type) \
 ARRAY_FUNCS(type, type_lower)
+
 #define ARRAY_STRUCT(type) \
 typedef struct type##Arr { \
 	type* buf; \
 	int len; \
 	int cap; \
 } type##Arr;
+
 #define ARRAY_FUNCS(type, type_lower) \
 type##Arr new_##type_lower##_arr (int cap) { \
 	return (type##Arr){ .buf = malloc(cap * sizeof(type)), .len = 0, .cap = cap }; \

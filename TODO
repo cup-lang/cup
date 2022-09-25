@@ -1,0 +1,9 @@
+Lexer validate numbers
+	one or zero floating points
+	one or zero negation signs
+	? base (0 bX)
+	? size (0 sX))
+
+? Parser make all ops chaining
+
+Analyzer

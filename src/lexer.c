@@ -3,12 +3,12 @@ typedef enum TokenKind {
 	EMPTY, INDENT, IDENT, TEXT, NUM,
 	PAREN_L, PAREN_R,
 	MEMBER,
-	M_REF, U_REF, OPT, FUN, ERR,
-	S_CAST, U_CAST,
+	NEG, REF, OPT, ERR,
+	OBJ, BLOCK,
 	ADD, SUB, MUL, DIV, REM,
-	EQUAL, REF_EQUAL, AND, OR, LESS, LESS_EQUAL,
-	BLOCK,
-	OBJ, ASSIGN, OBJ_ASSIGN, REF_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, REM_ASSIGN,
+	LESS, LESS_EQUAL,
+	EQUAL, REF_EQUAL, AND, OR, XOR,
+	ASSIGN, REF_ASSIGN, ADD_ASSIGN, SUB_ASSIGN, MUL_ASSIGN, DIV_ASSIGN, REM_ASSIGN,
 	LABEL, ARG, NEW_LINE,
 } TokenKind;
 
@@ -30,25 +30,25 @@ const char* const TOKEN_NAMES[] = {
 	[EMPTY] = "EMPTY", [INDENT] = "--->", [IDENT] = "IDENT", [TEXT] = "TEXT", [NUM] = "NUM",
 	[PAREN_L] = "(", [PAREN_R] = ")",
 	[MEMBER] = ".",
-	[M_REF] = "@", [U_REF] = "#", [OPT] = "?", [FUN] = "|", [ERR] = "!",
-	[S_CAST] = "[", [U_CAST] = "{",
+	[NEG] = "!", [REF] = "@", [OPT] = "?", [ERR] = "$",
+	[OBJ] = ":", [BLOCK] = ",",
 	[ADD] = "+", [SUB] = "-", [MUL] = "*", [DIV] = "/", [REM] = "%",
-	[EQUAL] = "=", [REF_EQUAL] = "@=", [AND] = "&", [OR] = "^", [LESS] = "<", [LESS_EQUAL] = "<=",
-	[BLOCK] = ",",
-	[OBJ] = "$", [ASSIGN] = "~", [OBJ_ASSIGN] = "$~", [REF_ASSIGN] = "@~", [ADD_ASSIGN] = "+~", [SUB_ASSIGN] = "-~", [MUL_ASSIGN] = "*~", [DIV_ASSIGN] = "/~", [REM_ASSIGN] = "%~",
-	[LABEL] = ";", [ARG] = ":", [NEW_LINE] = "NEW LINE",
+	[LESS] = "<", [LESS_EQUAL] = "<=",
+	[EQUAL] = "=", [REF_EQUAL] = "@=", [AND] = "&", [OR] = "|", [XOR] = "^",
+	[ASSIGN] = "~", [REF_ASSIGN] = "@~", [ADD_ASSIGN] = "+~", [SUB_ASSIGN] = "-~", [MUL_ASSIGN] = "*~", [DIV_ASSIGN] = "/~", [REM_ASSIGN] = "%~",
+	[LABEL] = ";", [ARG] = "#", [NEW_LINE] = "NEW LINE",
 };
 
 const int TOKEN_LENGTHS[] = {
 	[EMPTY] = 5, [INDENT] = 1, [IDENT] = 5, [TEXT] = 4, [NUM] = 3,
 	[PAREN_L] = 1, [PAREN_R] = 1,
 	[MEMBER] = 1,
-	[M_REF] = 1, [U_REF] = 1, [OPT] = 1, [FUN] = 1, [ERR] = 1,
-	[S_CAST] = 1, [U_CAST] = 1,
+	[NEG] = 1, [REF] = 1, [OPT] = 1, [ERR] = 1,
+	[OBJ] = 1, [BLOCK] = 1,
 	[ADD] = 1, [SUB] = 1, [MUL] = 1, [DIV] = 1, [REM] = 1,
-	[EQUAL] = 1, [REF_EQUAL] = 2, [AND] = 1, [OR] = 1, [LESS] = 1, [LESS_EQUAL] = 2,
-	[BLOCK] = 1,
-	[OBJ] = 1, [ASSIGN] = 1, [OBJ_ASSIGN] = 2, [REF_ASSIGN] = 2, [ADD_ASSIGN] = 2, [SUB_ASSIGN] = 2, [MUL_ASSIGN] = 2, [DIV_ASSIGN] = 2, [REM_ASSIGN] = 2,
+	[LESS] = 1, [LESS_EQUAL] = 2,
+	[EQUAL] = 1, [REF_EQUAL] = 2, [AND] = 1, [OR] = 1, [XOR] = 1,
+	[ASSIGN] = 1, [REF_ASSIGN] = 2, [ADD_ASSIGN] = 2, [SUB_ASSIGN] = 2, [MUL_ASSIGN] = 2, [DIV_ASSIGN] = 2, [REM_ASSIGN] = 2,
 	[LABEL] = 1, [ARG] = 1, [NEW_LINE] = 1,
 };
 
@@ -185,108 +185,39 @@ TokenArr lex (File file) {
 		if (c == '\0' || c == ' ') {
 			tok_kind = EMPTY;
 		} else {
-			if (c == '\t') {
-				tok_kind = INDENT;
-			} else if (c == '"') {
-				tok_kind = EMPTY;
-				state = LS_TEXT;
-			} else if (c == '\'') {
-				tok_kind = EMPTY;
-				state = LS_NUM;
-			} else if (c == '(') {
-				tok_kind = PAREN_L;
-			} else if (c == ')') {
-				tok_kind = PAREN_R;
-			} else if (c == '.') {
-				tok_kind = MEMBER;
-			} else if (c == '@') {
-				if (file.data.buf[i + 1] == '=') {
-					tok_kind = REF_EQUAL;
-					i += 1;
-				} else if (file.data.buf[i + 1] == '~') {
-					tok_kind = REF_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = M_REF;
-				}
-			} else if (c == '#') {
-				tok_kind = U_REF;
-			} else if (c == '?') {
-				tok_kind = OPT;
-			} else if (c == '|') {
-				tok_kind = FUN;
-			} else if (c == '!') {
-				tok_kind = ERR;
-			} else if (c == '[') {
-				tok_kind = S_CAST;
-			} else if (c == '{') {
-				tok_kind = U_CAST;
-			} else if (c == '+') {
-				if (file.data.buf[i + 1] == '~') {
-					tok_kind = ADD_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = ADD;
-				}
-			} else if (c == '-') {
-				if (file.data.buf[i + 1] == '~') {
-					tok_kind = SUB_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = SUB;
-				}
-			} else if (c == '*') {
-				if (file.data.buf[i + 1] == '~') {
-					tok_kind = MUL_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = MUL;
-				}
-			} else if (c == '/') {
-				if (file.data.buf[i + 1] == '~') {
-					tok_kind = DIV_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = DIV;
-				}
-			} else if (c == '%') {
-				if (file.data.buf[i + 1] == '~') {
-					tok_kind = REM_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = REM;
-				}
-			} else if (c == '=') {
-				tok_kind = EQUAL;
-			} else if (c == '&') {
-				tok_kind = AND;
-			} else if (c == '^') {
-				tok_kind = OR;
-			} else if (c == '<') {
-				if (file.data.buf[i + 1] == '=') {
-					tok_kind = LESS_EQUAL;
-					i += 1;
-				} else {
-					tok_kind = LESS;
-				}
-			} else if (c == ',') {
-				tok_kind = BLOCK;
-			} else if (c == '$') {
-				if (file.data.buf[i + 1] == '~') {
-					tok_kind = OBJ_ASSIGN;
-					i += 1;
-				} else {
-					tok_kind = OBJ;
-				}
-			} else if (c == '~') {
-				tok_kind = ASSIGN;
-			} else if (c == ';') {
-				tok_kind = LABEL;
-			} else if (c == ':') {
-				tok_kind = ARG;
-			} else if (c == '\n') {
-				tok_kind = NEW_LINE;
-			}
+			#define IF_CHAR(CHAR, TOKEN) if (c == CHAR) { tok_kind = TOKEN; }
+			#define IF_CHAR_THEN(CHAR, TOKEN, THEN) if (c == CHAR) { tok_kind = TOKEN; THEN; }
+			#define IF_NEXT_CHAR(CHAR, TOKEN) if (file.data.buf[i + 1] == CHAR) { tok_kind = TOKEN; i += 1; }
+
+			IF_CHAR('\t', INDENT)
+			else IF_CHAR_THEN('"', EMPTY, state = LS_TEXT)
+			else IF_CHAR_THEN('\'', EMPTY, state = LS_NUM)
+			else IF_CHAR('(', PAREN_L)
+			else IF_CHAR(')', PAREN_R)
+			else IF_CHAR('.', MEMBER)
+			else IF_CHAR('!', NEG)
+			else IF_CHAR_THEN('@', REF,
+				IF_NEXT_CHAR('=', REF_EQUAL)
+				else IF_NEXT_CHAR('~', REF_ASSIGN)
+			)
+			else IF_CHAR('?', OPT)
+			else IF_CHAR('$', ERR)
+			else IF_CHAR(':', OBJ)
+			else IF_CHAR(',', BLOCK)
+			else IF_CHAR_THEN('+', ADD, IF_NEXT_CHAR('~', ADD_ASSIGN))
+			else IF_CHAR_THEN('-', SUB, IF_NEXT_CHAR('~', SUB_ASSIGN))
+			else IF_CHAR_THEN('*', MUL, IF_NEXT_CHAR('~', MUL_ASSIGN))
+			else IF_CHAR_THEN('/', DIV, IF_NEXT_CHAR('~', DIV_ASSIGN))
+			else IF_CHAR_THEN('%', REM, IF_NEXT_CHAR('~', REM_ASSIGN))
+			else IF_CHAR_THEN('<', LESS, IF_NEXT_CHAR('=', LESS_EQUAL))
+			else IF_CHAR('=', EQUAL)
+			else IF_CHAR('&', AND)
+			else IF_CHAR('|', OR)
+			else IF_CHAR('^', XOR)
+			else IF_CHAR('~', ASSIGN)
+			else IF_CHAR(';', LABEL)
+			else IF_CHAR('#', ARG)
+			else IF_CHAR('\n', NEW_LINE)
 		}
 
 		if (tok_kind == NONE) {
