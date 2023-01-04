@@ -1,20 +1,19 @@
 ```cup
-> comment
-arg Type,
-A:Type ~ b:arg, c:Int
-e:D.None ~ f g + F '1.2'
+{{ comment }}
+arg type, a $~ b$arg, c$int
+e$d:none ~ f g + F 1.2
 if (l = m), (), if !(l = m), (), ()
 loop o < p, (), q +~ r
-a; ret "s u", a
+a > ret "s u", a
 ```
 
-# Naming Conventions
-- objects - `lowerCase`
-- types - `UpperCase`
-
 # Operators
+- free
+	`%`
+	`|`
+	`>` for labels maybe?? instead of `;`
 - 1st (chaining)
-	- `a.b` - member access
+	- `a:b` - member access
 - 2nd
 	- `!a` - negation
 	- `@A` - reference type
@@ -22,14 +21,13 @@ a; ret "s u", a
 	- `A$B` - error type
 - 3rd (right-to-left)
 	- `a b` - argument
-	- `a: B` - object define
+	- `a $ B` - object define
 	- `a, b` - block (chaining)
 - 4th
 	- `a + b` - addition
 	- `a - b` - subtraction
 	- `a * b` - multiplication
 	- `a / b` - division
-	- `a % b` - reminder
 - 5th (chaining)
 	- `a < b` - less
 	- `a <= b` - less or equal
@@ -37,8 +35,7 @@ a; ret "s u", a
 	- `a = b` - equal
 	- `a @= b` - reference equal
 	- `a & b` - logical and
-	- `a | b` - logical or
-	- `a ^ b` - logical xor
+	- `a ^ b` - logical or
 - 7th (chaining, right-to-left)
 	- `a ~ b` - value assign
 	- `a @~ b` - reference assign
@@ -46,7 +43,6 @@ a; ret "s u", a
 	- `a -~ b` - subtract assign
 	- `a *~ b` - multiply assign
 	- `a /~ b` - divide assign
-	- `a %~ b` - reminder assign
 - 8th
 	- `a ; b` - label
 	- `a # b` - argument
@@ -60,7 +56,7 @@ a; ret "s u", a
 - `Real`, `R32`, `R64`
 - `Char`, `C8`, `C16`, `C32`
 - `Text`, `T8`, `T16`, `T32`
-- `Logic`, `Logic.True`, `Logic.False`
+- `Bit`, `Bit.Yes`, `Bit.No`
 
 # Expressions
 - `Ident`

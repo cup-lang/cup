@@ -1,3 +1,12 @@
+{{ comments }}
+change memberaccess to colon:
+change or to caret^
+change num literals
+change objectdefine to |
+change # to indexing
+[] for arrays
+add char literals 'a'
+
 Lexer validate numbers
 	one or zero floating points
 	one or zero negation signs

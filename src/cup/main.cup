@@ -1,2 +1,25 @@
-OS.Linux.print "Hello, World!"
-OS.Linux.exit '0'
+OS $~ type:new (
+	Linux $~ type:new (
+		arg str, print $~ expr:new()
+		arg int, exit  $~ expr:new()
+	)
+)
+
+OS:Linux:print "Hello, World!"
+OS:Linux:exit 0.123
+
+{{ a type }}
+{ someType $~ (
+	a $ int
+	b $ int
+)
+
+someObj $~ someType 1, 2
+
+{{ an expression }}
+arg int, someExpr $~ (
+	arg + 1
+)
+
+stackValue $~ someExpr 2
+x64:mov eax, stackValue }
